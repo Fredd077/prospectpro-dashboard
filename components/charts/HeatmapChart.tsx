@@ -6,7 +6,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { formatDisplayDate } from '@/lib/utils/dates'
+import { formatDisplayDate, localISODate } from '@/lib/utils/dates'
 
 interface HeatmapDay {
   date: string
@@ -46,7 +46,7 @@ export function HeatmapChart({ data, weeks = 13 }: HeatmapChartProps) {
       for (let d = 0; d < 7; d++) {
         const date = new Date(lastMonday)
         date.setDate(lastMonday.getDate() - w * 7 + d)
-        const iso = date.toISOString().split('T')[0]
+        const iso = localISODate(date)
         week.push(map[iso] ?? { date: iso, compliancePct: null })
       }
       result.push(week)

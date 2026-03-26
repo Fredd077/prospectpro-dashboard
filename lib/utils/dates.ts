@@ -22,9 +22,18 @@ export function toISODate(date: Date): string {
   return format(date, 'yyyy-MM-dd')
 }
 
-/** Today as ISO date string — uses local timezone, not UTC */
+/** Today as ISO date string — uses local timezone offset, not UTC */
 export function todayISO(): string {
-  return new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in local timezone
+  const now = new Date()
+  const offset = now.getTimezoneOffset() * 60000
+  const localDate = new Date(now.getTime() - offset)
+  return localDate.toISOString().split('T')[0]
+}
+
+/** Convert any JS Date to local-timezone ISO date string YYYY-MM-DD */
+export function localISODate(date: Date): string {
+  const offset = date.getTimezoneOffset() * 60000
+  return new Date(date.getTime() - offset).toISOString().split('T')[0]
 }
 
 /** Get the date range for a given period type anchored at refDate */
