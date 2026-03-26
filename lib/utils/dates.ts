@@ -1,5 +1,4 @@
 import {
-  format,
   startOfWeek,
   endOfWeek,
   startOfMonth,
@@ -8,32 +7,25 @@ import {
   endOfQuarter,
   eachDayOfInterval,
   parseISO,
-  isToday,
   differenceInDays,
   addDays,
   getISOWeek,
   getYear,
+  format,
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { PeriodType, DateRange } from '@/lib/types/common'
 
-/** Convert a JS Date to ISO date string YYYY-MM-DD (no timezone drift) */
+const BOGOTA_TZ = 'America/Bogota'
+
+/** Convert any JS Date to YYYY-MM-DD in Bogota timezone (UTC-5) */
 export function toISODate(date: Date): string {
-  return format(date, 'yyyy-MM-dd')
+  return Intl.DateTimeFormat('en-CA', { timeZone: BOGOTA_TZ }).format(date)
 }
 
-/** Today as ISO date string — uses local timezone offset, not UTC */
+/** Today's date as YYYY-MM-DD in Bogota timezone — never uses UTC */
 export function todayISO(): string {
-  const now = new Date()
-  const offset = now.getTimezoneOffset() * 60000
-  const localDate = new Date(now.getTime() - offset)
-  return localDate.toISOString().split('T')[0]
-}
-
-/** Convert any JS Date to local-timezone ISO date string YYYY-MM-DD */
-export function localISODate(date: Date): string {
-  const offset = date.getTimezoneOffset() * 60000
-  return new Date(date.getTime() - offset).toISOString().split('T')[0]
+  return Intl.DateTimeFormat('en-CA', { timeZone: BOGOTA_TZ }).format(new Date())
 }
 
 /** Get the date range for a given period type anchored at refDate */
@@ -68,11 +60,12 @@ export function datesInRange(start: string, end: string): string[] {
   return days.map(toISODate)
 }
 
-/** Elapsed working days from period start to today (or end if past) */
+/** Elapsed days from period start to today (or end if past) */
 export function elapsedDays(start: string, end: string): number {
   const s = parseISO(start)
   const e = parseISO(end)
-  const today = new Date()
+  const todayStr = todayISO()
+  const today = parseISO(todayStr)
   const effectiveEnd = today > e ? e : today < s ? s : today
   return Math.max(1, differenceInDays(effectiveEnd, s) + 1)
 }
@@ -86,11 +79,13 @@ export function totalDays(start: string, end: string): number {
 export function periodLabel(period: PeriodType, refDate: Date): string {
   switch (period) {
     case 'daily':
-      return isToday(refDate) ? 'Hoy' : format(refDate, "d 'de' MMMM", { locale: es })
+      return toISODate(refDate) === todayISO()
+        ? 'Hoy'
+        : format(refDate, "d 'de' MMMM", { locale: es })
     case 'weekly':
       return `Semana ${getISOWeek(refDate)}, ${getYear(refDate)}`
     case 'monthly':
-      return format(refDate, "MMMM yyyy", { locale: es })
+      return format(refDate, 'MMMM yyyy', { locale: es })
     case 'quarterly':
       return `Q${Math.ceil((refDate.getMonth() + 1) / 3)} ${getYear(refDate)}`
   }
@@ -98,7 +93,7 @@ export function periodLabel(period: PeriodType, refDate: Date): string {
 
 /** Format ISO date for display */
 export function formatDisplayDate(isoDate: string): string {
-  return format(parseISO(isoDate), "d MMM yyyy", { locale: es })
+  return format(parseISO(isoDate), 'd MMM yyyy', { locale: es })
 }
 
 /** Add n days to ISO date */

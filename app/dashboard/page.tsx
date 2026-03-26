@@ -14,7 +14,7 @@ import { ActivityBreakdownTable } from '@/components/dashboard/ActivityBreakdown
 import type { ActivityBreakdownRow } from '@/components/dashboard/ActivityBreakdownTable'
 import { TodayWidget } from '@/components/dashboard/TodayWidget'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { getPeriodRange, todayISO, datesInRange, localISODate } from '@/lib/utils/dates'
+import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
 import { calcCompliance } from '@/lib/calculations/compliance'
 import { calcProjection } from '@/lib/calculations/projection'
 import { formatPercent } from '@/lib/utils/formatters'
@@ -182,7 +182,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     const d = new Date(log.log_date)
     const mon = new Date(d)
     mon.setDate(d.getDate() - ((d.getDay() + 6) % 7))
-    const key = localISODate(mon)
+    const key = toISODate(mon)
     if (!weekBuckets[key]) weekBuckets[key] = { goal: 0, real: 0 }
     weekBuckets[key].goal += log.day_goal
     weekBuckets[key].real += log.real_executed

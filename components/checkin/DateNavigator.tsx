@@ -1,6 +1,5 @@
 'use client'
 
-import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,7 +12,6 @@ interface DateNavigatorProps {
 
 export function DateNavigator({ currentDate }: DateNavigatorProps) {
   const router = useRouter()
-  const dateInputRef = useRef<HTMLInputElement>(null)
   const today = todayISO()
   const isToday = currentDate === today
   const isFuture = currentDate > today
@@ -26,17 +24,13 @@ export function DateNavigator({ currentDate }: DateNavigatorProps) {
     }
   }
 
-  function openPicker() {
-    try {
-      dateInputRef.current?.showPicker()
-    } catch {
-      dateInputRef.current?.click()
-    }
+  function onDateChange(value: string) {
+    if (value) navigate(value)
   }
 
   return (
     <div className="flex items-center gap-2">
-      {/* Previous day — always enabled, no past-date restriction */}
+      {/* Previous day — never disabled */}
       <Button
         variant="outline"
         size="icon"
@@ -47,42 +41,35 @@ export function DateNavigator({ currentDate }: DateNavigatorProps) {
         <ChevronLeft className="h-4 w-4" />
       </Button>
 
-      {/* Date display — clicking opens native calendar picker */}
+      {/* Date display — clicking opens native calendar popup */}
       <div className="relative">
         <button
           type="button"
-          onClick={openPicker}
+          onClick={() => document.getElementById('date-picker')?.click()}
           className={cn(
-            'flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-80',
+            'flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors hover:bg-accent',
             isToday
               ? 'border-blue-400/30 bg-blue-400/10 text-blue-400'
               : isFuture
               ? 'border-border text-muted-foreground'
               : 'border-border bg-muted text-foreground'
           )}
-          aria-label="Abrir selector de fecha"
         >
           <Calendar className="h-3.5 w-3.5" />
           {isToday ? 'Hoy' : formatDisplayDate(currentDate)}
         </button>
-
-        {/* Hidden native date input — provides the calendar popup */}
         <input
-          ref={dateInputRef}
+          id="date-picker"
           type="date"
           value={currentDate}
-          max={today}
-          onChange={(e) => {
-            if (e.target.value) navigate(e.target.value)
-          }}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          max={todayISO()}
+          onChange={(e) => onDateChange(e.target.value)}
+          className="absolute opacity-0 top-0 left-0 w-full h-full cursor-pointer"
           style={{ colorScheme: 'dark' }}
-          tabIndex={-1}
-          aria-hidden="true"
         />
       </div>
 
-      {/* Next day — disabled when already on today or future */}
+      {/* Next day — disabled only on today or future */}
       <Button
         variant="outline"
         size="icon"
@@ -94,7 +81,7 @@ export function DateNavigator({ currentDate }: DateNavigatorProps) {
         <ChevronRight className="h-4 w-4" />
       </Button>
 
-      {/* Jump to today shortcut — shown when not on today */}
+      {/* Jump to today — only shown when not on today */}
       {!isToday && (
         <Button
           variant="ghost"
