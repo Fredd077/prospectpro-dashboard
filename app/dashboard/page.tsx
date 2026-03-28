@@ -19,6 +19,7 @@ import { calcCompliance } from '@/lib/calculations/compliance'
 import { calcProjection } from '@/lib/calculations/projection'
 import { formatPercent } from '@/lib/utils/formatters'
 import { getSemaphoreColor } from '@/lib/utils/colors'
+import { getActivityGoal, getDailyImpliedGoal } from '@/lib/utils/goals'
 import type { PeriodType, ActivityType } from '@/lib/types/common'
 import type { DailyCompliance } from '@/lib/types/database'
 import { Activity, BarChart2, TrendingUp, Target } from 'lucide-react'
@@ -96,115 +97,103 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const channels = [...new Set(activities?.map((a) => a.channel) ?? [])].sort()
   const allLogs: DailyCompliance[] = logs ?? []
 
-  // --- Goal per activity for the selected period ---
   type ActivityWithGoals = { id: string; name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; daily_goal: number; weekly_goal: number; monthly_goal: number }
-
-  function periodGoal(a: ActivityWithGoals): number {
-    if (period === 'quarterly') return a.monthly_goal * 3
-    if (period === 'monthly')   return a.monthly_goal
-    if (period === 'weekly')    return a.weekly_goal
-    // daily: for weekly-tracked activities (daily_goal < 1) use weekly_goal so the bar still shows; otherwise daily
-    return a.daily_goal >= 1 ? a.daily_goal : a.weekly_goal
-  }
-
   const allActivities: ActivityWithGoals[] = activities ?? []
 
-  // Real per activity from logs
+  // Real per activity aggregated from logs
   const realByActivity: Record<string, number> = {}
   for (const log of allLogs) {
     realByActivity[log.activity_id] = (realByActivity[log.activity_id] ?? 0) + log.real_executed
   }
 
-  // --- KPIs ---
+  // --- KPIs (period-correct goals from activities table) ---
   const totalReal = allLogs.reduce((s, l) => s + l.real_executed, 0)
-  const totalGoal = allActivities.reduce((s, a) => s + periodGoal(a), 0)
+  const totalGoal = allActivities.reduce((s, a) => s + getActivityGoal(a, period), 0)
   const compliance = calcCompliance(totalReal, totalGoal)
   const projection = calcProjection(totalReal, totalGoal, start, end)
   const deviation = totalReal - totalGoal
 
-  // --- Horizontal Bar data (by activity) ---
+  // --- Horizontal Bar data ---
   const barData = allActivities.map((a) => ({
     name: a.name,
-    goal: periodGoal(a),
+    goal: getActivityGoal(a, period),
     real: realByActivity[a.id] ?? 0,
   }))
 
+  // --- ActivityBreakdownTable rows ---
   const breakdownRows: ActivityBreakdownRow[] = allActivities.map((a) => ({
     id: a.id,
     name: a.name,
     type: a.type,
     channel: a.channel,
-    goal: periodGoal(a),
+    goal: getActivityGoal(a, period),
     real: realByActivity[a.id] ?? 0,
   }))
 
-  // --- Trend line data — cumulative by day, split OUTBOUND / INBOUND ---
+  // --- Trend line — cumulative real (OUTBOUND/INBOUND) + linear meta target ---
+  // Meta target = totalGoal spread evenly across all days in the period
   const allDates = datesInRange(start, end)
-  // Day-level aggregations
-  const dayMap: Record<string, { meta: number; outbound: number; inbound: number }> = {}
-  for (const d of allDates) dayMap[d] = { meta: 0, outbound: 0, inbound: 0 }
+  const dailyMetaShare = allDates.length > 0 ? totalGoal / allDates.length : 0
+
+  const dayRealMap: Record<string, { outbound: number; inbound: number }> = {}
+  for (const d of allDates) dayRealMap[d] = { outbound: 0, inbound: 0 }
   for (const log of allLogs) {
-    if (!dayMap[log.log_date]) continue
-    dayMap[log.log_date].meta     += log.day_goal
-    if (log.type === 'OUTBOUND') dayMap[log.log_date].outbound += log.real_executed
-    else                         dayMap[log.log_date].inbound  += log.real_executed
+    if (!dayRealMap[log.log_date]) continue
+    if (log.type === 'OUTBOUND') dayRealMap[log.log_date].outbound += log.real_executed
+    else                         dayRealMap[log.log_date].inbound  += log.real_executed
   }
-  // Build cumulative series
   let cumMeta = 0, cumOut = 0, cumIn = 0
   const trendData = allDates.map((date) => {
-    const day = dayMap[date] ?? { meta: 0, outbound: 0, inbound: 0 }
-    cumMeta += day.meta
+    const day = dayRealMap[date] ?? { outbound: 0, inbound: 0 }
+    cumMeta += dailyMetaShare
     cumOut  += day.outbound
     cumIn   += day.inbound
-    return {
-      date,
-      meta:     cumMeta,
-      outbound: cumOut,
-      inbound:  cumIn,
-    }
+    return { date, meta: Math.round(cumMeta), outbound: cumOut, inbound: cumIn }
   })
 
-  // --- Radar data (by channel) ---
-  const byChannel: Record<string, { real: number; goal: number }> = {}
+  // --- Radar data (by channel) — goals from activities, real from logs ---
+  const channelGoal: Record<string, number> = {}
+  const channelReal: Record<string, number> = {}
+  for (const a of allActivities) {
+    const ch = CHANNEL_LABELS[a.channel] ?? a.channel
+    channelGoal[ch] = (channelGoal[ch] ?? 0) + getActivityGoal(a, period)
+  }
   for (const log of allLogs) {
     const ch = CHANNEL_LABELS[log.channel] ?? log.channel
-    if (!byChannel[ch]) byChannel[ch] = { real: 0, goal: 0 }
-    byChannel[ch].real += log.real_executed
-    byChannel[ch].goal += log.day_goal
+    channelReal[ch] = (channelReal[ch] ?? 0) + log.real_executed
   }
-  const radarData = Object.entries(byChannel).map(([channel, { real, goal }]) => ({
-    channel,
-    real,
-    goal,
-    pct: goal > 0 ? Math.round((real / goal) * 100) : 0,
-  }))
+  const radarData = Object.keys({ ...channelGoal, ...channelReal }).map((ch) => {
+    const goal = channelGoal[ch] ?? 0
+    const real = channelReal[ch] ?? 0
+    return { channel: ch, real, goal, pct: goal > 0 ? Math.round((real / goal) * 100) : 0 }
+  })
 
-  // --- Heatmap data ---
-  const heatByDate: Record<string, { real: number; goal: number }> = {}
+  // --- Heatmap data — each cell is one day, always use implied daily goal ---
+  // (heatmap is period-independent: cells represent individual days)
+  const impliedDailyGoal = allActivities.reduce((s, a) => s + getDailyImpliedGoal(a), 0)
+  const heatByDate: Record<string, number> = {}
   for (const log of allLogs) {
-    if (!heatByDate[log.log_date]) heatByDate[log.log_date] = { real: 0, goal: 0 }
-    heatByDate[log.log_date].real += log.real_executed
-    heatByDate[log.log_date].goal += log.day_goal
+    heatByDate[log.log_date] = (heatByDate[log.log_date] ?? 0) + log.real_executed
   }
-  const heatmapData = Object.entries(heatByDate).map(([date, { real, goal }]) => ({
+  const heatmapData = Object.entries(heatByDate).map(([date, real]) => ({
     date,
-    compliancePct: goal > 0 ? (real / goal) * 100 : null,
+    compliancePct: impliedDailyGoal > 0 ? (real / impliedDailyGoal) * 100 : null,
   }))
 
-  // --- Detail table (weekly buckets) ---
-  const weekBuckets: Record<string, { goal: number; real: number }> = {}
+  // --- Detail table (weekly buckets) — weekly_goal per bucket ---
+  const weeklyGoalPerBucket = allActivities.reduce((s, a) => s + a.weekly_goal, 0)
+  const weekBuckets: Record<string, number> = {}
   for (const log of allLogs) {
     const d = new Date(log.log_date)
     const mon = new Date(d)
     mon.setDate(d.getDate() - ((d.getDay() + 6) % 7))
     const key = toISODate(mon)
-    if (!weekBuckets[key]) weekBuckets[key] = { goal: 0, real: 0 }
-    weekBuckets[key].goal += log.day_goal
-    weekBuckets[key].real += log.real_executed
+    weekBuckets[key] = (weekBuckets[key] ?? 0) + log.real_executed
   }
   const tableRows = Object.entries(weekBuckets)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, { goal, real }]) => {
+    .map(([date, real]) => {
+      const goal = weeklyGoalPerBucket
       const pct = goal > 0 ? (real / goal) * 100 : 0
       return {
         period: `Sem. ${date}`,
