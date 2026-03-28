@@ -6,11 +6,14 @@ import { SlidersHorizontal, FlaskConical, GitCompare } from 'lucide-react'
 import { RecipeCalculator } from './RecipeCalculator'
 import { RecipeSimulator } from './RecipeSimulator'
 import { ScenarioComparison } from './ScenarioComparison'
+import { RecipePlanBanner } from './RecipePlanBanner'
 import type { RecipeScenario, RecipeActual } from '@/lib/types/database'
+import type { RecipeValidation } from '@/lib/utils/recipe-validation'
 
 interface ScenarioTabsProps {
   scenario: RecipeScenario
   actuals: RecipeActual[]
+  validation?: RecipeValidation | null
 }
 
 const TABS = [
@@ -21,7 +24,7 @@ const TABS = [
 
 type TabValue = typeof TABS[number]['value']
 
-export function ScenarioTabs({ scenario, actuals }: ScenarioTabsProps) {
+export function ScenarioTabs({ scenario, actuals, validation }: ScenarioTabsProps) {
   const [active, setActive] = useState<TabValue>('calculator')
 
   return (
@@ -45,6 +48,13 @@ export function ScenarioTabs({ scenario, actuals }: ScenarioTabsProps) {
           </button>
         ))}
       </div>
+
+      {/* Plan vs Recipe banner — always visible below tabs */}
+      {validation && (
+        <div className="mb-8">
+          <RecipePlanBanner validation={validation} />
+        </div>
+      )}
 
       {active === 'calculator' && <RecipeCalculator scenario={scenario} />}
       {active === 'simulator'  && <RecipeSimulator scenario={scenario} />}

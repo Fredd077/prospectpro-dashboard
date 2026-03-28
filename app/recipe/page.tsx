@@ -4,22 +4,31 @@ import { Plus, FlaskConical } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { TopBar } from '@/components/layout/TopBar'
 import { ScenarioCard } from '@/components/recipe/ScenarioCard'
+import { RecipePlanBanner } from '@/components/recipe/RecipePlanBanner'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
 
 export const metadata: Metadata = {
   title: 'Recetario',
   description: 'Calcula y gestiona tus escenarios de funnel comercial',
 }
-import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export default async function RecipePage() {
   const sb = await getSupabaseServerClient()
-  const { data: scenarios } = await sb
-    .from('recipe_scenarios')
-    .select('*')
-    .order('is_active', { ascending: false })
-    .order('created_at', { ascending: false })
+  const [{ data: scenarios }, { data: activities }] = await Promise.all([
+    sb
+      .from('recipe_scenarios')
+      .select('*')
+      .order('is_active', { ascending: false })
+      .order('created_at', { ascending: false }),
+    sb.from('activities').select('id,name,type,channel,status,daily_goal,weekly_goal,monthly_goal').eq('status', 'active'),
+  ])
 
   const hasScenarios = scenarios && scenarios.length > 0
+  const activeScenario = scenarios?.find((s) => s.is_active) ?? null
+  const activeValidation = activeScenario && activities && activities.length > 0
+    ? calcRecipeValidation(activeScenario, activities as Parameters<typeof calcRecipeValidation>[1])
+    : null
 
   return (
     <div className="flex flex-col h-full">
@@ -79,6 +88,16 @@ export default async function RecipePage() {
                     <ScenarioCard key={s.id} scenario={s} />
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Plan vs Recipe comparison for active scenario */}
+            {activeValidation && (
+              <div className="mt-8">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                  Tu plan vs Recetario activo
+                </p>
+                <RecipePlanBanner validation={activeValidation} />
               </div>
             )}
           </div>
