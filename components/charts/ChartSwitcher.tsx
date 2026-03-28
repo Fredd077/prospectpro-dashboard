@@ -70,33 +70,36 @@ export function ChartSwitcher({
 
   return (
     <div>
-      {/* Tab bar */}
-      <div className="flex items-center gap-1 mb-6 flex-wrap">
-        {CHART_TABS.map(({ value, label, icon: Icon }) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setActive(value)}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-              active === value
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-            )}
-          >
-            <Icon className="h-3.5 w-3.5 shrink-0" />
-            {label}
-          </button>
-        ))}
+      {/* Tab bar — pill buttons */}
+      <div className="flex items-center gap-1.5 mb-6 flex-wrap">
+        {CHART_TABS.map(({ value, label, icon: Icon }) => {
+          const isActive = active === value
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setActive(value)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
+                isActive
+                  ? 'bg-primary text-primary-foreground shadow-[0_0_14px_oklch(0.82_0.19_200_/_35%)]'
+                  : 'border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-muted/50'
+              )}
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              {label}
+            </button>
+          )
+        })}
       </div>
 
       {/* Chart content */}
-      {active === 'bars' && <HorizontalBarChart data={barData} />}
-      {active === 'trend' && <TrendLineChart data={trendData} />}
-      {active === 'radar' && <RadarChart data={radarData} />}
+      {active === 'bars'    && <HorizontalBarChart data={barData} />}
+      {active === 'trend'   && <TrendLineChart data={trendData} />}
+      {active === 'radar'   && <RadarChart data={radarData} />}
       {active === 'heatmap' && <HeatmapChart data={heatmapData} />}
-      {active === 'table' && <DetailTable rows={tableRows} periodLabel="Semana" />}
-      {active === 'funnel' && <FunnelChart stages={funnelStages} />}
+      {active === 'table'   && <DetailTable rows={tableRows} periodLabel="Semana" />}
+      {active === 'funnel'  && <FunnelChart stages={funnelStages} />}
     </div>
   )
 }
