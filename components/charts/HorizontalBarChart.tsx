@@ -7,7 +7,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   Cell,
   LabelList,
@@ -30,6 +29,44 @@ function realColor(real: number, goal: number): string {
   if (pct >= 100) return '#34d399' // emerald-400
   if (pct >= 70)  return '#fbbf24' // amber-400
   return '#f87171'                 // red-400
+}
+
+const NAME_MAP: Record<string, string> = { goal: 'Meta', real: 'Real' }
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null
+  return (
+    <div style={{
+      backgroundColor: '#1a1a2e',
+      border: '1px solid #00D9FF',
+      borderRadius: '8px',
+      padding: '10px 14px',
+      boxShadow: '0 0 20px rgba(0, 217, 255, 0.2)',
+      minWidth: '160px',
+    }}>
+      <p style={{
+        color: '#00D9FF',
+        fontWeight: 'bold',
+        marginBottom: '6px',
+        fontSize: '13px',
+        fontFamily: 'JetBrains Mono, monospace',
+      }}>
+        {label}
+      </p>
+      {payload.map((entry: any, index: number) => (
+        <p key={index} style={{
+          color: '#FFFFFF',
+          margin: '2px 0',
+          fontSize: '12px',
+          fontFamily: 'JetBrains Mono, monospace',
+        }}>
+          {NAME_MAP[entry.name] ?? entry.name}: <strong style={{ color: entry.color }}>
+            {entry.value}
+          </strong>
+        </p>
+      ))}
+    </div>
+  )
 }
 
 export function HorizontalBarChart({ data }: HorizontalBarChartProps) {
@@ -93,23 +130,11 @@ export function HorizontalBarChart({ data }: HorizontalBarChartProps) {
             tickLine={false}
             width={150}
           />
-          <Tooltip
-            contentStyle={{
-              background: '#18181b',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 8,
-              fontSize: 12,
-            }}
-            labelStyle={{ color: '#e4e4e7', fontWeight: 600 }}
-            formatter={(value: unknown, name: unknown) => [
-              value as number,
-              name === 'goal' ? 'Meta' : 'Real',
-            ]}
-          />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
           {/* Meta bar — blue */}
-          <Bar dataKey="goal" fill={CHART_COLORS.blue} fillOpacity={0.25} radius={[0, 3, 3, 0]} name="goal" />
+          <Bar cursor="default" dataKey="goal" fill={CHART_COLORS.blue} fillOpacity={0.25} radius={[0, 3, 3, 0]} name="goal" />
           {/* Real bar — semaphore color */}
-          <Bar dataKey="real" radius={[0, 3, 3, 0]} name="real">
+          <Bar cursor="default" dataKey="real" radius={[0, 3, 3, 0]} name="real">
             {data.map((entry, index) => (
               <Cell key={index} fill={realColor(entry.real, entry.goal)} />
             ))}

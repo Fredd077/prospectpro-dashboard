@@ -9,7 +9,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  ReferenceLine,
 } from 'recharts'
 import { CHART_COLORS } from '@/lib/utils/colors'
 
@@ -31,6 +30,45 @@ const SERIES = [
   { key: 'inbound',  label: 'Inbound real',   color: CHART_COLORS.violet, dashed: false, dot: true  },
 ] as const
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null
+  return (
+    <div style={{
+      backgroundColor: '#1a1a2e',
+      border: '1px solid #00D9FF',
+      borderRadius: '8px',
+      padding: '10px 14px',
+      boxShadow: '0 0 20px rgba(0, 217, 255, 0.2)',
+      minWidth: '160px',
+    }}>
+      <p style={{
+        color: '#00D9FF',
+        fontWeight: 'bold',
+        marginBottom: '6px',
+        fontSize: '13px',
+        fontFamily: 'JetBrains Mono, monospace',
+      }}>
+        {label}
+      </p>
+      {payload.map((entry: any, index: number) => {
+        const series = SERIES.find((s) => s.key === entry.dataKey)
+        return (
+          <p key={index} style={{
+            color: '#FFFFFF',
+            margin: '2px 0',
+            fontSize: '12px',
+            fontFamily: 'JetBrains Mono, monospace',
+          }}>
+            {series?.label ?? entry.name}: <strong style={{ color: entry.color }}>
+              {entry.value}
+            </strong>
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+
 export function TrendLineChart({ data }: TrendLineChartProps) {
   if (data.length === 0) {
     return (
@@ -40,7 +78,6 @@ export function TrendLineChart({ data }: TrendLineChartProps) {
     )
   }
 
-  // Determine which series have actual data
   const activeSeries = SERIES.filter((s) =>
     data.some((d) => d[s.key] !== undefined && d[s.key] !== null)
   )
@@ -48,7 +85,7 @@ export function TrendLineChart({ data }: TrendLineChartProps) {
   return (
     <ResponsiveContainer width="100%" height={320}>
       <LineChart data={data} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
         <XAxis
           dataKey="date"
           tick={{ fill: '#71717a', fontSize: 11 }}
@@ -62,19 +99,7 @@ export function TrendLineChart({ data }: TrendLineChartProps) {
           tickLine={false}
           width={36}
         />
-        <Tooltip
-          contentStyle={{
-            background: '#18181b',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 8,
-            fontSize: 12,
-          }}
-          labelStyle={{ color: '#e4e4e7', fontWeight: 600 }}
-          formatter={(value: unknown, name: unknown) => {
-            const s = SERIES.find((x) => x.key === name)
-            return [value as number, s?.label ?? (name as string)]
-          }}
-        />
+        <Tooltip content={<CustomTooltip />} />
         <Legend
           wrapperStyle={{ fontSize: 12, color: '#a1a1aa', paddingTop: 8 }}
           formatter={(value) => {

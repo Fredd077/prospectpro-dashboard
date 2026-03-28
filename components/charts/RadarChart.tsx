@@ -23,6 +23,42 @@ interface RadarChartProps {
   data: RadarDataPoint[]
 }
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null
+  return (
+    <div style={{
+      backgroundColor: '#1a1a2e',
+      border: '1px solid #00D9FF',
+      borderRadius: '8px',
+      padding: '10px 14px',
+      boxShadow: '0 0 20px rgba(0, 217, 255, 0.2)',
+      minWidth: '160px',
+    }}>
+      <p style={{
+        color: '#00D9FF',
+        fontWeight: 'bold',
+        marginBottom: '6px',
+        fontSize: '13px',
+        fontFamily: 'JetBrains Mono, monospace',
+      }}>
+        {label}
+      </p>
+      {payload.map((entry: any, index: number) => (
+        <p key={index} style={{
+          color: '#FFFFFF',
+          margin: '2px 0',
+          fontSize: '12px',
+          fontFamily: 'JetBrains Mono, monospace',
+        }}>
+          {entry.name}: <strong style={{ color: entry.color }}>
+            {entry.value}
+          </strong>
+        </p>
+      ))}
+    </div>
+  )
+}
+
 export function RadarChart({ data }: RadarChartProps) {
   if (data.length === 0) {
     return (
@@ -32,7 +68,6 @@ export function RadarChart({ data }: RadarChartProps) {
     )
   }
 
-  // Normalize to the same scale: use raw counts so goal and real are comparable
   const maxVal = Math.max(...data.map((d) => Math.max(d.goal, d.real)), 1)
 
   return (
@@ -72,15 +107,7 @@ export function RadarChart({ data }: RadarChartProps) {
           fillOpacity={0.25}
           strokeWidth={2}
         />
-        <Tooltip
-          contentStyle={{
-            background: '#18181b',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 8,
-            fontSize: 12,
-          }}
-          formatter={(value: unknown, name: unknown) => [value as number, name as string]}
-        />
+        <Tooltip content={<CustomTooltip />} />
         <Legend
           wrapperStyle={{ fontSize: 12, color: '#a1a1aa', paddingTop: 8 }}
         />
