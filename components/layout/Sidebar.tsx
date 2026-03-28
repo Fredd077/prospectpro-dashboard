@@ -7,18 +7,15 @@ import {
   ListChecks,
   ClipboardList,
   FlaskConical,
-  Target,
   TrendingUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { AtRiskBadge } from './AtRiskBadge'
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard',       icon: LayoutDashboard, badge: false },
-  { href: '/checkin',   label: 'Check-in Diario', icon: ClipboardList,   badge: false },
-  { href: '/activities',label: 'Actividades',     icon: ListChecks,      badge: false },
-  { href: '/recipe',    label: 'Recetario',        icon: FlaskConical,    badge: false },
-  { href: '/goals',     label: 'Metas',            icon: Target,          badge: true  },
+  { href: '/dashboard', label: 'Dashboard',       icon: LayoutDashboard },
+  { href: '/checkin',   label: 'Check-in Diario', icon: ClipboardList   },
+  { href: '/activities',label: 'Actividades',     icon: ListChecks      },
+  { href: '/recipe',    label: 'Recetario',        icon: FlaskConical    },
 ] as const
 
 export function Sidebar() {
@@ -49,7 +46,7 @@ export function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2">
         <ul className="space-y-0.5">
-          {navItems.map(({ href, label, icon: Icon, badge }) => {
+          {navItems.map(({ href, label, icon: Icon }) => {
             const isActive = pathname === href || pathname.startsWith(`${href}/`)
             return (
               <li key={href}>
@@ -69,11 +66,6 @@ export function Sidebar() {
                   )}
                   <Icon className="h-5 w-5 shrink-0" />
                   <span className="hidden flex-1 lg:block">{label}</span>
-                  {badge && (
-                    <span className="hidden lg:block">
-                      <AtRiskBadge />
-                    </span>
-                  )}
                 </Link>
               </li>
             )

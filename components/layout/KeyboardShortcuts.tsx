@@ -18,9 +18,6 @@ export function KeyboardShortcuts() {
         case 'c':
           router.push('/checkin')
           break
-        case 'g':
-          router.push('/goals')
-          break
         case 'd':
           router.push('/dashboard')
           break
