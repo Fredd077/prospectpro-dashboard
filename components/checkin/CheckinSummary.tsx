@@ -2,14 +2,17 @@ import { CheckCircle2, AlertTriangle, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semaphoreBgClass } from '@/lib/utils/colors'
 import { calcCompliance } from '@/lib/calculations/compliance'
-import type { Activity } from '@/lib/types/database'
+import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
+import { RecipePaceWidget } from './RecipePaceWidget'
+import type { Activity, RecipeScenario } from '@/lib/types/database'
 
 interface CheckinSummaryProps {
   date: string
   activities: Activity[]
-  values: Record<string, number>          // today's submitted values
+  values: Record<string, number>              // today's submitted values
   weeklyDisplayValues: Record<string, number> // full week (including today)
   isRetroactive: boolean
+  activeScenario?: RecipeScenario | null
 }
 
 export function CheckinSummary({
@@ -18,7 +21,19 @@ export function CheckinSummary({
   values,
   weeklyDisplayValues,
   isRetroactive,
+  activeScenario,
 }: CheckinSummaryProps) {
+  // Weekly real split by type for pace widget
+  const weeklyOutbound = activities
+    .filter((a) => a.type === 'OUTBOUND')
+    .reduce((s, a) => s + (weeklyDisplayValues[a.id] ?? 0), 0)
+  const weeklyInbound = activities
+    .filter((a) => a.type === 'INBOUND')
+    .reduce((s, a) => s + (weeklyDisplayValues[a.id] ?? 0), 0)
+
+  const paceValidation = activeScenario
+    ? calcRecipeValidation(activeScenario, activities)
+    : null
   const dailyActivities = activities.filter((a) => a.daily_goal >= 1)
   const weeklyActivities = activities.filter((a) => a.daily_goal < 1)
 
@@ -235,6 +250,15 @@ export function CheckinSummary({
             </div>
           ))}
       </div>
+
+      {/* Recipe pace widget — shown when an active scenario exists */}
+      {paceValidation && (
+        <RecipePaceWidget
+          validation={paceValidation}
+          weeklyOutbound={weeklyOutbound}
+          weeklyInbound={weeklyInbound}
+        />
+      )}
     </div>
   )
 }

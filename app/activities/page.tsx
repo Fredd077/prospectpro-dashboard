@@ -4,20 +4,32 @@ import { Plus } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { TopBar } from '@/components/layout/TopBar'
 import { ActivityTable } from '@/components/activities/ActivityTable'
+import { RecipeValidationBanner } from '@/components/activities/RecipeValidationBanner'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
 
 export const metadata: Metadata = {
   title: 'Actividades',
   description: 'Gestiona tus actividades de prospección comercial',
 }
-import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export default async function ActivitiesPage() {
   const sb = await getSupabaseServerClient()
-  const { data: activities, error } = await sb
-    .from('activities')
-    .select('*')
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true })
+
+  const [{ data: activities, error }, { data: activeScenario }] = await Promise.all([
+    sb
+      .from('activities')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
+    sb
+      .from('recipe_scenarios')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
 
   if (error) {
     return (
@@ -26,6 +38,10 @@ export default async function ActivitiesPage() {
       </div>
     )
   }
+
+  const validation = activeScenario && activities
+    ? calcRecipeValidation(activeScenario, activities)
+    : null
 
   return (
     <div className="flex flex-col h-full">
@@ -39,7 +55,8 @@ export default async function ActivitiesPage() {
           </Link>
         }
       />
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 overflow-y-auto p-8 space-y-6">
+        <RecipeValidationBanner validation={validation} />
         <ActivityTable activities={activities ?? []} />
       </div>
     </div>

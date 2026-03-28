@@ -13,6 +13,7 @@ import { ChartSwitcher } from '@/components/charts/ChartSwitcher'
 import { ActivityBreakdownTable } from '@/components/dashboard/ActivityBreakdownTable'
 import type { ActivityBreakdownRow } from '@/components/dashboard/ActivityBreakdownTable'
 import { TodayWidget } from '@/components/dashboard/TodayWidget'
+import { RecipeValidationCard } from '@/components/dashboard/RecipeValidationCard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
 import { calcCompliance } from '@/lib/calculations/compliance'
@@ -20,6 +21,7 @@ import { calcProjection } from '@/lib/calculations/projection'
 import { formatPercent } from '@/lib/utils/formatters'
 import { getSemaphoreColor } from '@/lib/utils/colors'
 import { getActivityGoal, getDailyImpliedGoal } from '@/lib/utils/goals'
+import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
 import type { PeriodType, ActivityType } from '@/lib/types/common'
 import type { DailyCompliance } from '@/lib/types/database'
 import { Activity, BarChart2, TrendingUp, Target } from 'lucide-react'
@@ -83,7 +85,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     { data: todayLogs },
   ] = await Promise.all([
     query,
-    sb.from('activities').select('id,name,channel,type,daily_goal,weekly_goal,monthly_goal').eq('status', 'active'),
+    sb.from('activities').select('id,name,channel,type,daily_goal,weekly_goal,monthly_goal,status').eq('status', 'active'),
     sb
       .from('recipe_scenarios')
       .select('*')
@@ -204,6 +206,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       }
     })
 
+  // --- Plan vs Recipe validation ---
+  const recipeValidation = activeScenario && allActivities.length > 0
+    ? calcRecipeValidation(activeScenario, allActivities as Parameters<typeof calcRecipeValidation>[1])
+    : null
+
   // --- Funnel stages from active recipe scenario ---
   type FunnelStage = { label: string; planned: number; actual?: number }
   const funnelStages: FunnelStage[] = []
@@ -293,6 +300,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               icon={<Target className="h-4 w-4" />}
             />
           </div>
+
+          {/* Plan vs Recipe validation card */}
+          {recipeValidation && (
+            <RecipeValidationCard validation={recipeValidation} />
+          )}
 
           {/* Per-activity breakdown table */}
           {breakdownRows.length > 0 && (

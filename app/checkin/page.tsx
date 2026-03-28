@@ -19,7 +19,7 @@ export default async function CheckinPage() {
   const weekStart = toISODate(startOfWeek(dateObj, { weekStartsOn: 1 }))
   const weekEnd   = toISODate(endOfWeek(dateObj, { weekStartsOn: 1 }))
 
-  const [{ data: activities }, { data: logs }, { data: weekLogs }] = await Promise.all([
+  const [{ data: activities }, { data: logs }, { data: weekLogs }, { data: activeScenario }] = await Promise.all([
     sb
       .from('activities')
       .select('*')
@@ -35,6 +35,13 @@ export default async function CheckinPage() {
       .select('activity_id,real_executed')
       .gte('log_date', weekStart)
       .lte('log_date', weekEnd),
+    sb
+      .from('recipe_scenarios')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   // Build activityId → weekly sum map
@@ -56,6 +63,7 @@ export default async function CheckinPage() {
             activities={activities ?? []}
             existingLogs={logs ?? []}
             weeklyLogs={weeklyLogs}
+            activeScenario={activeScenario}
           />
         </div>
       </div>

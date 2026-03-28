@@ -10,16 +10,17 @@ import { CheckinSummary } from './CheckinSummary'
 import { DateNavigator } from './DateNavigator'
 import { bulkUpsertLogs } from '@/lib/queries/logs'
 import { todayISO } from '@/lib/utils/dates'
-import type { Activity, DailyCompliance } from '@/lib/types/database'
+import type { Activity, DailyCompliance, RecipeScenario } from '@/lib/types/database'
 
 interface CheckinFormProps {
   date: string
   activities: Activity[]
   existingLogs: DailyCompliance[]
-  weeklyLogs: Record<string, number> // activityId → sum for full week (including today's saved log)
+  weeklyLogs: Record<string, number>
+  activeScenario?: RecipeScenario | null
 }
 
-export function CheckinForm({ date, activities, existingLogs, weeklyLogs }: CheckinFormProps) {
+export function CheckinForm({ date, activities, existingLogs, weeklyLogs, activeScenario }: CheckinFormProps) {
   const router = useRouter()
   const isRetroactive = date !== todayISO()
 
@@ -106,6 +107,7 @@ export function CheckinForm({ date, activities, existingLogs, weeklyLogs }: Chec
           values={values}
           weeklyDisplayValues={weeklyDisplayValues}
           isRetroactive={isRetroactive}
+          activeScenario={activeScenario}
         />
       )}
 
