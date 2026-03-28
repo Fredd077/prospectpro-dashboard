@@ -5,6 +5,7 @@ import './globals.css'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Providers } from '@/components/providers'
 import { KeyboardShortcuts } from '@/components/layout/KeyboardShortcuts'
+import { Analytics } from '@vercel/analytics/next'
 
 const syne = Syne({
   variable: '--font-syne',
@@ -45,6 +46,7 @@ export default function RootLayout({
             <main className="flex-1 overflow-y-auto">{children}</main>
           </div>
         </Providers>
+        <Analytics />
       </body>
     </html>
   )
