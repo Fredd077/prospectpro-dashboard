@@ -16,13 +16,14 @@ interface CheckinFormProps {
   date: string
   activities: Activity[]
   existingLogs: DailyCompliance[]
+  weeklyLogs: Record<string, number> // activityId → sum for full week (including today's saved log)
 }
 
-export function CheckinForm({ date, activities, existingLogs }: CheckinFormProps) {
+export function CheckinForm({ date, activities, existingLogs, weeklyLogs }: CheckinFormProps) {
   const router = useRouter()
   const isRetroactive = date !== todayISO()
 
-  // Build initial values from existing logs
+  // Build initial values from existing logs (today's saved data)
   const initialValues: Record<string, number> = {}
   for (const activity of activities) {
     const log = existingLogs.find((l) => l.activity_id === activity.id)
@@ -35,6 +36,22 @@ export function CheckinForm({ date, activities, existingLogs }: CheckinFormProps
 
   const outbound = activities.filter((a) => a.type === 'OUTBOUND')
   const inbound = activities.filter((a) => a.type === 'INBOUND')
+
+  // weeklyRealExcludingToday: rest of week without today's entry
+  // weeklyLogs already includes today's saved value; subtract it to get Mon–yesterday
+  const weeklyExcludingToday: Record<string, number> = {}
+  for (const activity of activities) {
+    weeklyExcludingToday[activity.id] = Math.max(
+      0,
+      (weeklyLogs[activity.id] ?? 0) - (initialValues[activity.id] ?? 0)
+    )
+  }
+
+  // Reactive weekly totals: rest-of-week + current input
+  const weeklyDisplayValues: Record<string, number> = {}
+  for (const activity of activities) {
+    weeklyDisplayValues[activity.id] = (weeklyExcludingToday[activity.id] ?? 0) + (values[activity.id] ?? 0)
+  }
 
   function handleChange(activityId: string, value: number) {
     setValues((prev) => ({ ...prev, [activityId]: value }))
@@ -63,9 +80,10 @@ export function CheckinForm({ date, activities, existingLogs }: CheckinFormProps
     }
   }
 
-  // Summary stats after submission
-  const totalGoal = activities.reduce((s, a) => s + a.daily_goal, 0)
-  const totalReal = activities.reduce((s, a) => s + (values[a.id] ?? 0), 0)
+  // Footer totals — only count daily activities for the daily total
+  const dailyActivities = activities.filter((a) => a.daily_goal >= 1)
+  const totalGoal = dailyActivities.reduce((s, a) => s + a.daily_goal, 0)
+  const totalReal = dailyActivities.reduce((s, a) => s + (values[a.id] ?? 0), 0)
   const compliancePct = totalGoal > 0 ? Math.round((totalReal / totalGoal) * 100) : 0
 
   return (
@@ -86,6 +104,7 @@ export function CheckinForm({ date, activities, existingLogs }: CheckinFormProps
           date={date}
           activities={activities}
           values={values}
+          weeklyDisplayValues={weeklyDisplayValues}
           isRetroactive={isRetroactive}
         />
       )}
@@ -105,6 +124,7 @@ export function CheckinForm({ date, activities, existingLogs }: CheckinFormProps
                 key={activity.id}
                 activity={activity}
                 value={values[activity.id] ?? 0}
+                weeklyRealExcludingToday={weeklyExcludingToday[activity.id] ?? 0}
                 onChange={handleChange}
               />
             ))}
@@ -127,6 +147,7 @@ export function CheckinForm({ date, activities, existingLogs }: CheckinFormProps
                 key={activity.id}
                 activity={activity}
                 value={values[activity.id] ?? 0}
+                weeklyRealExcludingToday={weeklyExcludingToday[activity.id] ?? 0}
                 onChange={handleChange}
               />
             ))}
@@ -148,10 +169,11 @@ export function CheckinForm({ date, activities, existingLogs }: CheckinFormProps
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Guardando...' : submitted ? 'Actualizar' : 'Guardar check-in'}
           </Button>
-          <span className="text-xs text-muted-foreground">
-            Total: <span className="tabular-nums text-foreground">{totalReal}</span> /{' '}
-            <span className="tabular-nums">{totalGoal}</span>
-            {totalGoal > 0 && (
+          {totalGoal > 0 && (
+            <span className="text-xs text-muted-foreground">
+              Diario: <span className="tabular-nums text-foreground">{totalReal}</span>{' '}
+              /{' '}
+              <span className="tabular-nums">{totalGoal}</span>
               <span
                 className={
                   compliancePct >= 100
@@ -163,8 +185,8 @@ export function CheckinForm({ date, activities, existingLogs }: CheckinFormProps
               >
                 {' '}({compliancePct}%)
               </span>
-            )}
-          </span>
+            </span>
+          )}
         </div>
       )}
     </form>

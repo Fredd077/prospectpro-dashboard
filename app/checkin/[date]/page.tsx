@@ -2,14 +2,13 @@ import { notFound } from 'next/navigation'
 import { TopBar } from '@/components/layout/TopBar'
 import { CheckinForm } from '@/components/checkin/CheckinForm'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { formatDisplayDate } from '@/lib/utils/dates'
-import { parseISO } from 'date-fns'
+import { formatDisplayDate, toISODate } from '@/lib/utils/dates'
+import { startOfWeek, endOfWeek, parseISO } from 'date-fns'
 
 interface Props {
   params: Promise<{ date: string }>
 }
 
-// Validate YYYY-MM-DD format
 function isValidDate(d: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(parseISO(d).getTime())
 }
@@ -21,7 +20,12 @@ export default async function CheckinDatePage({ params }: Props) {
 
   const sb = await getSupabaseServerClient()
 
-  const [{ data: activities }, { data: logs }] = await Promise.all([
+  // Week bounds (Mon–Sun) for the given date
+  const dateObj = parseISO(date)
+  const weekStart = toISODate(startOfWeek(dateObj, { weekStartsOn: 1 }))
+  const weekEnd   = toISODate(endOfWeek(dateObj, { weekStartsOn: 1 }))
+
+  const [{ data: activities }, { data: logs }, { data: weekLogs }] = await Promise.all([
     sb
       .from('activities')
       .select('*')
@@ -32,7 +36,18 @@ export default async function CheckinDatePage({ params }: Props) {
       .from('vw_daily_compliance')
       .select('*')
       .eq('log_date', date),
+    sb
+      .from('activity_logs')
+      .select('activity_id,real_executed')
+      .gte('log_date', weekStart)
+      .lte('log_date', weekEnd),
   ])
+
+  // Build activityId → weekly sum map
+  const weeklyLogs: Record<string, number> = {}
+  for (const log of weekLogs ?? []) {
+    weeklyLogs[log.activity_id] = (weeklyLogs[log.activity_id] ?? 0) + log.real_executed
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -46,6 +61,7 @@ export default async function CheckinDatePage({ params }: Props) {
             date={date}
             activities={activities ?? []}
             existingLogs={logs ?? []}
+            weeklyLogs={weeklyLogs}
           />
         </div>
       </div>

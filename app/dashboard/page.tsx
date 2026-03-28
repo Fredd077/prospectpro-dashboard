@@ -82,7 +82,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     { data: todayLogs },
   ] = await Promise.all([
     query,
-    sb.from('activities').select('id,name,channel,type').eq('status', 'active'),
+    sb.from('activities').select('id,name,channel,type,daily_goal,weekly_goal,monthly_goal').eq('status', 'active'),
     sb
       .from('recipe_scenarios')
       .select('*')
@@ -96,31 +96,46 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const channels = [...new Set(activities?.map((a) => a.channel) ?? [])].sort()
   const allLogs: DailyCompliance[] = logs ?? []
 
+  // --- Goal per activity for the selected period ---
+  type ActivityWithGoals = { id: string; name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; daily_goal: number; weekly_goal: number; monthly_goal: number }
+
+  function periodGoal(a: ActivityWithGoals): number {
+    if (period === 'quarterly') return a.monthly_goal * 3
+    if (period === 'monthly')   return a.monthly_goal
+    if (period === 'weekly')    return a.weekly_goal
+    // daily: for weekly-tracked activities (daily_goal < 1) use weekly_goal so the bar still shows; otherwise daily
+    return a.daily_goal >= 1 ? a.daily_goal : a.weekly_goal
+  }
+
+  const allActivities: ActivityWithGoals[] = activities ?? []
+
+  // Real per activity from logs
+  const realByActivity: Record<string, number> = {}
+  for (const log of allLogs) {
+    realByActivity[log.activity_id] = (realByActivity[log.activity_id] ?? 0) + log.real_executed
+  }
+
   // --- KPIs ---
   const totalReal = allLogs.reduce((s, l) => s + l.real_executed, 0)
-  const totalGoal = allLogs.reduce((s, l) => s + l.day_goal, 0)
+  const totalGoal = allActivities.reduce((s, a) => s + periodGoal(a), 0)
   const compliance = calcCompliance(totalReal, totalGoal)
   const projection = calcProjection(totalReal, totalGoal, start, end)
   const deviation = totalReal - totalGoal
 
   // --- Horizontal Bar data (by activity) ---
-  const byActivity: Record<string, { name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; goal: number; real: number }> = {}
-  for (const log of allLogs) {
-    if (!byActivity[log.activity_id]) {
-      byActivity[log.activity_id] = { name: log.activity_name, type: log.type, channel: log.channel, goal: 0, real: 0 }
-    }
-    byActivity[log.activity_id].goal += log.day_goal
-    byActivity[log.activity_id].real += log.real_executed
-  }
-  const barData = Object.values(byActivity).map(({ name, goal, real }) => ({ name, goal, real }))
+  const barData = allActivities.map((a) => ({
+    name: a.name,
+    goal: periodGoal(a),
+    real: realByActivity[a.id] ?? 0,
+  }))
 
-  const breakdownRows: ActivityBreakdownRow[] = Object.entries(byActivity).map(([id, v]) => ({
-    id,
-    name: v.name,
-    type: v.type,
-    channel: v.channel,
-    goal: v.goal,
-    real: v.real,
+  const breakdownRows: ActivityBreakdownRow[] = allActivities.map((a) => ({
+    id: a.id,
+    name: a.name,
+    type: a.type,
+    channel: a.channel,
+    goal: periodGoal(a),
+    real: realByActivity[a.id] ?? 0,
   }))
 
   // --- Trend line data — cumulative by day, split OUTBOUND / INBOUND ---

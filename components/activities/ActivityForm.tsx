@@ -42,9 +42,7 @@ const schema = z.object({
   name: z.string().min(2, 'Mínimo 2 caracteres').max(100),
   type: z.enum(['OUTBOUND', 'INBOUND']),
   channel: z.string().min(1, 'Selecciona un canal'),
-  daily_goal: z.number().int().min(0, 'Debe ser ≥ 0'),
-  weekly_goal: z.number().int().min(0, 'Debe ser ≥ 0'),
-  monthly_goal: z.number().int().min(0, 'Debe ser ≥ 0'),
+  monthly_goal: z.number().int().min(1, 'Debe ser ≥ 1'),
   status: z.enum(['active', 'inactive']),
   description: z.string().max(500).optional(),
 })
@@ -71,9 +69,7 @@ export function ActivityForm({ activity }: ActivityFormProps) {
       name: activity?.name ?? '',
       type: activity?.type ?? 'OUTBOUND',
       channel: activity?.channel ?? '',
-      daily_goal: activity?.daily_goal ?? 0,
-      weekly_goal: activity?.weekly_goal ?? 0,
-      monthly_goal: activity?.monthly_goal ?? 0,
+      monthly_goal: activity?.monthly_goal ?? 20,
       status: activity?.status ?? 'active',
       description: activity?.description ?? '',
     },
@@ -82,14 +78,25 @@ export function ActivityForm({ activity }: ActivityFormProps) {
   const watchedType = watch('type')
   const watchedChannel = watch('channel')
   const watchedStatus = watch('status')
+  const monthlyGoal = watch('monthly_goal') || 0
+
+  // Derived previews
+  const weeklyPreview = Math.ceil(monthlyGoal / 4)
+  const dailyPreview = Math.ceil(monthlyGoal / 20)
+  const isWeeklyActivity = dailyPreview < 1
 
   async function onSubmit(values: FormValues) {
     try {
+      const monthly = values.monthly_goal
+      const weekly_goal = Math.ceil(monthly / 4)
+      const daily_goal = Math.ceil(monthly / 20)
+      const payload = { ...values, weekly_goal, daily_goal }
+
       if (isEdit) {
-        await updateActivity(activity.id, values)
+        await updateActivity(activity.id, payload)
         toast.success('Actividad actualizada')
       } else {
-        await createActivity(values)
+        await createActivity(payload)
         toast.success('Actividad creada')
       }
       router.push('/activities')
@@ -149,40 +156,32 @@ export function ActivityForm({ activity }: ActivityFormProps) {
             </Select>
             <FieldError errors={[errors.channel]} />
           </Field>
-
-          {/* Daily goal */}
-          <Field data-invalid={!!errors.daily_goal}>
-            <FieldLabel>Meta diaria</FieldLabel>
-            <Input
-              type="number"
-              min={0}
-              {...register('daily_goal', { valueAsNumber: true })}
-            />
-            <FieldError errors={[errors.daily_goal]} />
-          </Field>
-
-          {/* Weekly goal */}
-          <Field data-invalid={!!errors.weekly_goal}>
-            <FieldLabel>Meta semanal</FieldLabel>
-            <Input
-              type="number"
-              min={0}
-              {...register('weekly_goal', { valueAsNumber: true })}
-            />
-            <FieldError errors={[errors.weekly_goal]} />
-          </Field>
-
-          {/* Monthly goal */}
-          <Field data-invalid={!!errors.monthly_goal}>
-            <FieldLabel>Meta mensual</FieldLabel>
-            <Input
-              type="number"
-              min={0}
-              {...register('monthly_goal', { valueAsNumber: true })}
-            />
-            <FieldError errors={[errors.monthly_goal]} />
-          </Field>
         </div>
+
+        {/* Monthly goal — single source of truth */}
+        <Field data-invalid={!!errors.monthly_goal}>
+          <FieldLabel>Meta mensual</FieldLabel>
+          <Input
+            type="number"
+            min={1}
+            {...register('monthly_goal', { valueAsNumber: true })}
+          />
+          <FieldError errors={[errors.monthly_goal]} />
+
+          {/* Live preview */}
+          {monthlyGoal >= 1 && (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {'→ '}
+              <span className="text-foreground font-medium">Semanal: {weeklyPreview}</span>
+              {' | '}
+              {isWeeklyActivity ? (
+                <span className="text-amber-400">Esta actividad se trackea semanalmente</span>
+              ) : (
+                <span className="text-foreground font-medium">Diaria: {dailyPreview}</span>
+              )}
+            </p>
+          )}
+        </Field>
 
         {/* Description */}
         <Field>
