@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useRef, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,18 +25,18 @@ import {
 import { createActivity, updateActivity } from '@/lib/queries/activities'
 import type { Activity } from '@/lib/types/database'
 
-const CHANNELS = [
-  { value: 'cold_call', label: 'Llamadas en frío' },
-  { value: 'cold_message', label: 'Mensajes en frío' },
-  { value: 'linkedin_dm', label: 'DM LinkedIn' },
-  { value: 'linkedin_post', label: 'Post LinkedIn' },
-  { value: 'linkedin_comment', label: 'Comentario LinkedIn' },
-  { value: 'networking_event', label: 'Evento Networking' },
-  { value: 'networking_lead', label: 'Lead Networking' },
-  { value: 'referral', label: 'Referidos' },
-  { value: 'mkt_lead', label: 'Lead MKT' },
-  { value: 'vsl_lead', label: 'Lead VSL' },
-  { value: 'other', label: 'Otro' },
+const CHANNEL_SUGGESTIONS = [
+  'Llamadas en frío',
+  'Mensajes en frío',
+  'DM LinkedIn',
+  'Post LinkedIn',
+  'Comentario LinkedIn',
+  'Evento Networking',
+  'Lead Networking',
+  'Referidos',
+  'Lead MKT',
+  'Lead VSL',
+  'Otro',
 ]
 
 const schema = z.object({
@@ -76,9 +77,27 @@ export function ActivityForm({ activity }: ActivityFormProps) {
   })
 
   const watchedType = watch('type')
-  const watchedChannel = watch('channel')
   const watchedStatus = watch('status')
   const monthlyGoal = watch('monthly_goal') || 0
+
+  // Combobox state for channel
+  const [channelInput, setChannelInput] = useState(activity?.channel ?? '')
+  const [channelOpen, setChannelOpen] = useState(false)
+  const channelRef = useRef<HTMLDivElement>(null)
+
+  const filteredChannels = CHANNEL_SUGGESTIONS.filter((opt) =>
+    opt.toLowerCase().includes(channelInput.toLowerCase())
+  )
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (channelRef.current && !channelRef.current.contains(e.target as Node)) {
+        setChannelOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   // Derived previews
   const weeklyPreview = Math.ceil(monthlyGoal / 4)
@@ -136,24 +155,43 @@ export function ActivityForm({ activity }: ActivityFormProps) {
             <FieldError errors={[errors.type]} />
           </Field>
 
-          {/* Channel */}
+          {/* Channel — combobox */}
           <Field data-invalid={!!errors.channel}>
             <FieldLabel>Canal</FieldLabel>
-            <Select
-              defaultValue={watchedChannel}
-              onValueChange={(v) => v && setValue('channel', v, { shouldValidate: true })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona el canal" />
-              </SelectTrigger>
-              <SelectContent>
-                {CHANNELS.map((ch) => (
-                  <SelectItem key={ch.value} value={ch.value}>
-                    {ch.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div ref={channelRef} className="relative">
+              <input
+                type="text"
+                value={channelInput}
+                placeholder="Selecciona o escribe un canal..."
+                autoComplete="off"
+                onChange={(e) => {
+                  setChannelInput(e.target.value)
+                  setValue('channel', e.target.value, { shouldValidate: true })
+                  setChannelOpen(true)
+                }}
+                onFocus={() => setChannelOpen(true)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              {channelOpen && filteredChannels.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md">
+                  {filteredChannels.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setChannelInput(opt)
+                        setValue('channel', opt, { shouldValidate: true })
+                        setChannelOpen(false)
+                      }}
+                      className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <FieldError errors={[errors.channel]} />
           </Field>
         </div>

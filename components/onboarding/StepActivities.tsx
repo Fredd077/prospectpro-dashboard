@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { CheckCircle, ArrowLeft } from 'lucide-react'
+import { useState } from 'react'
+import { CheckCircle, Info } from 'lucide-react'
 import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 
 interface ActivityDef {
@@ -56,7 +56,6 @@ export function StepActivities({ onSave, saving, recipeData }: StepActivitiesPro
   const [goals, setGoals] = useState<Record<string, number>>(
     Object.fromEntries(DEFAULT_ACTIVITIES.map((a) => [a.name, a.monthly_goal]))
   )
-  const activitiesRef = useRef<HTMLDivElement>(null)
 
   function setGoal(name: string, val: number) {
     setGoals((prev) => ({ ...prev, [name]: Math.max(0, val) }))
@@ -123,15 +122,19 @@ export function StepActivities({ onSave, saving, recipeData }: StepActivitiesPro
 
   return (
     <div className="rounded-xl border border-border bg-card p-8 space-y-6">
-      <div className="space-y-1">
+      <div className="space-y-2">
         <h2 className="text-lg font-bold text-foreground">Tus Actividades</h2>
-        <p className="text-sm text-muted-foreground">
-          Ajusta las metas mensuales según tu realidad. Puedes editarlas después.
-        </p>
+        <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p className="text-sm text-foreground/90 leading-snug">
+            Ajusta las metas según tu proceso comercial real. No te preocupes, puedes modificarlas
+            en cualquier momento desde <span className="font-medium text-primary">Actividades</span>.
+          </p>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div ref={activitiesRef} className="space-y-5">
+        <div className="space-y-5">
           {/* Outbound */}
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-widest text-primary">Outbound</p>
@@ -231,22 +234,12 @@ export function StepActivities({ onSave, saving, recipeData }: StepActivitiesPro
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className={`flex gap-3 ${recipe ? '' : ''}`}>
-          {recipe && (
-            <button
-              type="button"
-              onClick={() => activitiesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              className="flex-1 flex items-center justify-center gap-2 rounded-md border border-border bg-transparent px-4 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Ajustar actividades
-            </button>
-          )}
+        {/* Action button */}
+        <div>
           <button
             type="submit"
             disabled={saving}
-            className={`flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,217,255,0.25)] transition-all disabled:opacity-50 ${recipe ? 'flex-1' : 'w-full'}`}
+            className="w-full flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,217,255,0.25)] transition-all disabled:opacity-50"
           >
             {saving ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
