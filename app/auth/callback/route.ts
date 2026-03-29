@@ -6,7 +6,21 @@ import type { NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  const errorParam = searchParams.get('error')
+  const errorCode = searchParams.get('error_code')
+  const errorDescription = searchParams.get('error_description')
   const next = searchParams.get('next') ?? '/dashboard'
+
+  // Supabase returned an error before reaching our callback
+  if (errorParam) {
+    console.error('[auth/callback] Supabase OAuth error:', {
+      error: errorParam,
+      error_code: errorCode,
+      error_description: errorDescription,
+      url: request.url,
+    })
+    return NextResponse.redirect(`${origin}/login?error=oauth`)
+  }
 
   if (code) {
     const cookieStore = await cookies()
@@ -29,9 +43,13 @@ export async function GET(request: NextRequest) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      // Middleware will handle role-based redirect from /dashboard
+      // proxy.ts handles role-based redirect from /dashboard
       return NextResponse.redirect(`${origin}${next}`)
     }
+    console.error('[auth/callback] exchangeCodeForSession failed:', {
+      message: error.message,
+      status: error.status,
+    })
   }
 
   return NextResponse.redirect(`${origin}/login?error=oauth`)
