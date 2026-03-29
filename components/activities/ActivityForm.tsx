@@ -36,13 +36,15 @@ const CHANNEL_SUGGESTIONS = [
   'Referidos',
   'Lead MKT',
   'Lead VSL',
-  'Otro',
+  'Otro (escribe el tuyo...)',
 ]
+
+const OTRO_OPTION = 'Otro (escribe el tuyo...)'
 
 const schema = z.object({
   name: z.string().min(2, 'Mínimo 2 caracteres').max(100),
   type: z.enum(['OUTBOUND', 'INBOUND']),
-  channel: z.string().min(1, 'Selecciona un canal'),
+  channel: z.string().min(1, 'Por favor escribe el nombre de tu canal personalizado'),
   monthly_goal: z.number().int().min(1, 'Debe ser ≥ 1'),
   status: z.enum(['active', 'inactive']),
   description: z.string().max(500).optional(),
@@ -84,6 +86,7 @@ export function ActivityForm({ activity }: ActivityFormProps) {
   const [channelInput, setChannelInput] = useState(activity?.channel ?? '')
   const [channelOpen, setChannelOpen] = useState(false)
   const channelRef = useRef<HTMLDivElement>(null)
+  const channelInputRef = useRef<HTMLInputElement>(null)
 
   const filteredChannels = CHANNEL_SUGGESTIONS.filter((opt) =>
     opt.toLowerCase().includes(channelInput.toLowerCase())
@@ -160,9 +163,10 @@ export function ActivityForm({ activity }: ActivityFormProps) {
             <FieldLabel>Canal</FieldLabel>
             <div ref={channelRef} className="relative">
               <input
+                ref={channelInputRef}
                 type="text"
                 value={channelInput}
-                placeholder="Selecciona o escribe un canal..."
+                placeholder="Selecciona o escribe tu propio canal..."
                 autoComplete="off"
                 onChange={(e) => {
                   setChannelInput(e.target.value)
@@ -180,9 +184,16 @@ export function ActivityForm({ activity }: ActivityFormProps) {
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
-                        setChannelInput(opt)
-                        setValue('channel', opt, { shouldValidate: true })
-                        setChannelOpen(false)
+                        if (opt === OTRO_OPTION) {
+                          setChannelInput('')
+                          setValue('channel', '', { shouldValidate: false })
+                          setChannelOpen(false)
+                          setTimeout(() => channelInputRef.current?.focus(), 0)
+                        } else {
+                          setChannelInput(opt)
+                          setValue('channel', opt, { shouldValidate: true })
+                          setChannelOpen(false)
+                        }
                       }}
                       className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                     >
@@ -192,6 +203,9 @@ export function ActivityForm({ activity }: ActivityFormProps) {
                 </div>
               )}
             </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              💡 Puedes escribir cualquier canal personalizado
+            </p>
             <FieldError errors={[errors.channel]} />
           </Field>
         </div>
