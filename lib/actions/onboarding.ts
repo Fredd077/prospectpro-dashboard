@@ -24,6 +24,10 @@ interface RecipeFormData {
   conv_speech_to_meeting: number
   conv_meeting_to_proposal: number
   conv_proposal_to_close: number
+  inbound_conv_activity_to_speech: number
+  inbound_conv_speech_to_meeting: number
+  inbound_conv_meeting_to_proposal: number
+  inbound_conv_proposal_to_close: number
 }
 
 export async function saveOnboardingRecipe(data: RecipeFormData) {
@@ -33,7 +37,7 @@ export async function saveOnboardingRecipe(data: RecipeFormData) {
 
   const inbound_pct = 100 - data.outbound_pct
 
-  // Calculate funnel numbers
+  // Calculate funnel numbers using independent inbound rates
   const result = calcRecipe({
     monthly_revenue_goal: data.monthly_revenue_goal,
     average_ticket: data.average_ticket,
@@ -43,10 +47,10 @@ export async function saveOnboardingRecipe(data: RecipeFormData) {
     conv_speech_to_meeting: data.conv_speech_to_meeting,
     conv_meeting_to_proposal: data.conv_meeting_to_proposal,
     conv_proposal_to_close: data.conv_proposal_to_close,
-    inbound_conv_activity_to_speech: data.conv_activity_to_speech,
-    inbound_conv_speech_to_meeting: data.conv_speech_to_meeting,
-    inbound_conv_meeting_to_proposal: data.conv_meeting_to_proposal,
-    inbound_conv_proposal_to_close: data.conv_proposal_to_close,
+    inbound_conv_activity_to_speech: data.inbound_conv_activity_to_speech,
+    inbound_conv_speech_to_meeting: data.inbound_conv_speech_to_meeting,
+    inbound_conv_meeting_to_proposal: data.inbound_conv_meeting_to_proposal,
+    inbound_conv_proposal_to_close: data.inbound_conv_proposal_to_close,
   })
 
   // Deactivate any existing active scenario for this user
@@ -69,10 +73,10 @@ export async function saveOnboardingRecipe(data: RecipeFormData) {
     conv_speech_to_meeting: data.conv_speech_to_meeting,
     conv_meeting_to_proposal: data.conv_meeting_to_proposal,
     conv_proposal_to_close: data.conv_proposal_to_close,
-    inbound_conv_activity_to_speech: data.conv_activity_to_speech,
-    inbound_conv_speech_to_meeting: data.conv_speech_to_meeting,
-    inbound_conv_meeting_to_proposal: data.conv_meeting_to_proposal,
-    inbound_conv_proposal_to_close: data.conv_proposal_to_close,
+    inbound_conv_activity_to_speech: data.inbound_conv_activity_to_speech,
+    inbound_conv_speech_to_meeting: data.inbound_conv_speech_to_meeting,
+    inbound_conv_meeting_to_proposal: data.inbound_conv_meeting_to_proposal,
+    inbound_conv_proposal_to_close: data.inbound_conv_proposal_to_close,
     closes_needed_monthly: result.outbound.closes_needed + result.inbound.closes_needed,
     proposals_needed_monthly: result.outbound.proposals_needed + result.inbound.proposals_needed,
     meetings_needed_monthly: result.outbound.meetings_needed + result.inbound.meetings_needed,

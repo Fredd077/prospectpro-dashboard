@@ -18,6 +18,10 @@ interface RecipeData {
   conv_speech_to_meeting: number
   conv_meeting_to_proposal: number
   conv_proposal_to_close: number
+  inbound_conv_activity_to_speech: number
+  inbound_conv_speech_to_meeting: number
+  inbound_conv_meeting_to_proposal: number
+  inbound_conv_proposal_to_close: number
 }
 
 export function OnboardingWizard({ userName }: { userName: string | null }) {
