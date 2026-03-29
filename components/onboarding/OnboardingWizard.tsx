@@ -24,12 +24,14 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
   const [step, setStep]           = useState<WizardStep>(1)
   const [saving, setSaving]       = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [recipeData, setRecipeData] = useState<RecipeData | null>(null)
 
   async function handleRecipeSave(data: RecipeData) {
     setSaving(true)
     setSaveError(null)
     try {
       await saveOnboardingRecipe(data)
+      setRecipeData(data)
       setStep(3)
     } catch (e) {
       console.error('[onboarding] saveOnboardingRecipe failed:', e)
@@ -85,7 +87,7 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
       {/* Steps */}
       {step === 1 && <StepWelcome userName={userName} onNext={() => setStep(2)} />}
       {step === 2 && <StepRecipe onSave={handleRecipeSave} saving={saving} />}
-      {step === 3 && <StepActivities onSave={handleActivitiesSave} saving={saving} />}
+      {step === 3 && <StepActivities onSave={handleActivitiesSave} saving={saving} recipeData={recipeData} />}
     </div>
   )
 }
