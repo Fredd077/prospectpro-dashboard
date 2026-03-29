@@ -191,18 +191,9 @@ export interface Database {
           inbound_pct: number
           average_ticket: number
           working_days_per_month: number
-          conv_activity_to_speech: number
-          conv_speech_to_meeting: number
-          conv_meeting_to_proposal: number
-          conv_proposal_to_close: number
-          inbound_conv_activity_to_speech: number
-          inbound_conv_speech_to_meeting: number
-          inbound_conv_meeting_to_proposal: number
-          inbound_conv_proposal_to_close: number
-          closes_needed_monthly: number | null
-          proposals_needed_monthly: number | null
-          meetings_needed_monthly: number | null
-          speeches_needed_monthly: number | null
+          funnel_stages: string[]
+          outbound_rates: number[]
+          inbound_rates: number[]
           activities_needed_monthly: number | null
           activities_needed_weekly: number | null
           activities_needed_daily: number | null
@@ -219,18 +210,9 @@ export interface Database {
           outbound_pct?: number
           average_ticket: number
           working_days_per_month?: number
-          conv_activity_to_speech: number
-          conv_speech_to_meeting: number
-          conv_meeting_to_proposal: number
-          conv_proposal_to_close: number
-          inbound_conv_activity_to_speech?: number
-          inbound_conv_speech_to_meeting?: number
-          inbound_conv_meeting_to_proposal?: number
-          inbound_conv_proposal_to_close?: number
-          closes_needed_monthly?: number | null
-          proposals_needed_monthly?: number | null
-          meetings_needed_monthly?: number | null
-          speeches_needed_monthly?: number | null
+          funnel_stages?: string[]
+          outbound_rates?: number[]
+          inbound_rates?: number[]
           activities_needed_monthly?: number | null
           activities_needed_weekly?: number | null
           activities_needed_daily?: number | null
@@ -247,18 +229,9 @@ export interface Database {
           outbound_pct?: number
           average_ticket?: number
           working_days_per_month?: number
-          conv_activity_to_speech?: number
-          conv_speech_to_meeting?: number
-          conv_meeting_to_proposal?: number
-          conv_proposal_to_close?: number
-          inbound_conv_activity_to_speech?: number
-          inbound_conv_speech_to_meeting?: number
-          inbound_conv_meeting_to_proposal?: number
-          inbound_conv_proposal_to_close?: number
-          closes_needed_monthly?: number | null
-          proposals_needed_monthly?: number | null
-          meetings_needed_monthly?: number | null
-          speeches_needed_monthly?: number | null
+          funnel_stages?: string[]
+          outbound_rates?: number[]
+          inbound_rates?: number[]
           activities_needed_monthly?: number | null
           activities_needed_weekly?: number | null
           activities_needed_daily?: number | null

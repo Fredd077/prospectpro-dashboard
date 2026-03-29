@@ -134,20 +134,21 @@ export function ScenarioCard({ scenario: s }: ScenarioCardProps) {
           <Stat label="Meta mensual" value={formatCurrency(s.monthly_revenue_goal)} />
           <Stat label="Ticket promedio" value={formatCurrency(s.average_ticket)} />
           <Stat label="Actividades/día" value={formatDecimal(s.activities_needed_daily ?? 0)} accent />
-          <Stat label="Cierres/mes" value={formatDecimal(s.closes_needed_monthly ?? 0)} accent />
+          <Stat label="Actividades/mes" value={formatDecimal(s.activities_needed_monthly ?? 0)} accent />
         </div>
 
-        {/* Outbound conversion chain */}
+        {/* Outbound conversion chain — dynamic rates from JSONB */}
         <div>
-          <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1">Outbound</p>
+          <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1">
+            Outbound ({(s.funnel_stages ?? []).join(' → ')})
+          </p>
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground overflow-x-auto">
-            <ConvPill value={s.conv_activity_to_speech} />
-            <span>→</span>
-            <ConvPill value={s.conv_speech_to_meeting} />
-            <span>→</span>
-            <ConvPill value={s.conv_meeting_to_proposal} />
-            <span>→</span>
-            <ConvPill value={s.conv_proposal_to_close} />
+            {(s.outbound_rates ?? []).map((rate, i) => (
+              <span key={i} className="flex items-center gap-1 shrink-0">
+                {i > 0 && <span className="text-muted-foreground/40">·</span>}
+                <ConvPill value={rate} />
+              </span>
+            ))}
           </div>
         </div>
 

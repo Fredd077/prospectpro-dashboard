@@ -22,6 +22,7 @@ import { formatPercent } from '@/lib/utils/formatters'
 import { getSemaphoreColor } from '@/lib/utils/colors'
 import { getActivityGoal, getDailyImpliedGoal } from '@/lib/utils/goals'
 import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
+import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 import type { PeriodType, ActivityType } from '@/lib/types/common'
 import type { DailyCompliance } from '@/lib/types/database'
 import { Activity, BarChart2, TrendingUp, Target } from 'lucide-react'
@@ -229,13 +230,25 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       return Math.ceil(monthly / days)
     }
 
-    funnelStages.push(
-      { label: 'Actividades', planned: scalePlan(s.activities_needed_monthly), actual: totalReal },
-      { label: 'Discursos',   planned: scalePlan(s.speeches_needed_monthly)   },
-      { label: 'Reuniones',   planned: scalePlan(s.meetings_needed_monthly)   },
-      { label: 'Propuestas',  planned: scalePlan(s.proposals_needed_monthly)  },
-      { label: 'Cierres',     planned: scalePlan(s.closes_needed_monthly)     },
-    )
+    const recipeResult = calcRecipe({
+      monthly_revenue_goal:   s.monthly_revenue_goal,
+      average_ticket:         s.average_ticket,
+      outbound_pct:           s.outbound_pct,
+      working_days_per_month: s.working_days_per_month,
+      funnel_stages:  s.funnel_stages  ?? DEFAULT_FUNNEL_STAGES,
+      outbound_rates: s.outbound_rates ?? DEFAULT_OUTBOUND_RATES,
+      inbound_rates:  s.inbound_rates  ?? DEFAULT_INBOUND_RATES,
+    })
+
+    const stageNames = s.funnel_stages ?? DEFAULT_FUNNEL_STAGES
+    stageNames.forEach((stageName, i) => {
+      const planMonthly = (recipeResult.outbound.stage_values[i] ?? 0) + (recipeResult.inbound.stage_values[i] ?? 0)
+      funnelStages.push({
+        label:   stageName,
+        planned: scalePlan(planMonthly),
+        actual:  i === 0 ? totalReal : undefined,
+      })
+    })
   }
 
   return (

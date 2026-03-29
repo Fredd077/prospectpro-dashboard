@@ -6,7 +6,6 @@ import type { RecipeOutputs as RecipeOutputsType, ChannelFunnel } from '@/lib/ca
 interface RecipeOutputsProps {
   outputs: RecipeOutputsType
   monthlyRevenueGoal: number
-  averageTicket: number
 }
 
 function FunnelColumn({
@@ -23,14 +22,11 @@ function FunnelColumn({
   const textColor   = color === 'blue' ? 'text-blue-400'      : 'text-violet-400'
   const barColor    = color === 'blue' ? '#60a5fa'             : '#a78bfa'
 
-  const stages = [
-    { label: 'Actividades / mes', value: funnel.activities_monthly },
-    { label: 'Discursos',         value: funnel.speeches_needed },
-    { label: 'Reuniones',         value: funnel.meetings_needed },
-    { label: 'Propuestas',        value: funnel.proposals_needed },
-    { label: 'Cierres',           value: funnel.closes_needed },
-  ]
-  const max = stages[0].value || 1
+  const stages = funnel.stage_names.map((name, i) => ({
+    label: name,
+    value: funnel.stage_values[i] ?? 0,
+  }))
+  const max = stages[0]?.value || 1
 
   return (
     <div className={`rounded-lg border ${borderColor} ${bgColor} overflow-hidden`}>
@@ -61,13 +57,13 @@ function FunnelColumn({
         </div>
       </div>
 
-      {/* Funnel visual */}
+      {/* Funnel visual — dynamic stages */}
       <div className="px-4 py-3 space-y-2">
         {stages.map((s, i) => {
           const pct = (s.value / max) * 100
           return (
             <div key={i} className="flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground w-24 text-right shrink-0 leading-tight">
+              <span className="text-[10px] text-muted-foreground w-24 text-right shrink-0 leading-tight truncate" title={s.label}>
                 {s.label}
               </span>
               <div className="flex-1 h-4 relative">
@@ -87,7 +83,7 @@ function FunnelColumn({
   )
 }
 
-export function RecipeOutputs({ outputs, monthlyRevenueGoal, averageTicket }: RecipeOutputsProps) {
+export function RecipeOutputs({ outputs, monthlyRevenueGoal }: RecipeOutputsProps) {
   return (
     <div className="space-y-4">
       {/* Total summary */}

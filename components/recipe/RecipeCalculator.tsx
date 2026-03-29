@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { FunnelStageEditor } from './FunnelStageEditor'
 import { RecipeInputs, RECIPE_DEFAULTS } from './RecipeInputs'
 import { RecipeOutputs } from './RecipeOutputs'
-import { calcRecipe } from '@/lib/calculations/recipe'
+import { calcRecipe, adjustRates, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 import { createScenario, updateScenario } from '@/lib/queries/recipe'
 import type { RecipeInputs as RecipeInputsType } from '@/lib/calculations/recipe'
 import type { RecipeScenario } from '@/lib/types/database'
@@ -20,29 +21,49 @@ interface RecipeCalculatorProps {
 
 export function RecipeCalculator({ scenario, readOnly = false }: RecipeCalculatorProps) {
   const router = useRouter()
-  const [name, setName] = useState(scenario?.name ?? '')
+  const [name, setName]             = useState(scenario?.name ?? '')
   const [description, setDescription] = useState(scenario?.description ?? '')
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving]         = useState(false)
 
-  const initialInputs: RecipeInputsType = scenario
-    ? {
-        monthly_revenue_goal: scenario.monthly_revenue_goal,
-        average_ticket: scenario.average_ticket,
-        working_days_per_month: scenario.working_days_per_month,
-        outbound_pct: scenario.outbound_pct,
-        conv_activity_to_speech: scenario.conv_activity_to_speech,
-        conv_speech_to_meeting: scenario.conv_speech_to_meeting,
-        conv_meeting_to_proposal: scenario.conv_meeting_to_proposal,
-        conv_proposal_to_close: scenario.conv_proposal_to_close,
-        inbound_conv_activity_to_speech: scenario.inbound_conv_activity_to_speech,
-        inbound_conv_speech_to_meeting: scenario.inbound_conv_speech_to_meeting,
-        inbound_conv_meeting_to_proposal: scenario.inbound_conv_meeting_to_proposal,
-        inbound_conv_proposal_to_close: scenario.inbound_conv_proposal_to_close,
-      }
-    : RECIPE_DEFAULTS
+  // Funnel stage state lives here — changes trigger RecipeInputs remount via key
+  const [funnelStages, setFunnelStages] = useState<string[]>(
+    scenario?.funnel_stages ?? DEFAULT_FUNNEL_STAGES
+  )
+  const [outboundRates, setOutboundRates] = useState<number[]>(
+    scenario?.outbound_rates ?? DEFAULT_OUTBOUND_RATES
+  )
+  const [inboundRates, setInboundRates] = useState<number[]>(
+    scenario?.inbound_rates ?? DEFAULT_INBOUND_RATES
+  )
+
+  const initialInputs: RecipeInputsType = {
+    monthly_revenue_goal:   scenario?.monthly_revenue_goal   ?? RECIPE_DEFAULTS.monthly_revenue_goal,
+    average_ticket:         scenario?.average_ticket         ?? RECIPE_DEFAULTS.average_ticket,
+    working_days_per_month: scenario?.working_days_per_month ?? RECIPE_DEFAULTS.working_days_per_month,
+    outbound_pct:           scenario?.outbound_pct           ?? RECIPE_DEFAULTS.outbound_pct,
+    funnel_stages:  funnelStages,
+    outbound_rates: outboundRates,
+    inbound_rates:  inboundRates,
+  }
 
   const [inputs, setInputs] = useState<RecipeInputsType>(initialInputs)
-  const outputs = calcRecipe(inputs)
+  const outputs = calcRecipe({ ...inputs, funnel_stages: funnelStages, outbound_rates: outboundRates, inbound_rates: inboundRates })
+
+  function handleStagesChange(newStages: string[]) {
+    const newTransitions = newStages.length - 1
+    const newOut = adjustRates(outboundRates, newTransitions)
+    const newIn  = adjustRates(inboundRates,  newTransitions)
+    setFunnelStages(newStages)
+    setOutboundRates(newOut)
+    setInboundRates(newIn)
+  }
+
+  function handleInputsChange(vals: RecipeInputsType) {
+    // RecipeInputs owns the rate arrays when it's mounted — sync back
+    setOutboundRates(vals.outbound_rates)
+    setInboundRates(vals.inbound_rates)
+    setInputs(vals)
+  }
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -51,12 +72,20 @@ export function RecipeCalculator({ scenario, readOnly = false }: RecipeCalculato
     }
     setSaving(true)
     try {
+      const payload = {
+        ...inputs,
+        funnel_stages:  funnelStages,
+        outbound_rates: outboundRates,
+        inbound_rates:  inboundRates,
+        name,
+        description: description || null,
+      }
       if (scenario) {
-        await updateScenario(scenario.id, { ...inputs, name, description: description || null })
+        await updateScenario(scenario.id, payload)
         toast.success('Escenario actualizado')
         router.refresh()
       } else {
-        const created = await createScenario({ ...inputs, name, description: description || null, is_active: true })
+        const created = await createScenario({ ...payload, is_active: true })
         toast.success('Escenario guardado')
         router.push(`/recipe/${created.id}`)
       }
@@ -100,13 +129,22 @@ export function RecipeCalculator({ scenario, readOnly = false }: RecipeCalculato
           </div>
         )}
 
+        {/* Funnel Stage Editor */}
+        {!readOnly && (
+          <div className="rounded-lg border border-border bg-card p-4">
+            <FunnelStageEditor stages={funnelStages} onChange={handleStagesChange} />
+          </div>
+        )}
+
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4">
             Parámetros
           </p>
+          {/* key= triggers remount when stage count changes, resetting rate sliders */}
           <RecipeInputs
-            defaults={initialInputs}
-            onChange={setInputs}
+            key={funnelStages.join('|')}
+            defaults={{ ...inputs, funnel_stages: funnelStages, outbound_rates: outboundRates, inbound_rates: inboundRates }}
+            onChange={handleInputsChange}
           />
         </div>
 
@@ -119,11 +157,7 @@ export function RecipeCalculator({ scenario, readOnly = false }: RecipeCalculato
 
       {/* Right: Outputs */}
       <div>
-        <RecipeOutputs
-          outputs={outputs}
-          monthlyRevenueGoal={inputs.monthly_revenue_goal}
-          averageTicket={inputs.average_ticket}
-        />
+        <RecipeOutputs outputs={outputs} monthlyRevenueGoal={inputs.monthly_revenue_goal} />
       </div>
     </div>
   )

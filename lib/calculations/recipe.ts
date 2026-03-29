@@ -1,71 +1,71 @@
+// Default funnel configuration — used as fallback across the app
+export const DEFAULT_FUNNEL_STAGES = ['Actividad', 'Discurso', 'Reunión', 'Propuesta', 'Cierre']
+export const DEFAULT_OUTBOUND_RATES = [80, 10, 50, 30]
+export const DEFAULT_INBOUND_RATES  = [100, 100, 50, 30]
+
 export interface RecipeInputs {
   monthly_revenue_goal: number
   outbound_pct: number
   average_ticket: number
   working_days_per_month: number
-  // Outbound conversion rates
-  conv_activity_to_speech: number
-  conv_speech_to_meeting: number
-  conv_meeting_to_proposal: number
-  conv_proposal_to_close: number
-  // Inbound conversion rates (independent)
-  inbound_conv_activity_to_speech: number
-  inbound_conv_speech_to_meeting: number
-  inbound_conv_meeting_to_proposal: number
-  inbound_conv_proposal_to_close: number
+  // Dynamic funnel — arrays must be parallel:
+  //   funnel_stages.length = N stages
+  //   outbound_rates.length = inbound_rates.length = N - 1 transitions
+  funnel_stages: string[]
+  outbound_rates: number[]
+  inbound_rates: number[]
 }
 
 export interface ChannelFunnel {
   revenue_goal: number
-  closes_needed: number
-  proposals_needed: number
-  meetings_needed: number
-  speeches_needed: number
-  activities_monthly: number
+  stage_names: string[]   // label for each stage
+  stage_values: number[]  // calculated value per stage (parallel to stage_names)
+  activities_monthly: number  // = stage_values[0]
   activities_weekly: number
   activities_daily: number
+  closes_needed: number       // = stage_values[last]
 }
 
 export interface RecipeOutputs {
-  // Split funnels
   outbound: ChannelFunnel
-  inbound: ChannelFunnel
-  // Combined totals (used by ScenarioComparison / DB storage)
-  closes_needed_monthly: number
-  proposals_needed_monthly: number
-  meetings_needed_monthly: number
-  speeches_needed_monthly: number
+  inbound:  ChannelFunnel
+  // Combined totals
   activities_needed_monthly: number
-  activities_needed_weekly: number
-  activities_needed_daily: number
+  activities_needed_weekly:  number
+  activities_needed_daily:   number
+  closes_needed_monthly:     number
 }
 
 function calcFunnel(
   revenue_goal: number,
   average_ticket: number,
   working_days: number,
-  conv_a2s: number,
-  conv_s2m: number,
-  conv_m2p: number,
-  conv_p2c: number,
+  stage_names: string[],
+  rates: number[],
 ): ChannelFunnel {
   const safe = (n: number) => (n <= 0 ? 0.0001 : n)
-  const closes    = revenue_goal / safe(average_ticket)
-  const proposals = closes / (safe(conv_p2c) / 100)
-  const meetings  = proposals / (safe(conv_m2p) / 100)
-  const speeches  = meetings / (safe(conv_s2m) / 100)
-  const acts_mo   = speeches / (safe(conv_a2s) / 100)
-  const acts_wk   = acts_mo / (safe(working_days) / 5)
-  const acts_day  = acts_mo / safe(working_days)
+  const n = stage_names.length
+
+  // Work backwards from closes (last stage) to activities (first stage)
+  const raw = new Array(n).fill(0)
+  raw[n - 1] = revenue_goal / safe(average_ticket) // closes needed
+  for (let i = rates.length - 1; i >= 0; i--) {
+    raw[i] = raw[i + 1] / (safe(rates[i]) / 100)
+  }
+
+  const values = raw.map(Math.ceil)
+  const acts_mo  = values[0]
+  const acts_wk  = Math.ceil(acts_mo / (safe(working_days) / 5))
+  const acts_day = Math.ceil(acts_mo / safe(working_days))
+
   return {
     revenue_goal,
-    closes_needed:      Math.ceil(closes),
-    proposals_needed:   Math.ceil(proposals),
-    meetings_needed:    Math.ceil(meetings),
-    speeches_needed:    Math.ceil(speeches),
-    activities_monthly: Math.ceil(acts_mo),
-    activities_weekly:  Math.ceil(acts_wk),
-    activities_daily:   Math.ceil(acts_day),
+    stage_names,
+    stage_values: values,
+    activities_monthly: acts_mo,
+    activities_weekly:  acts_wk,
+    activities_daily:   acts_day,
+    closes_needed:      values[n - 1],
   }
 }
 
@@ -75,40 +75,30 @@ export function calcRecipe(inputs: RecipeInputs): RecipeOutputs {
     outbound_pct,
     average_ticket,
     working_days_per_month,
-    conv_activity_to_speech,
-    conv_speech_to_meeting,
-    conv_meeting_to_proposal,
-    conv_proposal_to_close,
-    inbound_conv_activity_to_speech,
-    inbound_conv_speech_to_meeting,
-    inbound_conv_meeting_to_proposal,
-    inbound_conv_proposal_to_close,
+    funnel_stages,
+    outbound_rates,
+    inbound_rates,
   } = inputs
 
   const outbound_goal = monthly_revenue_goal * (outbound_pct / 100)
   const inbound_goal  = monthly_revenue_goal * ((100 - outbound_pct) / 100)
 
-  const outbound = calcFunnel(
-    outbound_goal, average_ticket, working_days_per_month,
-    conv_activity_to_speech, conv_speech_to_meeting,
-    conv_meeting_to_proposal, conv_proposal_to_close,
-  )
-
-  const inbound = calcFunnel(
-    inbound_goal, average_ticket, working_days_per_month,
-    inbound_conv_activity_to_speech, inbound_conv_speech_to_meeting,
-    inbound_conv_meeting_to_proposal, inbound_conv_proposal_to_close,
-  )
+  const outbound = calcFunnel(outbound_goal, average_ticket, working_days_per_month, funnel_stages, outbound_rates)
+  const inbound  = calcFunnel(inbound_goal,  average_ticket, working_days_per_month, funnel_stages, inbound_rates)
 
   return {
     outbound,
     inbound,
-    closes_needed_monthly:    outbound.closes_needed    + inbound.closes_needed,
-    proposals_needed_monthly: outbound.proposals_needed + inbound.proposals_needed,
-    meetings_needed_monthly:  outbound.meetings_needed  + inbound.meetings_needed,
-    speeches_needed_monthly:  outbound.speeches_needed  + inbound.speeches_needed,
     activities_needed_monthly: outbound.activities_monthly + inbound.activities_monthly,
     activities_needed_weekly:  outbound.activities_weekly  + inbound.activities_weekly,
     activities_needed_daily:   outbound.activities_daily   + inbound.activities_daily,
+    closes_needed_monthly:     outbound.closes_needed      + inbound.closes_needed,
   }
+}
+
+/** Resize a rates array when stage count changes. New transitions default to 50%. */
+export function adjustRates(rates: number[], newTransitions: number): number[] {
+  if (rates.length === newTransitions) return rates
+  if (rates.length > newTransitions) return rates.slice(0, newTransitions)
+  return [...rates, ...Array(newTransitions - rates.length).fill(50)]
 }

@@ -1,4 +1,4 @@
-import { calcRecipe } from '@/lib/calculations/recipe'
+import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 import type { RecipeScenario, Activity } from '@/lib/types/database'
 
 export type GapStatus = 'above' | 'close' | 'below'
@@ -18,16 +18,19 @@ function gapStatus(gap: number, recipe: number): GapStatus {
   return Math.abs(gap) / recipe <= 0.1 ? 'close' : 'below'
 }
 
-/**
- * Compares the active Recipe Scenario (how many activities are NEEDED)
- * against the Activities configuration (how many activities are PLANNED).
- * Uses calcRecipe to re-derive the outbound/inbound split from the scenario.
- */
 export function calcRecipeValidation(
   scenario: RecipeScenario,
   activities: Activity[],
 ): RecipeValidation {
-  const result = calcRecipe(scenario)
+  const result = calcRecipe({
+    monthly_revenue_goal:  scenario.monthly_revenue_goal,
+    outbound_pct:          scenario.outbound_pct,
+    average_ticket:        scenario.average_ticket,
+    working_days_per_month: scenario.working_days_per_month,
+    funnel_stages:  scenario.funnel_stages  ?? DEFAULT_FUNNEL_STAGES,
+    outbound_rates: scenario.outbound_rates ?? DEFAULT_OUTBOUND_RATES,
+    inbound_rates:  scenario.inbound_rates  ?? DEFAULT_INBOUND_RATES,
+  })
 
   const recipeOut   = result.outbound.activities_monthly
   const recipeIn    = result.inbound.activities_monthly

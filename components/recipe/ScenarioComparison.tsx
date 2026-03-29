@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { FunnelChart } from '@/components/charts/FunnelChart'
 import { formatDecimal } from '@/lib/utils/formatters'
 import { upsertActual } from '@/lib/queries/recipe'
+import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 import type { RecipeScenario, RecipeActual } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 
@@ -35,13 +36,15 @@ const PERIOD_LABELS: Record<string, string> = {
   quarterly: 'Trimestre',
 }
 
-const STAGE_KEYS = [
-  { key: 'activities' as const, label: 'Actividades', planKey: 'activities_needed_monthly', actualKey: 'actual_activities' as const },
-  { key: 'speeches'   as const, label: 'Discursos',   planKey: 'speeches_needed_monthly',   actualKey: 'actual_speeches'   as const },
-  { key: 'meetings'   as const, label: 'Reuniones',   planKey: 'meetings_needed_monthly',   actualKey: 'actual_meetings'   as const },
-  { key: 'proposals'  as const, label: 'Propuestas',  planKey: 'proposals_needed_monthly',  actualKey: 'actual_proposals'  as const },
-  { key: 'closes'     as const, label: 'Cierres',     planKey: 'closes_needed_monthly',     actualKey: 'actual_closes'     as const },
+// Map stage index to the 5 available recipe_actuals columns (unchanged schema)
+const ACTUAL_KEYS = [
+  'actual_activities',
+  'actual_speeches',
+  'actual_meetings',
+  'actual_proposals',
+  'actual_closes',
 ] as const
+type ActualKey = typeof ACTUAL_KEYS[number]
 
 function semBadge(pct: number) {
   if (pct >= 100) return 'bg-emerald-400/10 text-emerald-400'
@@ -56,8 +59,8 @@ function semText(pct: number) {
 
 export function ScenarioComparison({ scenario, actuals }: ScenarioComparisonProps) {
   const router = useRouter()
-  const [showForm, setShowForm] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [showForm, setShowForm]           = useState(false)
+  const [saving, setSaving]               = useState(false)
   const [selectedActualId, setSelectedActualId] = useState<string | null>(
     actuals.length > 0 ? actuals[0].id : null
   )
@@ -74,23 +77,40 @@ export function ScenarioComparison({ scenario, actuals }: ScenarioComparisonProp
 
   const selectedActual = actuals.find((a) => a.id === selectedActualId) ?? actuals[0] ?? null
 
-  const funnelStages = [
-    { label: 'Actividades', planned: scenario.activities_needed_monthly ?? 0 },
-    { label: 'Discursos',   planned: scenario.speeches_needed_monthly   ?? 0 },
-    { label: 'Reuniones',   planned: scenario.meetings_needed_monthly   ?? 0 },
-    { label: 'Propuestas',  planned: scenario.proposals_needed_monthly  ?? 0 },
-    { label: 'Cierres',     planned: scenario.closes_needed_monthly     ?? 0 },
-  ]
+  // Compute plan stage values via calcRecipe
+  const result = calcRecipe({
+    monthly_revenue_goal:   scenario.monthly_revenue_goal,
+    outbound_pct:           scenario.outbound_pct,
+    average_ticket:         scenario.average_ticket,
+    working_days_per_month: scenario.working_days_per_month,
+    funnel_stages:  scenario.funnel_stages  ?? DEFAULT_FUNNEL_STAGES,
+    outbound_rates: scenario.outbound_rates ?? DEFAULT_OUTBOUND_RATES,
+    inbound_rates:  scenario.inbound_rates  ?? DEFAULT_INBOUND_RATES,
+  })
 
-  const funnelWithActuals = selectedActual
-    ? [
-        { label: 'Actividades', planned: scenario.activities_needed_monthly ?? 0, actual: selectedActual.actual_activities },
-        { label: 'Discursos',   planned: scenario.speeches_needed_monthly   ?? 0, actual: selectedActual.actual_speeches   },
-        { label: 'Reuniones',   planned: scenario.meetings_needed_monthly   ?? 0, actual: selectedActual.actual_meetings   },
-        { label: 'Propuestas',  planned: scenario.proposals_needed_monthly  ?? 0, actual: selectedActual.actual_proposals  },
-        { label: 'Cierres',     planned: scenario.closes_needed_monthly     ?? 0, actual: selectedActual.actual_closes     },
-      ]
-    : funnelStages
+  const funnelStages = scenario.funnel_stages ?? DEFAULT_FUNNEL_STAGES
+  // Total plan per stage = outbound + inbound
+  const totalPlanPerStage = funnelStages.map((_, i) =>
+    (result.outbound.stage_values[i] ?? 0) + (result.inbound.stage_values[i] ?? 0)
+  )
+
+  // Map each stage to an actual column (capped at 5 available columns)
+  const stageMap = funnelStages.map((stageName, i) => ({
+    label:     stageName,
+    plan:      totalPlanPerStage[i] ?? 0,
+    actualKey: ACTUAL_KEYS[Math.min(i, ACTUAL_KEYS.length - 1)] as ActualKey,
+  }))
+
+  const funnelWithActuals = stageMap.map(({ label, plan, actualKey }) => ({
+    label,
+    planned: plan,
+    actual:  selectedActual ? selectedActual[actualKey] : undefined,
+  }))
+
+  const funnelPlanOnly = stageMap.map(({ label, plan }) => ({
+    label,
+    planned: plan,
+  }))
 
   const handleSaveActual = async () => {
     if (!form.period_start || !form.period_end) {
@@ -111,6 +131,15 @@ export function ScenarioComparison({ scenario, actuals }: ScenarioComparisonProp
     }
   }
 
+  // Form labels: use the user's stage names (up to 5 available columns)
+  const formStageFields = [
+    { key: 'actual_activities' as const, label: funnelStages[0] ?? 'Actividades'  },
+    { key: 'actual_speeches'   as const, label: funnelStages[1] ?? 'Etapa 2'      },
+    { key: 'actual_meetings'   as const, label: funnelStages[2] ?? 'Etapa 3'      },
+    { key: 'actual_proposals'  as const, label: funnelStages[3] ?? 'Etapa 4'      },
+    { key: 'actual_closes'     as const, label: funnelStages[funnelStages.length - 1] ?? 'Cierres' },
+  ].slice(0, Math.min(funnelStages.length, 5))
+
   return (
     <div className="space-y-6">
       {/* Funnel visual */}
@@ -118,7 +147,7 @@ export function ScenarioComparison({ scenario, actuals }: ScenarioComparisonProp
         <h3 className="text-sm font-semibold text-foreground mb-4">
           {selectedActual ? 'Plan vs Real — embudo' : 'Embudo planificado (mensual)'}
         </h3>
-        <FunnelChart stages={funnelWithActuals} />
+        <FunnelChart stages={selectedActual ? funnelWithActuals : funnelPlanOnly} />
       </div>
 
       {/* Plan vs Real comparison table */}
@@ -130,7 +159,6 @@ export function ScenarioComparison({ scenario, actuals }: ScenarioComparisonProp
               {PERIOD_LABELS[selectedActual.period_type]} · {selectedActual.period_start} → {selectedActual.period_end}
             </span>
           </div>
-
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -143,24 +171,18 @@ export function ScenarioComparison({ scenario, actuals }: ScenarioComparisonProp
                 </tr>
               </thead>
               <tbody>
-                {STAGE_KEYS.map(({ label, planKey, actualKey }) => {
-                  const plan   = (scenario[planKey] ?? 0) as number
-                  const real   = selectedActual[actualKey]
-                  const gap    = real - plan
-                  const pct    = plan > 0 ? (real / plan) * 100 : 0
+                {stageMap.map(({ label, plan, actualKey }) => {
+                  const real = selectedActual[actualKey]
+                  const gap  = real - plan
+                  const pct  = plan > 0 ? (real / plan) * 100 : 0
                   return (
                     <tr key={label} className="border-b border-border/50 last:border-0 hover:bg-muted/10">
                       <td className="px-5 py-3 font-medium text-foreground">{label}</td>
-                      <td className="text-right px-4 py-3 tabular-nums text-muted-foreground">
-                        {formatDecimal(plan)}
-                      </td>
+                      <td className="text-right px-4 py-3 tabular-nums text-muted-foreground">{formatDecimal(plan)}</td>
                       <td className={cn('text-right px-4 py-3 tabular-nums font-semibold', semText(pct))}>
                         {formatDecimal(real)}
                       </td>
-                      <td className={cn(
-                        'text-right px-4 py-3 tabular-nums',
-                        gap >= 0 ? 'text-emerald-400' : 'text-red-400'
-                      )}>
+                      <td className={cn('text-right px-4 py-3 tabular-nums', gap >= 0 ? 'text-emerald-400' : 'text-red-400')}>
                         {gap >= 0 ? '+' : ''}{formatDecimal(gap)}
                       </td>
                       <td className="text-right px-5 py-3">
@@ -187,7 +209,6 @@ export function ScenarioComparison({ scenario, actuals }: ScenarioComparisonProp
           </Button>
         </div>
 
-        {/* Add form */}
         {showForm && (
           <div className="p-5 border-b border-border bg-muted/20 space-y-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -205,32 +226,16 @@ export function ScenarioComparison({ scenario, actuals }: ScenarioComparisonProp
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Fecha inicio</Label>
-                <Input
-                  type="date"
-                  value={form.period_start}
-                  onChange={(e) => setForm({ ...form, period_start: e.target.value })}
-                  className="bg-background"
-                />
+                <Input type="date" value={form.period_start} onChange={(e) => setForm({ ...form, period_start: e.target.value })} className="bg-background" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Fecha fin</Label>
-                <Input
-                  type="date"
-                  value={form.period_end}
-                  onChange={(e) => setForm({ ...form, period_end: e.target.value })}
-                  className="bg-background"
-                />
+                <Input type="date" value={form.period_end} onChange={(e) => setForm({ ...form, period_end: e.target.value })} className="bg-background" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-              {[
-                { key: 'actual_activities' as const, label: 'Actividades' },
-                { key: 'actual_speeches'   as const, label: 'Discursos'   },
-                { key: 'actual_meetings'   as const, label: 'Reuniones'   },
-                { key: 'actual_proposals'  as const, label: 'Propuestas'  },
-                { key: 'actual_closes'     as const, label: 'Cierres'     },
-              ].map(({ key, label }) => (
+              {formStageFields.map(({ key, label }) => (
                 <div key={key} className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">{label}</Label>
                   <Input
@@ -249,14 +254,11 @@ export function ScenarioComparison({ scenario, actuals }: ScenarioComparisonProp
                 <Save className="h-3.5 w-3.5 mr-1.5" />
                 {saving ? 'Guardando…' : 'Guardar'}
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>
-                Cancelar
-              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>Cancelar</Button>
             </div>
           </div>
         )}
 
-        {/* Actuals list */}
         {actuals.length === 0 ? (
           <div className="py-10 text-center text-sm text-muted-foreground">
             Aún no hay resultados registrados. Usa el botón &ldquo;Agregar período&rdquo; para registrar datos reales.
@@ -267,17 +269,16 @@ export function ScenarioComparison({ scenario, actuals }: ScenarioComparisonProp
               <thead>
                 <tr className="border-b border-border text-xs text-muted-foreground">
                   <th className="text-left px-5 py-2.5">Período</th>
-                  <th className="text-right px-3 py-2.5">Activ.</th>
-                  <th className="text-right px-3 py-2.5">Discursos</th>
-                  <th className="text-right px-3 py-2.5">Reuniones</th>
-                  <th className="text-right px-3 py-2.5">Propuestas</th>
-                  <th className="text-right px-5 py-2.5">Cierres</th>
+                  {formStageFields.map(({ label }) => (
+                    <th key={label} className="text-right px-3 py-2.5 truncate max-w-[80px]">{label}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {actuals.map((a) => {
-                  const planned = scenario.closes_needed_monthly ?? 1
-                  const closePct = planned > 0 ? (a.actual_closes / planned) * 100 : 0
+                  const closePlan = totalPlanPerStage[funnelStages.length - 1] ?? 1
+                  const closeKey  = ACTUAL_KEYS[Math.min(funnelStages.length - 1, 4)]
+                  const closePct  = closePlan > 0 ? (a[closeKey] / closePlan) * 100 : 0
                   const isSelected = a.id === selectedActualId
                   return (
                     <tr
@@ -290,25 +291,26 @@ export function ScenarioComparison({ scenario, actuals }: ScenarioComparisonProp
                     >
                       <td className="px-5 py-2.5 font-medium">
                         <div className="flex items-center gap-2">
-                          {isSelected && (
-                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
-                          )}
+                          {isSelected && <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />}
                           <div>
                             <div>{PERIOD_LABELS[a.period_type]} · {a.period_start}</div>
                             <div className="text-xs text-muted-foreground">{a.period_start} → {a.period_end}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="text-right px-3 py-2.5 tabular-nums">{a.actual_activities}</td>
-                      <td className="text-right px-3 py-2.5 tabular-nums">{a.actual_speeches}</td>
-                      <td className="text-right px-3 py-2.5 tabular-nums">{a.actual_meetings}</td>
-                      <td className="text-right px-3 py-2.5 tabular-nums">{a.actual_proposals}</td>
-                      <td className={cn(
-                        'text-right px-5 py-2.5 tabular-nums font-semibold',
-                        closePct >= 100 ? 'text-emerald-400' : closePct >= 70 ? 'text-amber-400' : 'text-red-400'
-                      )}>
-                        {a.actual_closes}
-                      </td>
+                      {formStageFields.map(({ key, label }) => (
+                        <td
+                          key={key}
+                          className={cn(
+                            'text-right px-3 py-2.5 tabular-nums',
+                            key === 'actual_closes'
+                              ? cn('font-semibold', closePct >= 100 ? 'text-emerald-400' : closePct >= 70 ? 'text-amber-400' : 'text-red-400')
+                              : ''
+                          )}
+                        >
+                          {a[key]}
+                        </td>
+                      ))}
                     </tr>
                   )
                 })}

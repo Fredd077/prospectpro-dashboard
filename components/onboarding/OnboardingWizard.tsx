@@ -14,21 +14,15 @@ interface RecipeData {
   monthly_revenue_goal: number
   average_ticket: number
   outbound_pct: number
-  conv_activity_to_speech: number
-  conv_speech_to_meeting: number
-  conv_meeting_to_proposal: number
-  conv_proposal_to_close: number
-  inbound_conv_activity_to_speech: number
-  inbound_conv_speech_to_meeting: number
-  inbound_conv_meeting_to_proposal: number
-  inbound_conv_proposal_to_close: number
+  funnel_stages: string[]
+  outbound_rates: number[]
+  inbound_rates: number[]
 }
 
 export function OnboardingWizard({ userName }: { userName: string | null }) {
   const router = useRouter()
-  const [step, setStep] = useState<WizardStep>(1)
-  const [recipeData, setRecipeData] = useState<RecipeData | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [step, setStep]           = useState<WizardStep>(1)
+  const [saving, setSaving]       = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
   async function handleRecipeSave(data: RecipeData) {
@@ -36,7 +30,6 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
     setSaveError(null)
     try {
       await saveOnboardingRecipe(data)
-      setRecipeData(data)
       setStep(3)
     } catch (e) {
       console.error('[onboarding] saveOnboardingRecipe failed:', e)
@@ -90,15 +83,9 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
       )}
 
       {/* Steps */}
-      {step === 1 && (
-        <StepWelcome userName={userName} onNext={() => setStep(2)} />
-      )}
-      {step === 2 && (
-        <StepRecipe onSave={handleRecipeSave} saving={saving} />
-      )}
-      {step === 3 && (
-        <StepActivities onSave={handleActivitiesSave} saving={saving} />
-      )}
+      {step === 1 && <StepWelcome userName={userName} onNext={() => setStep(2)} />}
+      {step === 2 && <StepRecipe onSave={handleRecipeSave} saving={saving} />}
+      {step === 3 && <StepActivities onSave={handleActivitiesSave} saving={saving} />}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { RecipeScenarioInsert, RecipeScenarioUpdate, RecipeActualInsert } from '@/lib/types/database'
-import { calcRecipe } from '@/lib/calculations/recipe'
+import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 
 export async function fetchScenarios() {
   const sb = getSupabaseBrowserClient()
@@ -23,36 +23,32 @@ export async function fetchScenario(id: string) {
   return data
 }
 
-export async function createScenario(payload: Omit<RecipeScenarioInsert,
-  'closes_needed_monthly' | 'proposals_needed_monthly' | 'meetings_needed_monthly' |
-  'speeches_needed_monthly' | 'activities_needed_monthly' | 'activities_needed_weekly' |
-  'activities_needed_daily'>) {
+export async function createScenario(payload: Omit<RecipeScenarioInsert, 'activities_needed_monthly' | 'activities_needed_weekly' | 'activities_needed_daily'>) {
   const sb = getSupabaseBrowserClient()
+  const funnel_stages   = payload.funnel_stages   ?? DEFAULT_FUNNEL_STAGES
+  const outbound_rates  = payload.outbound_rates  ?? DEFAULT_OUTBOUND_RATES
+  const inbound_rates   = payload.inbound_rates   ?? DEFAULT_INBOUND_RATES
+
   const outputs = calcRecipe({
-    monthly_revenue_goal: payload.monthly_revenue_goal,
-    outbound_pct: payload.outbound_pct ?? 50,
-    average_ticket: payload.average_ticket,
+    monthly_revenue_goal:  payload.monthly_revenue_goal,
+    outbound_pct:          payload.outbound_pct ?? 60,
+    average_ticket:        payload.average_ticket,
     working_days_per_month: payload.working_days_per_month ?? 22,
-    conv_activity_to_speech: payload.conv_activity_to_speech,
-    conv_speech_to_meeting: payload.conv_speech_to_meeting,
-    conv_meeting_to_proposal: payload.conv_meeting_to_proposal,
-    conv_proposal_to_close: payload.conv_proposal_to_close,
-    inbound_conv_activity_to_speech:  payload.inbound_conv_activity_to_speech  ?? payload.conv_activity_to_speech,
-    inbound_conv_speech_to_meeting:   payload.inbound_conv_speech_to_meeting   ?? payload.conv_speech_to_meeting,
-    inbound_conv_meeting_to_proposal: payload.inbound_conv_meeting_to_proposal ?? payload.conv_meeting_to_proposal,
-    inbound_conv_proposal_to_close:   payload.inbound_conv_proposal_to_close   ?? payload.conv_proposal_to_close,
+    funnel_stages,
+    outbound_rates,
+    inbound_rates,
   })
+
   const { data, error } = await sb
     .from('recipe_scenarios')
     .insert({
       ...payload,
-      closes_needed_monthly: outputs.closes_needed_monthly,
-      proposals_needed_monthly: outputs.proposals_needed_monthly,
-      meetings_needed_monthly: outputs.meetings_needed_monthly,
-      speeches_needed_monthly: outputs.speeches_needed_monthly,
+      funnel_stages,
+      outbound_rates,
+      inbound_rates,
       activities_needed_monthly: outputs.activities_needed_monthly,
-      activities_needed_weekly: outputs.activities_needed_weekly,
-      activities_needed_daily: outputs.activities_needed_daily,
+      activities_needed_weekly:  outputs.activities_needed_weekly,
+      activities_needed_daily:   outputs.activities_needed_daily,
     })
     .select()
     .single()
@@ -63,31 +59,30 @@ export async function createScenario(payload: Omit<RecipeScenarioInsert,
 export async function updateScenario(id: string, payload: RecipeScenarioUpdate) {
   const sb = getSupabaseBrowserClient()
   const current = await fetchScenario(id)
+  const funnel_stages  = payload.funnel_stages  ?? current.funnel_stages
+  const outbound_rates = payload.outbound_rates ?? current.outbound_rates
+  const inbound_rates  = payload.inbound_rates  ?? current.inbound_rates
+
   const outputs = calcRecipe({
-    monthly_revenue_goal: payload.monthly_revenue_goal ?? current.monthly_revenue_goal,
-    outbound_pct: payload.outbound_pct ?? current.outbound_pct,
-    average_ticket: payload.average_ticket ?? current.average_ticket,
+    monthly_revenue_goal:  payload.monthly_revenue_goal  ?? current.monthly_revenue_goal,
+    outbound_pct:          payload.outbound_pct          ?? current.outbound_pct,
+    average_ticket:        payload.average_ticket        ?? current.average_ticket,
     working_days_per_month: payload.working_days_per_month ?? current.working_days_per_month,
-    conv_activity_to_speech: payload.conv_activity_to_speech ?? current.conv_activity_to_speech,
-    conv_speech_to_meeting: payload.conv_speech_to_meeting ?? current.conv_speech_to_meeting,
-    conv_meeting_to_proposal: payload.conv_meeting_to_proposal ?? current.conv_meeting_to_proposal,
-    conv_proposal_to_close: payload.conv_proposal_to_close ?? current.conv_proposal_to_close,
-    inbound_conv_activity_to_speech:  payload.inbound_conv_activity_to_speech  ?? current.inbound_conv_activity_to_speech,
-    inbound_conv_speech_to_meeting:   payload.inbound_conv_speech_to_meeting   ?? current.inbound_conv_speech_to_meeting,
-    inbound_conv_meeting_to_proposal: payload.inbound_conv_meeting_to_proposal ?? current.inbound_conv_meeting_to_proposal,
-    inbound_conv_proposal_to_close:   payload.inbound_conv_proposal_to_close   ?? current.inbound_conv_proposal_to_close,
+    funnel_stages,
+    outbound_rates,
+    inbound_rates,
   })
+
   const { data, error } = await sb
     .from('recipe_scenarios')
     .update({
       ...payload,
-      closes_needed_monthly: outputs.closes_needed_monthly,
-      proposals_needed_monthly: outputs.proposals_needed_monthly,
-      meetings_needed_monthly: outputs.meetings_needed_monthly,
-      speeches_needed_monthly: outputs.speeches_needed_monthly,
+      funnel_stages,
+      outbound_rates,
+      inbound_rates,
       activities_needed_monthly: outputs.activities_needed_monthly,
-      activities_needed_weekly: outputs.activities_needed_weekly,
-      activities_needed_daily: outputs.activities_needed_daily,
+      activities_needed_weekly:  outputs.activities_needed_weekly,
+      activities_needed_daily:   outputs.activities_needed_daily,
     })
     .eq('id', id)
     .select()
@@ -104,7 +99,6 @@ export async function deleteScenario(id: string) {
 
 export async function setActiveScenario(id: string) {
   const sb = getSupabaseBrowserClient()
-  // Deactivate all, then activate the target
   const { error: e1 } = await sb
     .from('recipe_scenarios')
     .update({ is_active: false })
@@ -120,6 +114,7 @@ export async function setActiveScenario(id: string) {
 export async function duplicateScenario(id: string) {
   const sb = getSupabaseBrowserClient()
   const original = await fetchScenario(id)
+  // Exclude generated/readonly columns from the spread
   const { id: _id, created_at, updated_at, inbound_pct: _inbound_pct, ...rest } = original
   const { data, error } = await sb
     .from('recipe_scenarios')

@@ -2,17 +2,17 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { calcRecipe } from '@/lib/calculations/recipe'
+import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 
 // Default starter activities for new users
 const DEFAULT_ACTIVITIES = [
-  { name: 'Llamadas en frío',      type: 'OUTBOUND' as const, channel: 'Teléfono',  monthly_goal: 60,  sort_order: 1 },
-  { name: 'Mensajes LinkedIn',     type: 'OUTBOUND' as const, channel: 'LinkedIn',  monthly_goal: 80,  sort_order: 2 },
-  { name: 'Emails de prospección', type: 'OUTBOUND' as const, channel: 'Email',     monthly_goal: 80,  sort_order: 3 },
-  { name: 'Seguimientos',          type: 'OUTBOUND' as const, channel: 'Múltiple',  monthly_goal: 40,  sort_order: 4 },
+  { name: 'Llamadas en frío',      type: 'OUTBOUND' as const, channel: 'Teléfono',   monthly_goal: 60, sort_order: 1 },
+  { name: 'Mensajes LinkedIn',     type: 'OUTBOUND' as const, channel: 'LinkedIn',   monthly_goal: 80, sort_order: 2 },
+  { name: 'Emails de prospección', type: 'OUTBOUND' as const, channel: 'Email',      monthly_goal: 80, sort_order: 3 },
+  { name: 'Seguimientos',          type: 'OUTBOUND' as const, channel: 'Múltiple',   monthly_goal: 40, sort_order: 4 },
   { name: 'Eventos de networking', type: 'OUTBOUND' as const, channel: 'Presencial', monthly_goal: 4,  sort_order: 5 },
-  { name: 'Respuestas a inbound',  type: 'INBOUND'  as const, channel: 'Múltiple',  monthly_goal: 20,  sort_order: 6 },
-  { name: 'Demos realizadas',      type: 'INBOUND'  as const, channel: 'Video',     monthly_goal: 8,   sort_order: 7 },
+  { name: 'Respuestas a inbound',  type: 'INBOUND'  as const, channel: 'Múltiple',   monthly_goal: 20, sort_order: 6 },
+  { name: 'Demos realizadas',      type: 'INBOUND'  as const, channel: 'Video',      monthly_goal: 8,  sort_order: 7 },
 ]
 
 interface RecipeFormData {
@@ -20,14 +20,9 @@ interface RecipeFormData {
   monthly_revenue_goal: number
   average_ticket: number
   outbound_pct: number
-  conv_activity_to_speech: number
-  conv_speech_to_meeting: number
-  conv_meeting_to_proposal: number
-  conv_proposal_to_close: number
-  inbound_conv_activity_to_speech: number
-  inbound_conv_speech_to_meeting: number
-  inbound_conv_meeting_to_proposal: number
-  inbound_conv_proposal_to_close: number
+  funnel_stages: string[]
+  outbound_rates: number[]
+  inbound_rates: number[]
 }
 
 export async function saveOnboardingRecipe(data: RecipeFormData) {
@@ -35,20 +30,18 @@ export async function saveOnboardingRecipe(data: RecipeFormData) {
   const { data: { user } } = await sb.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  // Calculate funnel numbers using independent inbound rates
+  const funnel_stages  = data.funnel_stages  ?? DEFAULT_FUNNEL_STAGES
+  const outbound_rates = data.outbound_rates ?? DEFAULT_OUTBOUND_RATES
+  const inbound_rates  = data.inbound_rates  ?? DEFAULT_INBOUND_RATES
+
   const result = calcRecipe({
-    monthly_revenue_goal: data.monthly_revenue_goal,
-    average_ticket: data.average_ticket,
-    outbound_pct: data.outbound_pct,
+    monthly_revenue_goal:  data.monthly_revenue_goal,
+    average_ticket:        data.average_ticket,
+    outbound_pct:          data.outbound_pct,
     working_days_per_month: 20,
-    conv_activity_to_speech: data.conv_activity_to_speech,
-    conv_speech_to_meeting: data.conv_speech_to_meeting,
-    conv_meeting_to_proposal: data.conv_meeting_to_proposal,
-    conv_proposal_to_close: data.conv_proposal_to_close,
-    inbound_conv_activity_to_speech: data.inbound_conv_activity_to_speech,
-    inbound_conv_speech_to_meeting: data.inbound_conv_speech_to_meeting,
-    inbound_conv_meeting_to_proposal: data.inbound_conv_meeting_to_proposal,
-    inbound_conv_proposal_to_close: data.inbound_conv_proposal_to_close,
+    funnel_stages,
+    outbound_rates,
+    inbound_rates,
   })
 
   // Deactivate any existing active scenario for this user
@@ -67,21 +60,12 @@ export async function saveOnboardingRecipe(data: RecipeFormData) {
     outbound_pct: data.outbound_pct,
     // inbound_pct is GENERATED ALWAYS AS (100 - outbound_pct) STORED — do not insert
     working_days_per_month: 20,
-    conv_activity_to_speech: data.conv_activity_to_speech,
-    conv_speech_to_meeting: data.conv_speech_to_meeting,
-    conv_meeting_to_proposal: data.conv_meeting_to_proposal,
-    conv_proposal_to_close: data.conv_proposal_to_close,
-    inbound_conv_activity_to_speech: data.inbound_conv_activity_to_speech,
-    inbound_conv_speech_to_meeting: data.inbound_conv_speech_to_meeting,
-    inbound_conv_meeting_to_proposal: data.inbound_conv_meeting_to_proposal,
-    inbound_conv_proposal_to_close: data.inbound_conv_proposal_to_close,
-    closes_needed_monthly: result.outbound.closes_needed + result.inbound.closes_needed,
-    proposals_needed_monthly: result.outbound.proposals_needed + result.inbound.proposals_needed,
-    meetings_needed_monthly: result.outbound.meetings_needed + result.inbound.meetings_needed,
-    speeches_needed_monthly: result.outbound.speeches_needed + result.inbound.speeches_needed,
-    activities_needed_monthly: result.outbound.activities_monthly + result.inbound.activities_monthly,
-    activities_needed_weekly: Math.ceil((result.outbound.activities_monthly + result.inbound.activities_monthly) / 4),
-    activities_needed_daily: Math.ceil((result.outbound.activities_monthly + result.inbound.activities_monthly) / 20),
+    funnel_stages,
+    outbound_rates,
+    inbound_rates,
+    activities_needed_monthly: result.activities_needed_monthly,
+    activities_needed_weekly:  result.activities_needed_weekly,
+    activities_needed_daily:   result.activities_needed_daily,
   })
 
   if (error) throw error
@@ -97,12 +81,11 @@ export async function saveOnboardingActivities(overrides: ActivityGoalOverride[]
   const { data: { user } } = await sb.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  // Build activities with overrides applied
   const activities = DEFAULT_ACTIVITIES.map((act) => {
     const override = overrides.find((o) => o.name === act.name)
     const monthly_goal = override ? override.monthly_goal : act.monthly_goal
-    const weekly_goal = Math.ceil(monthly_goal / 4)
-    const daily_goal = Math.ceil(monthly_goal / 20)
+    const weekly_goal  = Math.ceil(monthly_goal / 4)
+    const daily_goal   = Math.ceil(monthly_goal / 20)
     return {
       user_id: user.id,
       name: act.name,

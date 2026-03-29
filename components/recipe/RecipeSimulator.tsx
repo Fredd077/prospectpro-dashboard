@@ -4,8 +4,8 @@ import { useState, useMemo } from 'react'
 import { RotateCcw, TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RecipeInputs, RECIPE_DEFAULTS } from './RecipeInputs'
-import { calcRecipe } from '@/lib/calculations/recipe'
-import { formatDecimal, formatCurrency } from '@/lib/utils/formatters'
+import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
+import { formatDecimal } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { RecipeInputs as RecipeInputsType } from '@/lib/calculations/recipe'
 import type { RecipeScenario } from '@/lib/types/database'
@@ -23,10 +23,10 @@ interface DeltaRowProps {
 }
 
 function DeltaRow({ label, saved, simulated, unit = '', lowerIsBetter = false }: DeltaRowProps) {
-  const delta = simulated - saved
+  const delta    = simulated - saved
   const improved = lowerIsBetter ? delta < 0 : delta > 0
   const worsened = lowerIsBetter ? delta > 0 : delta < 0
-  const neutral = delta === 0
+  const neutral  = delta === 0
 
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
@@ -58,24 +58,19 @@ function DeltaRow({ label, saved, simulated, unit = '', lowerIsBetter = false }:
 
 export function RecipeSimulator({ scenario }: RecipeSimulatorProps) {
   const savedInputs: RecipeInputsType = {
-    monthly_revenue_goal: scenario.monthly_revenue_goal,
-    average_ticket: scenario.average_ticket,
+    monthly_revenue_goal:   scenario.monthly_revenue_goal,
+    average_ticket:         scenario.average_ticket,
     working_days_per_month: scenario.working_days_per_month,
-    outbound_pct: scenario.outbound_pct,
-    conv_activity_to_speech: scenario.conv_activity_to_speech,
-    conv_speech_to_meeting: scenario.conv_speech_to_meeting,
-    conv_meeting_to_proposal: scenario.conv_meeting_to_proposal,
-    conv_proposal_to_close: scenario.conv_proposal_to_close,
-    inbound_conv_activity_to_speech: scenario.inbound_conv_activity_to_speech,
-    inbound_conv_speech_to_meeting: scenario.inbound_conv_speech_to_meeting,
-    inbound_conv_meeting_to_proposal: scenario.inbound_conv_meeting_to_proposal,
-    inbound_conv_proposal_to_close: scenario.inbound_conv_proposal_to_close,
+    outbound_pct:           scenario.outbound_pct,
+    funnel_stages:  scenario.funnel_stages  ?? DEFAULT_FUNNEL_STAGES,
+    outbound_rates: scenario.outbound_rates ?? DEFAULT_OUTBOUND_RATES,
+    inbound_rates:  scenario.inbound_rates  ?? DEFAULT_INBOUND_RATES,
   }
 
   const [simInputs, setSimInputs] = useState<RecipeInputsType>(savedInputs)
-  const [isDirty, setIsDirty] = useState(false)
+  const [isDirty, setIsDirty]     = useState(false)
 
-  const savedOutputs = useMemo(() => calcRecipe(savedInputs), [scenario.id])
+  const savedOutputs = useMemo(() => calcRecipe(savedInputs), [scenario.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const simOutputs   = useMemo(() => calcRecipe(simInputs), [simInputs])
 
   const handleChange = (inputs: RecipeInputsType) => {
@@ -88,11 +83,9 @@ export function RecipeSimulator({ scenario }: RecipeSimulatorProps) {
     setIsDirty(false)
   }
 
-  // Key insight strings
+  const actDelta   = simOutputs.activities_needed_daily - savedOutputs.activities_needed_daily
+  const closeDelta = simOutputs.closes_needed_monthly   - savedOutputs.closes_needed_monthly
   const insights: string[] = []
-  const actDelta = simOutputs.activities_needed_daily - savedOutputs.activities_needed_daily
-  const closeDelta = simOutputs.closes_needed_monthly - savedOutputs.closes_needed_monthly
-
   if (Math.abs(actDelta) >= 1) {
     insights.push(
       actDelta < 0
@@ -110,7 +103,6 @@ export function RecipeSimulator({ scenario }: RecipeSimulatorProps) {
 
   return (
     <div className="space-y-6">
-      {/* Info banner */}
       <div className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-4 py-3">
         <p className="text-xs text-amber-400 font-medium">Modo simulación</p>
         <p className="text-xs text-muted-foreground mt-0.5">
@@ -133,7 +125,11 @@ export function RecipeSimulator({ scenario }: RecipeSimulatorProps) {
             )}
           </div>
           <div className="rounded-lg border border-border bg-card p-4">
-            <RecipeInputs defaults={simInputs} onChange={handleChange} />
+            <RecipeInputs
+              key={simInputs.funnel_stages.join('|')}
+              defaults={simInputs}
+              onChange={handleChange}
+            />
           </div>
         </div>
 
@@ -143,7 +139,6 @@ export function RecipeSimulator({ scenario }: RecipeSimulatorProps) {
             Impacto vs escenario guardado
           </h3>
 
-          {/* Insight pills */}
           {isDirty && insights.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {insights.map((msg, i) => (
@@ -162,9 +157,7 @@ export function RecipeSimulator({ scenario }: RecipeSimulatorProps) {
             </div>
           )}
 
-          {/* Delta table */}
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {/* Column headers */}
             <div className="grid grid-cols-[1fr_80px_80px_96px] gap-3 px-4 py-2 bg-muted/30 border-b border-border">
               <span className="text-xs text-muted-foreground">Métrica</span>
               <span className="text-xs text-muted-foreground text-right">Guardado</span>
@@ -172,82 +165,27 @@ export function RecipeSimulator({ scenario }: RecipeSimulatorProps) {
               <span className="text-xs text-muted-foreground text-right">Delta</span>
             </div>
             <div className="px-4 divide-y divide-transparent">
-
-              {/* OUTBOUND section */}
               <div className="pt-2 pb-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-400 mb-1">
-                  Outbound
-                </p>
-                <DeltaRow
-                  label="Actividades / día"
-                  saved={savedOutputs.outbound.activities_daily}
-                  simulated={simOutputs.outbound.activities_daily}
-                  lowerIsBetter
-                />
-                <DeltaRow
-                  label="Actividades / mes"
-                  saved={savedOutputs.outbound.activities_monthly}
-                  simulated={simOutputs.outbound.activities_monthly}
-                  lowerIsBetter
-                />
-                <DeltaRow
-                  label="Cierres / mes"
-                  saved={savedOutputs.outbound.closes_needed}
-                  simulated={simOutputs.outbound.closes_needed}
-                />
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-400 mb-1">Outbound</p>
+                <DeltaRow label="Actividades / día"   saved={savedOutputs.outbound.activities_daily}   simulated={simOutputs.outbound.activities_daily}   lowerIsBetter />
+                <DeltaRow label="Actividades / mes"   saved={savedOutputs.outbound.activities_monthly} simulated={simOutputs.outbound.activities_monthly} lowerIsBetter />
+                <DeltaRow label="Cierres / mes"       saved={savedOutputs.outbound.closes_needed}      simulated={simOutputs.outbound.closes_needed} />
               </div>
-
-              {/* INBOUND section */}
               <div className="pt-2 pb-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-400 mb-1">
-                  Inbound
-                </p>
-                <DeltaRow
-                  label="Actividades / día"
-                  saved={savedOutputs.inbound.activities_daily}
-                  simulated={simOutputs.inbound.activities_daily}
-                  lowerIsBetter
-                />
-                <DeltaRow
-                  label="Actividades / mes"
-                  saved={savedOutputs.inbound.activities_monthly}
-                  simulated={simOutputs.inbound.activities_monthly}
-                  lowerIsBetter
-                />
-                <DeltaRow
-                  label="Cierres / mes"
-                  saved={savedOutputs.inbound.closes_needed}
-                  simulated={simOutputs.inbound.closes_needed}
-                />
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-400 mb-1">Inbound</p>
+                <DeltaRow label="Actividades / día"   saved={savedOutputs.inbound.activities_daily}   simulated={simOutputs.inbound.activities_daily}   lowerIsBetter />
+                <DeltaRow label="Actividades / mes"   saved={savedOutputs.inbound.activities_monthly} simulated={simOutputs.inbound.activities_monthly} lowerIsBetter />
+                <DeltaRow label="Cierres / mes"       saved={savedOutputs.inbound.closes_needed}      simulated={simOutputs.inbound.closes_needed} />
               </div>
-
-              {/* Total section */}
               <div className="pt-2 pb-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                  Total
-                </p>
-                <DeltaRow
-                  label="Actividades / día"
-                  saved={savedOutputs.activities_needed_daily}
-                  simulated={simOutputs.activities_needed_daily}
-                  lowerIsBetter
-                />
-                <DeltaRow
-                  label="Actividades / mes"
-                  saved={savedOutputs.activities_needed_monthly}
-                  simulated={simOutputs.activities_needed_monthly}
-                  lowerIsBetter
-                />
-                <DeltaRow
-                  label="Cierres totales / mes"
-                  saved={savedOutputs.closes_needed_monthly}
-                  simulated={simOutputs.closes_needed_monthly}
-                />
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total</p>
+                <DeltaRow label="Actividades / día"   saved={savedOutputs.activities_needed_daily}   simulated={simOutputs.activities_needed_daily}   lowerIsBetter />
+                <DeltaRow label="Actividades / mes"   saved={savedOutputs.activities_needed_monthly} simulated={simOutputs.activities_needed_monthly} lowerIsBetter />
+                <DeltaRow label="Cierres totales / mes" saved={savedOutputs.closes_needed_monthly}  simulated={simOutputs.closes_needed_monthly} />
               </div>
             </div>
           </div>
 
-          {/* Not dirty state */}
           {!isDirty && (
             <p className="text-center text-xs text-muted-foreground pt-2">
               Modifica cualquier parámetro para ver el impacto
