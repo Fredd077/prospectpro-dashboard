@@ -3,9 +3,50 @@ export type Json = string | number | boolean | null | { [key: string]: Json } | 
 export interface Database {
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          id: string
+          email: string
+          full_name: string | null
+          avatar_url: string | null
+          role: 'pending' | 'active' | 'inactive' | 'admin'
+          company: string | null
+          onboarding_completed: boolean
+          created_at: string
+          last_seen_at: string | null
+          activated_at: string | null
+          activated_by: string | null
+        }
+        Insert: {
+          id: string
+          email: string
+          full_name?: string | null
+          avatar_url?: string | null
+          role?: 'pending' | 'active' | 'inactive' | 'admin'
+          company?: string | null
+          onboarding_completed?: boolean
+          created_at?: string
+          last_seen_at?: string | null
+          activated_at?: string | null
+          activated_by?: string | null
+        }
+        Update: {
+          email?: string
+          full_name?: string | null
+          avatar_url?: string | null
+          role?: 'pending' | 'active' | 'inactive' | 'admin'
+          company?: string | null
+          onboarding_completed?: boolean
+          last_seen_at?: string | null
+          activated_at?: string | null
+          activated_by?: string | null
+        }
+        Relationships: []
+      }
       activities: {
         Row: {
           id: string
+          user_id: string
           name: string
           type: 'OUTBOUND' | 'INBOUND'
           channel: string
@@ -20,6 +61,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          user_id?: string
           name: string
           type: 'OUTBOUND' | 'INBOUND'
           channel: string
@@ -34,6 +76,7 @@ export interface Database {
         }
         Update: {
           id?: string
+          user_id?: string
           name?: string
           type?: 'OUTBOUND' | 'INBOUND'
           channel?: string
@@ -50,6 +93,7 @@ export interface Database {
       activity_logs: {
         Row: {
           id: string
+          user_id: string
           activity_id: string
           log_date: string
           day_goal: number
@@ -61,6 +105,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          user_id?: string
           activity_id: string
           log_date: string
           day_goal?: number
@@ -72,6 +117,7 @@ export interface Database {
         }
         Update: {
           id?: string
+          user_id?: string
           activity_id?: string
           log_date?: string
           day_goal?: number
@@ -136,6 +182,7 @@ export interface Database {
       recipe_scenarios: {
         Row: {
           id: string
+          user_id: string
           name: string
           description: string | null
           is_active: boolean
@@ -164,6 +211,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          user_id?: string
           name: string
           description?: string | null
           is_active?: boolean
@@ -191,6 +239,7 @@ export interface Database {
         }
         Update: {
           id?: string
+          user_id?: string
           name?: string
           description?: string | null
           is_active?: boolean
@@ -220,6 +269,7 @@ export interface Database {
       recipe_actuals: {
         Row: {
           id: string
+          user_id: string
           scenario_id: string
           period_start: string
           period_end: string
@@ -236,6 +286,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          user_id?: string
           scenario_id: string
           period_start: string
           period_end: string
@@ -252,6 +303,7 @@ export interface Database {
         }
         Update: {
           id?: string
+          user_id?: string
           scenario_id?: string
           period_start?: string
           period_end?: string
@@ -301,6 +353,9 @@ export interface Database {
 }
 
 // Convenience type aliases
+export type Profile = Database['public']['Tables']['profiles']['Row']
+export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
+
 export type Activity = Database['public']['Tables']['activities']['Row']
 export type ActivityInsert = Database['public']['Tables']['activities']['Insert']
 export type ActivityUpdate = Database['public']['Tables']['activities']['Update']
