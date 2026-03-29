@@ -154,18 +154,20 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     return { date, meta: Math.round(cumMeta), outbound: cumOut, inbound: cumIn }
   })
 
-  // --- Radar data (by channel) — goals from activities, real from logs ---
+  // --- Radar data (by channel) ---
+  // Both goal and real are derived from allActivities so the radar is
+  // always consistent with the ActivityBreakdownTable. Iterating allLogs
+  // directly would include logs for inactive/deleted activities that are
+  // absent from allActivities, causing non-zero radar reals while the
+  // breakdown table shows 0.
   const channelGoal: Record<string, number> = {}
   const channelReal: Record<string, number> = {}
   for (const a of allActivities) {
     const ch = CHANNEL_LABELS[a.channel] ?? a.channel
     channelGoal[ch] = (channelGoal[ch] ?? 0) + getActivityGoal(a, period)
+    channelReal[ch] = (channelReal[ch] ?? 0) + (realByActivity[a.id] ?? 0)
   }
-  for (const log of allLogs) {
-    const ch = CHANNEL_LABELS[log.channel] ?? log.channel
-    channelReal[ch] = (channelReal[ch] ?? 0) + log.real_executed
-  }
-  const radarData = Object.keys({ ...channelGoal, ...channelReal }).map((ch) => {
+  const radarData = Object.keys(channelGoal).map((ch) => {
     const goal = channelGoal[ch] ?? 0
     const real = channelReal[ch] ?? 0
     return { channel: ch, real, goal, pct: goal > 0 ? Math.round((real / goal) * 100) : 0 }
