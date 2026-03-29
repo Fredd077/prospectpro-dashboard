@@ -120,7 +120,7 @@ export async function setActiveScenario(id: string) {
 export async function duplicateScenario(id: string) {
   const sb = getSupabaseBrowserClient()
   const original = await fetchScenario(id)
-  const { id: _id, created_at, updated_at, ...rest } = original
+  const { id: _id, created_at, updated_at, inbound_pct: _inbound_pct, ...rest } = original
   const { data, error } = await sb
     .from('recipe_scenarios')
     .insert({ ...rest, name: `Copia de ${original.name}`, is_active: false })

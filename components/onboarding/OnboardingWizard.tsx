@@ -29,15 +29,18 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
   const [step, setStep] = useState<WizardStep>(1)
   const [recipeData, setRecipeData] = useState<RecipeData | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   async function handleRecipeSave(data: RecipeData) {
     setSaving(true)
+    setSaveError(null)
     try {
       await saveOnboardingRecipe(data)
       setRecipeData(data)
       setStep(3)
     } catch (e) {
-      console.error(e)
+      console.error('[onboarding] saveOnboardingRecipe failed:', e)
+      setSaveError('Error al guardar el recetario. Intenta de nuevo.')
     } finally {
       setSaving(false)
     }
@@ -45,12 +48,14 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
 
   async function handleActivitiesSave(overrides: { name: string; monthly_goal: number }[]) {
     setSaving(true)
+    setSaveError(null)
     try {
       await saveOnboardingActivities(overrides)
       router.push('/dashboard')
       router.refresh()
     } catch (e) {
-      console.error(e)
+      console.error('[onboarding] saveOnboardingActivities failed:', e)
+      setSaveError('Error al guardar las actividades. Intenta de nuevo.')
       setSaving(false)
     }
   }
@@ -76,6 +81,13 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
           </div>
         ))}
       </div>
+
+      {/* Error banner */}
+      {saveError && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive text-center">
+          {saveError}
+        </div>
+      )}
 
       {/* Steps */}
       {step === 1 && (

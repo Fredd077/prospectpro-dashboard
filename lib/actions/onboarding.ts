@@ -35,8 +35,6 @@ export async function saveOnboardingRecipe(data: RecipeFormData) {
   const { data: { user } } = await sb.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const inbound_pct = 100 - data.outbound_pct
-
   // Calculate funnel numbers using independent inbound rates
   const result = calcRecipe({
     monthly_revenue_goal: data.monthly_revenue_goal,
@@ -67,7 +65,7 @@ export async function saveOnboardingRecipe(data: RecipeFormData) {
     monthly_revenue_goal: data.monthly_revenue_goal,
     average_ticket: data.average_ticket,
     outbound_pct: data.outbound_pct,
-    inbound_pct,
+    // inbound_pct is GENERATED ALWAYS AS (100 - outbound_pct) STORED — do not insert
     working_days_per_month: 20,
     conv_activity_to_speech: data.conv_activity_to_speech,
     conv_speech_to_meeting: data.conv_speech_to_meeting,
