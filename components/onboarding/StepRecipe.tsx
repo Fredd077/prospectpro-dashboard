@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Sparkles, SlidersHorizontal } from 'lucide-react'
 import { FunnelStageEditor } from '@/components/recipe/FunnelStageEditor'
+import { AIRecipeBuilder } from '@/components/recipe/AIRecipeBuilder'
 import {
   calcRecipe,
   adjustRates,
@@ -61,6 +62,7 @@ function RateField({
 }
 
 export function StepRecipe({ onSave, saving }: StepRecipeProps) {
+  const [mode, setMode] = useState<'ai' | 'manual'>('ai')
   const [name, setName]         = useState('Mi recetario')
   const [revenue, setRevenue]   = useState(50000000)
   const [ticket, setTicket]     = useState(5000000)
@@ -131,6 +133,37 @@ export function StepRecipe({ onSave, saving }: StepRecipeProps) {
         </p>
       </div>
 
+      {/* IA / Manual toggle */}
+      <div className="flex items-center gap-2 p-1 rounded-lg bg-muted/40 border border-border w-fit">
+        <button
+          type="button"
+          onClick={() => setMode('ai')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+            mode === 'ai'
+              ? 'bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/30'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Crear con IA
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('manual')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+            mode === 'manual'
+              ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Manual
+        </button>
+      </div>
+
+      {mode === 'ai' ? (
+        <AIRecipeBuilder />
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Name */}
         <div className="space-y-1.5">
@@ -238,6 +271,7 @@ export function StepRecipe({ onSave, saving }: StepRecipeProps) {
           {saving ? 'Guardando...' : 'Guardar y continuar →'}
         </button>
       </form>
+      )}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { buttonVariants } from '@/components/ui/button-variants'
 import { TopBar } from '@/components/layout/TopBar'
 import { ScenarioCard } from '@/components/recipe/ScenarioCard'
 import { RecipePlanBanner } from '@/components/recipe/RecipePlanBanner'
+import { AIRecipeBuilder } from '@/components/recipe/AIRecipeBuilder'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
 
@@ -43,6 +44,14 @@ export default async function RecipePage() {
         }
       />
       <div className="flex-1 overflow-y-auto p-8">
+        {/* AI Recipe Builder */}
+        <div className="mb-8">
+          <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400 mb-3">
+            Crear con IA
+          </p>
+          <AIRecipeBuilder />
+        </div>
+
         {!hasScenarios ? (
           <div className="flex flex-col items-center justify-center h-72 gap-5 rounded-lg border border-dashed border-border bg-card">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
