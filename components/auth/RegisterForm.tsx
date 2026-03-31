@@ -115,13 +115,13 @@ export function RegisterForm() {
 
       <div className="space-y-1.5">
         <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Empresa <span className="normal-case font-normal text-muted-foreground/60">(opcional)</span>
+          ¿En qué empresa trabajas? <span className="normal-case font-normal text-muted-foreground/60">(opcional)</span>
         </label>
         <input
           type="text"
           value={company}
           onChange={(e) => setCompany(e.target.value)}
-          placeholder="Acme Corp"
+          placeholder="Nombre de tu empresa o organización..."
           className="w-full rounded-md border border-border bg-muted/30 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-colors"
         />
       </div>

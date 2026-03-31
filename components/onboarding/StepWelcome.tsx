@@ -73,7 +73,7 @@ export function StepWelcome({ userName, onNext }: StepWelcomeProps) {
           type="text"
           value={company}
           onChange={(e) => setCompany(e.target.value)}
-          placeholder="Nombre de tu empresa..."
+          placeholder="Nombre de tu empresa o organización..."
           className="w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-colors"
         />
       </div>
