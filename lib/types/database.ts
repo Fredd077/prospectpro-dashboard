@@ -243,25 +243,28 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          type: 'daily' | 'weekly'
+          type: 'daily' | 'weekly' | 'monthly'
           message: string
           context: Json | null
           period_date: string
           user_comment: string | null
+          is_read: boolean
           created_at: string
         }
         Insert: {
           id?: string
           user_id?: string
-          type: 'daily' | 'weekly'
+          type: 'daily' | 'weekly' | 'monthly'
           message: string
           context?: Json | null
           period_date: string
           user_comment?: string | null
+          is_read?: boolean
           created_at?: string
         }
         Update: {
           user_comment?: string | null
+          is_read?: boolean
         }
         Relationships: []
       }

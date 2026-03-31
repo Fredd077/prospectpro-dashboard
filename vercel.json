@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/daily-coach",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-coach",
+      "schedule": "0 23 * * 5"
+    },
+    {
+      "path": "/api/cron/monthly-coach",
+      "schedule": "0 23 28-31 * *"
+    }
+  ]
+}

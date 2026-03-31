@@ -1,13 +1,19 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 
 interface DailyCoachMessageProps {
   show: boolean
+  date?: string  // ISO date string e.g. "2026-03-31"
 }
 
-export function DailyCoachMessage({ show }: DailyCoachMessageProps) {
+export function DailyCoachMessage({ show, date }: DailyCoachMessageProps) {
+  const periodLabel = date
+    ? (() => { try { return format(parseISO(date), "EEEE d 'de' MMMM 'de' yyyy", { locale: es }) } catch { return '' } })()
+    : ''
   const [message, setMessage]   = useState('')
   const [loading, setLoading]   = useState(false)
   const [messageId, setMessageId] = useState<string | null>(null)
@@ -94,10 +100,15 @@ export function DailyCoachMessage({ show }: DailyCoachMessageProps) {
   if (loading) {
     return (
       <div className="border-l-4 border-cyan-500/40 bg-primary/5 rounded-r-lg p-4 space-y-3 animate-pulse">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm">🤖</span>
           <span className="text-xs font-semibold text-cyan-400">Coach Pro</span>
-          <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] text-cyan-400">Análisis del día</span>
+          <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] text-cyan-400">DIARIO</span>
+          {periodLabel && (
+            <span className="flex items-center gap-1 text-[10px] text-cyan-400/80">
+              <span>📅</span><span className="capitalize">{periodLabel}</span>
+            </span>
+          )}
         </div>
         <div className="space-y-2">
           <div className="h-3 bg-muted/60 rounded w-11/12" />
@@ -115,12 +126,17 @@ export function DailyCoachMessage({ show }: DailyCoachMessageProps) {
   return (
     <div className="border-l-4 border-cyan-500/50 bg-primary/5 rounded-r-lg p-4 space-y-3">
       {/* Header */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm">🤖</span>
         <span className="text-xs font-semibold text-cyan-400">Coach Pro</span>
         <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] text-cyan-400 border border-cyan-500/20">
-          Análisis del día
+          DIARIO
         </span>
+        {periodLabel && (
+          <span className="flex items-center gap-1 text-[10px] text-cyan-400/80">
+            <span>📅</span><span className="capitalize">{periodLabel}</span>
+          </span>
+        )}
       </div>
 
       {/* Message */}

@@ -90,7 +90,12 @@ export function WeeklyCoachMessage({
         <div className="flex items-center gap-2">
           <span className="text-sm">🤖</span>
           <span className="text-xs font-semibold text-cyan-400">Coach Pro</span>
-          <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] text-cyan-400">{label}</span>
+          <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] text-cyan-400">SEMANAL</span>
+          {weekLabel && (
+            <span className="flex items-center gap-1 text-[10px] text-cyan-400/80">
+              <span>📅</span><span>{weekLabel}</span>
+            </span>
+          )}
         </div>
         <div className="space-y-2">
           <div className="h-3 bg-muted/60 rounded w-full" />
@@ -112,10 +117,12 @@ export function WeeklyCoachMessage({
         <span className="text-sm">🤖</span>
         <span className="text-xs font-semibold text-cyan-400">Coach Pro</span>
         <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] text-cyan-400 border border-cyan-500/20">
-          {label}
+          SEMANAL
         </span>
-        {isLastWeek && (
-          <span className="text-[10px] text-muted-foreground">({weekLabel})</span>
+        {weekLabel && (
+          <span className="flex items-center gap-1 text-[10px] text-cyan-400/80">
+            <span>📅</span><span>{weekLabel}</span>
+          </span>
         )}
       </div>
 
@@ -125,7 +132,7 @@ export function WeeklyCoachMessage({
       {/* Footer */}
       <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
         <span className="text-[11px] text-muted-foreground">
-          Próxima semana: {weekLabel}
+          {isLastWeek ? 'Análisis de semana anterior' : 'Resumen semanal'}
         </span>
         <div className="flex items-center gap-2 min-w-[160px]">
           <span className="text-[11px] text-muted-foreground shrink-0">Meta mensual</span>

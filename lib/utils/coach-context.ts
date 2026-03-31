@@ -1,6 +1,11 @@
-import { endOfWeek, parseISO, subWeeks } from 'date-fns'
+import { endOfWeek, endOfMonth, startOfWeek, parseISO, subWeeks, format } from 'date-fns'
+import { es } from 'date-fns/locale'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/types/database'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { todayISO, toISODate } from '@/lib/utils/dates'
+
+type SbClient = SupabaseClient<Database>
 
 export interface ActivityCompliance {
   name: string
@@ -10,9 +15,14 @@ export interface ActivityCompliance {
   pct: number
 }
 
+export interface WeeklyBucket {
+  weekLabel: string
+  compliance: number
+}
+
 export interface CoachContext {
   userName: string
-  period: 'daily' | 'weekly'
+  period: 'daily' | 'weekly' | 'monthly'
   periodDate: string         // ISO date — today for daily, Monday for weekly
   recipe: {
     name: string
@@ -39,6 +49,13 @@ export interface CoachContext {
     achievedPct: number   // % of monthly goal achieved so far
   }
   weeksBelow70?: number
+  // Monthly-only
+  monthName?: string
+  prevMonthCompliance?: number
+  bestWeek?: WeeklyBucket
+  worstWeek?: WeeklyBucket
+  totalActivitiesDone?: number
+  totalActivitiesGoal?: number
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -273,7 +290,13 @@ export function formatContextForPrompt(ctx: CoachContext): string {
     lines.push('RECETARIO ACTIVO: Ninguno', '')
   }
 
-  if (ctx.period === 'daily') {
+  if (ctx.period === 'monthly') {
+    lines.push(
+      `ANÁLISIS MENSUAL — ${ctx.monthName ?? ctx.periodDate}`,
+      `  Cumplimiento del mes: ${ctx.overallCompliance}%`,
+      `  Tendencia vs mes anterior: ${ctx.trend}`,
+    )
+  } else if (ctx.period === 'daily') {
     lines.push(
       `ANÁLISIS DIARIO — ${ctx.periodDate}`,
       `  Cumplimiento general: ${ctx.overallCompliance}%`,
@@ -322,5 +345,262 @@ export function formatContextForPrompt(ctx: CoachContext): string {
     lines.push(`CANAL MÁS FUERTE: ${ctx.strongestActivity.name} (${ctx.strongestActivity.pct}%)`)
   }
 
+  if (ctx.period === 'monthly') {
+    lines.push('')
+    if (ctx.bestWeek)  lines.push(`MEJOR SEMANA DEL MES: ${ctx.bestWeek.weekLabel} (${ctx.bestWeek.compliance}%)`)
+    if (ctx.worstWeek) lines.push(`PEOR SEMANA DEL MES: ${ctx.worstWeek.weekLabel} (${ctx.worstWeek.compliance}%)`)
+    if (ctx.prevMonthCompliance !== undefined)
+      lines.push(`CUMPLIMIENTO MES ANTERIOR: ${ctx.prevMonthCompliance}%`)
+    if (ctx.totalActivitiesDone !== undefined && ctx.totalActivitiesGoal !== undefined)
+      lines.push(`ACTIVIDADES TOTALES: ${ctx.totalActivitiesDone} de ${ctx.totalActivitiesGoal} (${ctx.totalActivitiesGoal > 0 ? Math.round((ctx.totalActivitiesDone / ctx.totalActivitiesGoal) * 100) : 0}%)`)
+  }
+
   return lines.join('\n')
+}
+
+// ─── Monthly ─────────────────────────────────────────────────────────────────
+
+export async function buildMonthlyContext(monthStart: string): Promise<CoachContext> {
+  const sb = await getSupabaseServerClient()
+  return _buildMonthlyContext(monthStart, sb)
+}
+
+// ─── Cron variants (accept explicit userId + service client) ─────────────────
+
+export async function buildDailyContextForCron(
+  userId: string, date: string, sb: SbClient
+): Promise<CoachContext> {
+  return _buildDailyContextCron(userId, date, sb)
+}
+
+export async function buildWeeklyContextForCron(
+  userId: string, weekStart: string, sb: SbClient
+): Promise<CoachContext> {
+  return _buildWeeklyContextCron(userId, weekStart, sb)
+}
+
+export async function buildMonthlyContextForCron(
+  userId: string, monthStart: string, sb: SbClient
+): Promise<CoachContext> {
+  return _buildMonthlyContext(monthStart, sb, userId)
+}
+
+// ─── Internal implementations ─────────────────────────────────────────────────
+
+async function _fetchRecipe(sb: SbClient, userId?: string) {
+  let q = sb
+    .from('recipe_scenarios')
+    .select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages,activities_needed_daily,activities_needed_weekly,activities_needed_monthly')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (userId) q = q.eq('user_id', userId)
+  const { data } = await q.maybeSingle()
+  return data
+}
+
+function recipeFromData(d: Awaited<ReturnType<typeof _fetchRecipe>>) {
+  if (!d) return null
+  return {
+    name: d.name,
+    monthly_goal: d.monthly_revenue_goal,
+    ticket: d.average_ticket,
+    outbound_pct: d.outbound_pct,
+    funnel_stages: d.funnel_stages ?? [],
+    activities_needed_daily:   d.activities_needed_daily   ?? 0,
+    activities_needed_weekly:  d.activities_needed_weekly  ?? 0,
+    activities_needed_monthly: d.activities_needed_monthly ?? 0,
+  }
+}
+
+async function _buildDailyContextCron(
+  userId: string, date: string, sb: SbClient
+): Promise<CoachContext> {
+  const [
+    { data: profile },
+    { data: activities },
+    { data: logs },
+    { data: recentLogs },
+    scenario,
+  ] = await Promise.all([
+    sb.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
+    sb.from('activities').select('id,name,type,daily_goal').eq('user_id', userId).eq('status', 'active'),
+    sb.from('activity_logs').select('activity_id,real_executed').eq('user_id', userId).eq('log_date', date),
+    sb.from('activity_logs').select('log_date').eq('user_id', userId).lte('log_date', date).order('log_date', { ascending: false }).limit(60),
+    _fetchRecipe(sb, userId),
+  ])
+
+  const userName = profile?.full_name ?? 'Campeón'
+  const realMap: Record<string, number> = {}
+  for (const l of logs ?? []) realMap[l.activity_id] = (realMap[l.activity_id] ?? 0) + l.real_executed
+
+  const actCompliance: ActivityCompliance[] = (activities ?? []).map((a) => {
+    const goal = a.daily_goal; const real = realMap[a.id] ?? 0
+    return { name: a.name, type: a.type, goal, real, pct: goal > 0 ? Math.round((real / goal) * 100) : 0 }
+  })
+  const totalGoal = actCompliance.reduce((s, a) => s + a.goal, 0)
+  const totalReal = actCompliance.reduce((s, a) => s + a.real, 0)
+  const overallCompliance = totalGoal > 0 ? Math.round((totalReal / totalGoal) * 100) : 0
+
+  const logDates = new Set((recentLogs ?? []).map((l) => l.log_date as string))
+  let streak = 0; const cur = new Date(date)
+  while (logDates.has(toISODate(cur))) { streak++; cur.setDate(cur.getDate() - 1) }
+
+  const yesterday = toISODate(new Date(new Date(date).setDate(new Date(date).getDate() - 1)))
+  const { data: yLogs } = await sb.from('activity_logs').select('real_executed,day_goal').eq('user_id', userId).eq('log_date', yesterday)
+  const yGoal = (yLogs ?? []).reduce((s, l) => s + l.day_goal, 0)
+  const yReal = (yLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
+
+  const withGoal = actCompliance.filter((a) => a.goal > 0)
+  return {
+    userName, period: 'daily', periodDate: date,
+    recipe: recipeFromData(scenario),
+    activities: actCompliance, overallCompliance, streak,
+    weakestActivity:   withGoal.length ? withGoal.reduce((m, a) => a.pct < m.pct ? a : m, withGoal[0]) && { name: withGoal.reduce((m, a) => a.pct < m.pct ? a : m).name, pct: withGoal.reduce((m, a) => a.pct < m.pct ? a : m).pct } : null,
+    strongestActivity: withGoal.length ? { name: withGoal.reduce((m, a) => a.pct > m.pct ? a : m).name, pct: withGoal.reduce((m, a) => a.pct > m.pct ? a : m).pct } : null,
+    trend: toTrend(overallCompliance, yGoal > 0 ? Math.round((yReal / yGoal) * 100) : 0),
+  }
+}
+
+async function _buildWeeklyContextCron(
+  userId: string, weekStart: string, sb: SbClient
+): Promise<CoachContext> {
+  const weekEnd      = toISODate(endOfWeek(parseISO(weekStart), { weekStartsOn: 1 }))
+  const prevWeekStart = toISODate(subWeeks(parseISO(weekStart), 1))
+  const prevWeekEnd   = toISODate(endOfWeek(parseISO(prevWeekStart), { weekStartsOn: 1 }))
+  const today       = todayISO()
+  const monthStart  = today.slice(0, 8) + '01'
+  const daysInMonth = new Date(parseInt(today.slice(0, 4)), parseInt(today.slice(5, 7)), 0).getDate()
+  const daysElapsed = parseInt(today.slice(8, 10))
+
+  const [
+    { data: profile },
+    { data: activities },
+    { data: weekLogs },
+    { data: prevLogs },
+    { data: monthLogs },
+    scenario,
+  ] = await Promise.all([
+    sb.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
+    sb.from('activities').select('id,name,type,weekly_goal,monthly_goal').eq('user_id', userId).eq('status', 'active'),
+    sb.from('activity_logs').select('activity_id,real_executed,log_date').eq('user_id', userId).gte('log_date', weekStart).lte('log_date', weekEnd),
+    sb.from('activity_logs').select('real_executed').eq('user_id', userId).gte('log_date', prevWeekStart).lte('log_date', prevWeekEnd),
+    sb.from('activity_logs').select('real_executed').eq('user_id', userId).gte('log_date', monthStart).lte('log_date', today),
+    _fetchRecipe(sb, userId),
+  ])
+
+  const userName = profile?.full_name ?? 'Campeón'
+  const realMap: Record<string, number> = {}
+  for (const l of weekLogs ?? []) realMap[l.activity_id] = (realMap[l.activity_id] ?? 0) + l.real_executed
+
+  const actCompliance: ActivityCompliance[] = (activities ?? []).map((a) => {
+    const goal = a.weekly_goal; const real = realMap[a.id] ?? 0
+    return { name: a.name, type: a.type, goal, real, pct: goal > 0 ? Math.round((real / goal) * 100) : 0 }
+  })
+  const totalGoal = actCompliance.reduce((s, a) => s + a.goal, 0)
+  const totalReal = actCompliance.reduce((s, a) => s + a.real, 0)
+  const overallCompliance = totalGoal > 0 ? Math.round((totalReal / totalGoal) * 100) : 0
+  const prevReal = (prevLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
+  const prevCompliance = totalGoal > 0 ? Math.round((prevReal / totalGoal) * 100) : 0
+  const daysWithLogs = new Set((weekLogs ?? []).map((l) => l.log_date)).size
+  const monthlyGoalTotal = (activities ?? []).reduce((s, a) => s + (a.monthly_goal ?? 0), 0)
+  const monthReal = (monthLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
+
+  const withGoal = actCompliance.filter((a) => a.goal > 0)
+  return {
+    userName, period: 'weekly', periodDate: weekStart,
+    recipe: recipeFromData(scenario),
+    activities: actCompliance, overallCompliance, streak: daysWithLogs,
+    weakestActivity:   withGoal.length ? { name: withGoal.reduce((m, a) => a.pct < m.pct ? a : m).name, pct: withGoal.reduce((m, a) => a.pct < m.pct ? a : m).pct } : null,
+    strongestActivity: withGoal.length ? { name: withGoal.reduce((m, a) => a.pct > m.pct ? a : m).name, pct: withGoal.reduce((m, a) => a.pct > m.pct ? a : m).pct } : null,
+    trend: toTrend(overallCompliance, prevCompliance),
+    monthlyProgress: {
+      daysElapsed, totalDays: daysInMonth,
+      goalPct: Math.round((daysElapsed / daysInMonth) * 100),
+      achievedPct: monthlyGoalTotal > 0 ? Math.round((monthReal / monthlyGoalTotal) * 100) : 0,
+    },
+    weeksBelow70: overallCompliance < 70 && prevCompliance < 70 ? 2 : overallCompliance < 70 ? 1 : 0,
+  }
+}
+
+async function _buildMonthlyContext(
+  monthStart: string, sb: SbClient, userId?: string
+): Promise<CoachContext> {
+  const monthEnd     = toISODate(endOfMonth(parseISO(monthStart)))
+  const prevMonStart = toISODate(new Date(new Date(monthStart).setMonth(new Date(monthStart).getMonth() - 1)))
+  const prevMonEnd   = toISODate(endOfMonth(parseISO(prevMonStart)))
+  const monthName    = format(parseISO(monthStart), 'MMMM yyyy', { locale: es })
+
+  const profileQ = userId
+    ? sb.from('profiles').select('full_name').eq('id', userId).maybeSingle()
+    : (sb as Awaited<ReturnType<typeof getSupabaseServerClient>>).from('profiles').select('full_name').maybeSingle()
+
+  const activitiesQ = (() => {
+    let q = sb.from('activities').select('id,name,type,monthly_goal').eq('status', 'active')
+    if (userId) q = q.eq('user_id', userId)
+    return q
+  })()
+
+  const logsQ = (() => {
+    let q = sb.from('activity_logs').select('activity_id,real_executed,log_date').gte('log_date', monthStart).lte('log_date', monthEnd)
+    if (userId) q = q.eq('user_id', userId)
+    return q
+  })()
+
+  const prevLogsQ = (() => {
+    let q = sb.from('activity_logs').select('real_executed').gte('log_date', prevMonStart).lte('log_date', prevMonEnd)
+    if (userId) q = q.eq('user_id', userId)
+    return q
+  })()
+
+  const [
+    { data: profile },
+    { data: activities },
+    { data: logs },
+    { data: prevLogs },
+    scenario,
+  ] = await Promise.all([profileQ, activitiesQ, logsQ, prevLogsQ, _fetchRecipe(sb, userId)])
+
+  const userName = profile?.full_name ?? 'Campeón'
+  const realMap: Record<string, number> = {}
+  for (const l of logs ?? []) realMap[l.activity_id] = (realMap[l.activity_id] ?? 0) + l.real_executed
+
+  const actCompliance: ActivityCompliance[] = (activities ?? []).map((a) => {
+    const goal = a.monthly_goal ?? 0; const real = realMap[a.id] ?? 0
+    return { name: a.name, type: a.type, goal, real, pct: goal > 0 ? Math.round((real / goal) * 100) : 0 }
+  })
+  const totalGoal = actCompliance.reduce((s, a) => s + a.goal, 0)
+  const totalReal = actCompliance.reduce((s, a) => s + a.real, 0)
+  const overallCompliance = totalGoal > 0 ? Math.round((totalReal / totalGoal) * 100) : 0
+  const prevReal = (prevLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
+  const prevCompliance = totalGoal > 0 ? Math.round((prevReal / totalGoal) * 100) : 0
+
+  // Weekly buckets within the month
+  const weekBuckets: Record<string, { real: number; goal: number }> = {}
+  const weeklyGoalTotal = actCompliance.reduce((s, a) => s + Math.ceil(a.goal / 4), 0)
+  for (const l of logs ?? []) {
+    const d = parseISO(l.log_date)
+    const mon = toISODate(startOfWeek(d, { weekStartsOn: 1 }))
+    if (!weekBuckets[mon]) weekBuckets[mon] = { real: 0, goal: weeklyGoalTotal }
+    weekBuckets[mon].real += l.real_executed
+  }
+  const weekEntries = Object.entries(weekBuckets).map(([mon, { real, goal }]) => ({
+    weekLabel: `Sem. ${format(parseISO(mon), 'd MMM', { locale: es })}`,
+    compliance: goal > 0 ? Math.round((real / goal) * 100) : 0,
+  }))
+  const bestWeek  = weekEntries.length ? weekEntries.reduce((m, w) => w.compliance > m.compliance ? w : m) : undefined
+  const worstWeek = weekEntries.length ? weekEntries.reduce((m, w) => w.compliance < m.compliance ? w : m) : undefined
+
+  const withGoal = actCompliance.filter((a) => a.goal > 0)
+  return {
+    userName, period: 'monthly', periodDate: monthStart,
+    recipe: recipeFromData(scenario),
+    activities: actCompliance, overallCompliance, streak: 0,
+    weakestActivity:   withGoal.length ? { name: withGoal.reduce((m, a) => a.pct < m.pct ? a : m).name, pct: withGoal.reduce((m, a) => a.pct < m.pct ? a : m).pct } : null,
+    strongestActivity: withGoal.length ? { name: withGoal.reduce((m, a) => a.pct > m.pct ? a : m).name, pct: withGoal.reduce((m, a) => a.pct > m.pct ? a : m).pct } : null,
+    trend: toTrend(overallCompliance, prevCompliance),
+    monthName, prevMonthCompliance: prevCompliance,
+    bestWeek, worstWeek,
+    totalActivitiesDone: totalReal, totalActivitiesGoal: totalGoal,
+  }
 }

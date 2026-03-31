@@ -23,6 +23,11 @@ export async function Sidebar() {
   const isAdmin = profile?.role === 'admin'
   const email = profile?.email ?? user?.email ?? ''
 
+  const { count: unreadCoachCount } = await sb
+    .from('coach_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_read', false)
+
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-16 flex-col border-r border-border bg-sidebar transition-all lg:w-60">
       {/* Logo / Brand */}
@@ -43,7 +48,7 @@ export async function Sidebar() {
       </div>
 
       {/* Nav */}
-      <SidebarNav isAdmin={isAdmin} />
+      <SidebarNav isAdmin={isAdmin} unreadCoachCount={unreadCoachCount ?? 0} />
 
       {/* User + sign-out */}
       {user && (

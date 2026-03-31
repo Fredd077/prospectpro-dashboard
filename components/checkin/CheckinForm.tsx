@@ -112,7 +112,7 @@ export function CheckinForm({ date, activities, existingLogs, weeklyLogs, active
             activeScenario={activeScenario}
           />
           {!isRetroactive && (
-            <DailyCoachMessage show={submitted} />
+            <DailyCoachMessage show={submitted} date={date} />
           )}
         </>
       )}

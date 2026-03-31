@@ -8,21 +8,24 @@ import {
   ClipboardList,
   FlaskConical,
   ShieldCheck,
+  Bot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard',       icon: LayoutDashboard },
   { href: '/checkin',   label: 'Check-in Diario', icon: ClipboardList   },
+  { href: '/coach',     label: 'Coach Pro',        icon: Bot             },
   { href: '/activities',label: 'Actividades',     icon: ListChecks      },
   { href: '/recipe',    label: 'Recetario',        icon: FlaskConical    },
 ] as const
 
 interface SidebarNavProps {
   isAdmin: boolean
+  unreadCoachCount: number
 }
 
-export function SidebarNav({ isAdmin }: SidebarNavProps) {
+export function SidebarNav({ isAdmin, unreadCoachCount }: SidebarNavProps) {
   const pathname = usePathname()
 
   const allItems = [
@@ -35,6 +38,7 @@ export function SidebarNav({ isAdmin }: SidebarNavProps) {
       <ul className="space-y-0.5">
         {allItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || pathname.startsWith(`${href}/`)
+          const showBadge = href === '/coach' && unreadCoachCount > 0 && !isActive
           return (
             <li key={href}>
               <Link
@@ -51,8 +55,20 @@ export function SidebarNav({ isAdmin }: SidebarNavProps) {
                 {isActive && (
                   <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />
                 )}
-                <Icon className="h-5 w-5 shrink-0" />
+                <span className="relative shrink-0">
+                  <Icon className="h-5 w-5" />
+                  {showBadge && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-sidebar">
+                      {unreadCoachCount > 9 ? '9+' : unreadCoachCount}
+                    </span>
+                  )}
+                </span>
                 <span className="hidden flex-1 lg:block">{label}</span>
+                {showBadge && (
+                  <span className="hidden lg:flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                    {unreadCoachCount > 9 ? '9+' : unreadCoachCount}
+                  </span>
+                )}
               </Link>
             </li>
           )
