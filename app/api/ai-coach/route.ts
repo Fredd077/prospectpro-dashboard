@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { todayISO, toISODate } from '@/lib/utils/dates'
 import { buildDailyContext, buildWeeklyContext, formatContextForPrompt } from '@/lib/utils/coach-context'
-import { startOfWeek, parseISO } from 'date-fns'
+import { startOfWeek, subWeeks, parseISO } from 'date-fns'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -23,13 +23,26 @@ PARA ANÁLISIS DIARIO, sigue esta estructura:
 3. Da UNA acción específica y medible para mañana
 4. Frase motivadora corta al final (opcional, solo si aplica)
 
-PARA ANÁLISIS SEMANAL, sigue esta estructura:
+PARA ANÁLISIS SEMANAL (días martes a domingo), sigue esta estructura:
 1. Balance general de la semana en una línea
 2. Tu canal más fuerte esta semana fue: [canal] ([%])
 3. Tu canal más débil esta semana fue: [canal] ([%])
 4. Impacto en tu meta mensual: vas al [X]% del mes
 5. UNA recomendación prioritaria para la próxima semana
 6. Si la tendencia es negativa 2+ semanas seguidas, menciona que hay que revisar el recetario
+
+PARA ANÁLISIS DEL LUNES (inicio de semana nueva), sigue esta estructura especial:
+1. Analiza brevemente la semana PASADA en 1-2 líneas (menciona el % de cumplimiento y el canal más destacado)
+2. Enfócate en la semana que EMPIEZA: qué debe priorizar esta semana para seguir avanzando
+3. El tono debe ser energizante y orientado a la acción — el usuario acaba de empezar su semana
+4. Nunca uses lenguaje catastrófico, culpabilizador ni desmotivador
+5. Termina siempre con UNA acción concreta y positiva para hacer HOY (el lunes mismo)
+
+PARA EL PROGRESO MENSUAL — encuadrarlo siempre constructivamente:
+- Si lleva menos del 50% de la meta con más del 50% del mes transcurrido: "Hay una brecha que cerrar — enfócate en [actividad clave]"
+- Nunca digas que el mes "se fue", "ya pasó", o uses lenguaje catastrófico sobre el tiempo
+- Siempre muestra qué es posible aún: "Con X actividades diarias puedes cerrar la brecha"
+- El objetivo es motivar, no alarmar
 
 REGLAS:
 - NUNCA hagas más de una pregunta
@@ -45,10 +58,17 @@ export async function POST(req: Request) {
   const sb    = await getSupabaseServerClient()
   const today = todayISO()
 
-  // Determine the period_date key
-  const periodDate = type === 'daily'
-    ? today
-    : toISODate(startOfWeek(parseISO(today), { weekStartsOn: 1 }))
+  // period_date = cache key (always "this Monday" for weekly, today for daily)
+  const todayDate  = parseISO(today)
+  const isMonday   = todayDate.getDay() === 1
+  const thisMonday = toISODate(startOfWeek(todayDate, { weekStartsOn: 1 }))
+  const periodDate = type === 'daily' ? today : thisMonday
+
+  // For weekly on Monday: analyze the PREVIOUS week (it just ended yesterday)
+  // so we have full data. Cache key stays as thisMonday.
+  const weekToAnalyze = type === 'weekly' && isMonday
+    ? toISODate(subWeeks(parseISO(thisMonday), 1))
+    : thisMonday
 
   const encoder = new TextEncoder()
 
@@ -83,7 +103,7 @@ export async function POST(req: Request) {
         // ── Build context ───────────────────────────────────────────────────
         const ctx = type === 'daily'
           ? await buildDailyContext(today)
-          : await buildWeeklyContext(periodDate)
+          : { ...await buildWeeklyContext(weekToAnalyze), isMondayAnalysis: isMonday }
 
         const userContent = formatContextForPrompt(ctx)
 

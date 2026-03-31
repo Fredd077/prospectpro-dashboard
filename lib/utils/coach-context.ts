@@ -30,6 +30,7 @@ export interface CoachContext {
   weakestActivity: { name: string; pct: number } | null
   strongestActivity: { name: string; pct: number } | null
   trend: 'improving' | 'declining' | 'stable'
+  isMondayAnalysis?: boolean  // true = analyzing prev week, tone should be Monday-energising
   // Weekly-only
   monthlyProgress?: {
     daysElapsed: number
@@ -280,17 +281,28 @@ export function formatContextForPrompt(ctx: CoachContext): string {
       `  Tendencia vs ayer: ${ctx.trend}`,
     )
   } else {
+    if (ctx.isMondayAnalysis) {
+      lines.push(
+        `TIPO DE ANÁLISIS: LUNES — analiza la semana PASADA y orienta al usuario hacia la semana que empieza. Usa tono energizante.`,
+        `SEMANA ANALIZADA: ${ctx.periodDate} a ${ctx.periodDate} (semana anterior completa)`,
+      )
+    } else {
+      lines.push(`ANÁLISIS SEMANAL — semana del ${ctx.periodDate}`)
+    }
     lines.push(
-      `ANÁLISIS SEMANAL — semana del ${ctx.periodDate}`,
       `  Cumplimiento semanal: ${ctx.overallCompliance}%`,
       `  Días activos esta semana: ${ctx.streak}/5`,
       `  Tendencia vs semana anterior: ${ctx.trend}`,
     )
     if (ctx.monthlyProgress) {
       const mp = ctx.monthlyProgress
+      const hasBrecha = mp.achievedPct < 50 && mp.goalPct > 50
       lines.push(
-        `  Progreso mensual: ${mp.achievedPct}% de meta logrado (${mp.daysElapsed}/${mp.totalDays} días del mes = ${mp.goalPct}% transcurrido)`,
+        `  Progreso mensual: ${mp.achievedPct}% de meta logrado (${mp.daysElapsed}/${mp.totalDays} días = ${mp.goalPct}% del mes transcurrido)`,
       )
+      if (hasBrecha) {
+        lines.push(`  INSTRUCCIÓN: hay brecha mensual — enmarca esto como una oportunidad de recuperar, no como un fracaso. Di qué actividad clave puede cerrar esa brecha.`)
+      }
     }
     if ((ctx.weeksBelow70 ?? 0) >= 2) {
       lines.push(`  ALERTA: ${ctx.weeksBelow70} semanas consecutivas bajo el 70%`)
