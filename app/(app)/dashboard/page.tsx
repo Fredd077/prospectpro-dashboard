@@ -17,7 +17,7 @@ import { RecipeValidationCard } from '@/components/dashboard/RecipeValidationCar
 import { WeeklyCoachMessage } from '@/components/dashboard/WeeklyCoachMessage'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
-import { startOfWeek, endOfWeek, subWeeks, addWeeks, parseISO, format } from 'date-fns'
+import { startOfWeek, endOfWeek, subWeeks, parseISO, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { calcCompliance } from '@/lib/calculations/compliance'
 import { calcProjection } from '@/lib/calculations/projection'
@@ -213,20 +213,18 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     })
 
   // --- Weekly coach message ---
-  const todayDate   = parseISO(today)
-  const isMonday    = todayDate.getDay() === 1
-  const thisMonday  = toISODate(startOfWeek(todayDate, { weekStartsOn: 1 }))
-  const lastMonday  = toISODate(subWeeks(parseISO(thisMonday), 1))
-  const nextMonday  = toISODate(addWeeks(parseISO(thisMonday), 1))
-  const nextSunday  = toISODate(endOfWeek(parseISO(nextMonday), { weekStartsOn: 1 }))
+  const todayDate         = parseISO(today)
+  const isMonday          = todayDate.getDay() === 1
+  const thisMonday        = toISODate(startOfWeek(todayDate, { weekStartsOn: 1 }))
+  const lastMonday        = toISODate(subWeeks(parseISO(thisMonday), 1))
+  // The week being analyzed: on Mondays show last week (just ended); other days show current week
+  const analyzedWeekStart = isMonday ? lastMonday : thisMonday
+  const analyzedWeekEnd   = toISODate(endOfWeek(parseISO(analyzedWeekStart), { weekStartsOn: 1 }))
+  const weekLabel = `${format(parseISO(analyzedWeekStart), 'd MMM', { locale: es })} – ${format(parseISO(analyzedWeekEnd), 'd MMM yyyy', { locale: es })}`
 
-  const weekLabel = `${format(parseISO(nextMonday), 'd MMM', { locale: es })} – ${format(parseISO(nextSunday), 'd MMM', { locale: es })}`
-
-  // Try this week's message first, then last week's
-  const [{ data: weeklyCoach }, { data: lastWeeklyCoach }] = await Promise.all([
-    sb.from('coach_messages').select('id,message').eq('type', 'weekly').eq('period_date', thisMonday).maybeSingle(),
-    sb.from('coach_messages').select('id,message').eq('type', 'weekly').eq('period_date', lastMonday).maybeSingle(),
-  ])
+  // Look up the cached message for the analyzed week (period_date = analyzed week's Monday)
+  const { data: weeklyCoach } = await sb
+    .from('coach_messages').select('id,message').eq('type', 'weekly').eq('period_date', analyzedWeekStart).maybeSingle()
 
   // Monthly progress for the weekly coach footer
   const monthStart2 = today.slice(0, 8) + '01'
@@ -239,8 +237,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const monthlyGoalForCoach = allActivities.reduce((s, a) => s + a.monthly_goal, 0)
   const monthlyPctForCoach  = monthlyGoalForCoach > 0 ? Math.round((monthlyRealForCoach / monthlyGoalForCoach) * 100) : 0
 
-  const shownCoach    = weeklyCoach ?? (lastWeeklyCoach ?? null)
-  const isLastWeekMsg = !weeklyCoach && !!lastWeeklyCoach
+  const shownCoach    = weeklyCoach ?? null
+  const isLastWeekMsg = isMonday  // On Mondays we always analyze last week
 
   // --- Plan vs Recipe validation ---
   const recipeValidation = activeScenario && allActivities.length > 0

@@ -37,15 +37,17 @@ export async function POST(req: Request) {
   const thisMonday = toISODate(startOfWeek(todayDate, { weekStartsOn: 1 }))
   const monthStart = toISODate(startOfMonth(todayDate))
 
-  const periodDate =
-    type === 'daily'   ? today :
-    type === 'weekly'  ? thisMonday :
-    monthStart
-
   // For weekly on Monday: analyse the previous week (it just ended)
   const weekToAnalyze = type === 'weekly' && isMonday
     ? toISODate(subWeeks(parseISO(thisMonday), 1))
     : thisMonday
+
+  // For weekly: period_date = the analyzed week's Monday (not the generation Monday).
+  // This makes CoachHistoryClient's "+6 days" label always show the correct Mon-Sun range.
+  const periodDate =
+    type === 'daily'   ? today :
+    type === 'weekly'  ? weekToAnalyze :
+    monthStart
 
   const encoder = new TextEncoder()
 
