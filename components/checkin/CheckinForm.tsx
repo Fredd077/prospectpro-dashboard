@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { CheckinActivityRow } from './CheckinActivityRow'
 import { CheckinSummary } from './CheckinSummary'
+import { DailyCoachMessage } from './DailyCoachMessage'
 import { DateNavigator } from './DateNavigator'
 import { bulkUpsertLogs } from '@/lib/queries/logs'
 import { todayISO } from '@/lib/utils/dates'
@@ -101,14 +102,19 @@ export function CheckinForm({ date, activities, existingLogs, weeklyLogs, active
 
       {/* Summary shown after save */}
       {submitted && (
-        <CheckinSummary
-          date={date}
-          activities={activities}
-          values={values}
-          weeklyDisplayValues={weeklyDisplayValues}
-          isRetroactive={isRetroactive}
-          activeScenario={activeScenario}
-        />
+        <>
+          <CheckinSummary
+            date={date}
+            activities={activities}
+            values={values}
+            weeklyDisplayValues={weeklyDisplayValues}
+            isRetroactive={isRetroactive}
+            activeScenario={activeScenario}
+          />
+          {!isRetroactive && (
+            <DailyCoachMessage show={submitted} />
+          )}
+        </>
       )}
 
       {/* OUTBOUND section */}

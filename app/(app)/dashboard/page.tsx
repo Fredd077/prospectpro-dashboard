@@ -14,8 +14,11 @@ import { ActivityBreakdownTable } from '@/components/dashboard/ActivityBreakdown
 import type { ActivityBreakdownRow } from '@/components/dashboard/ActivityBreakdownTable'
 import { TodayWidget } from '@/components/dashboard/TodayWidget'
 import { RecipeValidationCard } from '@/components/dashboard/RecipeValidationCard'
+import { WeeklyCoachMessage } from '@/components/dashboard/WeeklyCoachMessage'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
+import { startOfWeek, endOfWeek, subWeeks, addWeeks, parseISO, format } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { calcCompliance } from '@/lib/calculations/compliance'
 import { calcProjection } from '@/lib/calculations/projection'
 import { formatPercent } from '@/lib/utils/formatters'
@@ -209,6 +212,36 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       }
     })
 
+  // --- Weekly coach message ---
+  const todayDate   = parseISO(today)
+  const isMonday    = todayDate.getDay() === 1
+  const thisMonday  = toISODate(startOfWeek(todayDate, { weekStartsOn: 1 }))
+  const lastMonday  = toISODate(subWeeks(parseISO(thisMonday), 1))
+  const nextMonday  = toISODate(addWeeks(parseISO(thisMonday), 1))
+  const nextSunday  = toISODate(endOfWeek(parseISO(nextMonday), { weekStartsOn: 1 }))
+
+  const weekLabel = `${format(parseISO(nextMonday), 'd MMM', { locale: es })} – ${format(parseISO(nextSunday), 'd MMM', { locale: es })}`
+
+  // Try this week's message first, then last week's
+  const [{ data: weeklyCoach }, { data: lastWeeklyCoach }] = await Promise.all([
+    sb.from('coach_messages').select('id,message').eq('type', 'weekly').eq('period_date', thisMonday).maybeSingle(),
+    sb.from('coach_messages').select('id,message').eq('type', 'weekly').eq('period_date', lastMonday).maybeSingle(),
+  ])
+
+  // Monthly progress for the weekly coach footer
+  const monthStart2 = today.slice(0, 8) + '01'
+  const { data: monthlyCoachLogs } = await sb
+    .from('activity_logs')
+    .select('real_executed')
+    .gte('log_date', monthStart2)
+    .lte('log_date', today)
+  const monthlyRealForCoach = (monthlyCoachLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
+  const monthlyGoalForCoach = allActivities.reduce((s, a) => s + a.monthly_goal, 0)
+  const monthlyPctForCoach  = monthlyGoalForCoach > 0 ? Math.round((monthlyRealForCoach / monthlyGoalForCoach) * 100) : 0
+
+  const shownCoach    = weeklyCoach ?? (lastWeeklyCoach ?? null)
+  const isLastWeekMsg = !weeklyCoach && !!lastWeeklyCoach
+
   // --- Plan vs Recipe validation ---
   const recipeValidation = activeScenario && allActivities.length > 0
     ? calcRecipeValidation(activeScenario, allActivities as Parameters<typeof calcRecipeValidation>[1])
@@ -282,6 +315,18 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             totalGoal={(todayLogs ?? []).reduce((s, l) => s + l.day_goal, 0)}
             hasActivities={(activities?.length ?? 0) > 0}
           />
+
+          {/* Weekly AI coach — shown when cached message exists or today is Monday */}
+          {(shownCoach || isMonday) && (
+            <WeeklyCoachMessage
+              isMonday={isMonday}
+              weekLabel={weekLabel}
+              monthlyPct={monthlyPctForCoach}
+              cachedMessage={shownCoach?.message}
+              cachedId={shownCoach?.id}
+              isLastWeek={isLastWeekMsg}
+            />
+          )}
 
           {/* KPI Grid */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

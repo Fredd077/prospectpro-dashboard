@@ -239,6 +239,32 @@ export interface Database {
         }
         Relationships: []
       }
+      coach_messages: {
+        Row: {
+          id: string
+          user_id: string
+          type: 'daily' | 'weekly'
+          message: string
+          context: Json | null
+          period_date: string
+          user_comment: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          type: 'daily' | 'weekly'
+          message: string
+          context?: Json | null
+          period_date: string
+          user_comment?: string | null
+          created_at?: string
+        }
+        Update: {
+          user_comment?: string | null
+        }
+        Relationships: []
+      }
       recipe_actuals: {
         Row: {
           id: string
@@ -350,3 +376,6 @@ export type RecipeActualInsert = Database['public']['Tables']['recipe_actuals'][
 export type RecipeActualUpdate = Database['public']['Tables']['recipe_actuals']['Update']
 
 export type DailyCompliance = Database['public']['Views']['vw_daily_compliance']['Row']
+
+export type CoachMessage = Database['public']['Tables']['coach_messages']['Row']
+export type CoachMessageInsert = Database['public']['Tables']['coach_messages']['Insert']
