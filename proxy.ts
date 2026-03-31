@@ -11,6 +11,11 @@ const ADMIN_PREFIX = '/admin'
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // API routes handle their own auth — never redirect them
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next()
+  }
+
   // Allow public routes through unconditionally
   if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
     return NextResponse.next()
