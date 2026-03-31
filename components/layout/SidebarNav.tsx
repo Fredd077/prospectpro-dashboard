@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 const navItems = [
   { href: '/dashboard', label: 'Dashboard',       icon: LayoutDashboard },
   { href: '/checkin',   label: 'Check-in Diario', icon: ClipboardList   },
-  { href: '/coach',     label: 'Coach Pro',        icon: Bot             },
+  { href: '/coach',     label: 'Reportes Coach IA', icon: Bot             },
   { href: '/activities',label: 'Actividades',     icon: ListChecks      },
   { href: '/recipe',    label: 'Recetario',        icon: FlaskConical    },
 ] as const

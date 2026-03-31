@@ -6,7 +6,7 @@ import { CoachHistoryClient } from '@/components/coach/CoachHistoryClient'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {
-  title: 'Coach Pro — Historial',
+  title: 'Reportes Coach IA — ProspectPro',
   description: 'Todos tus reportes de prospección en un lugar',
 }
 
@@ -54,7 +54,7 @@ export default async function CoachPage({ searchParams }: PageProps) {
   return (
     <div className="flex flex-col h-full">
       <TopBar
-        title="Coach Pro"
+        title="Reportes Coach IA"
         description="Historial de análisis de tu prospección"
       />
       <div className="flex-1 overflow-y-auto p-8">
