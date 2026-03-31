@@ -1,10 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { FlaskConical, ClipboardList, LayoutDashboard, ArrowRight } from 'lucide-react'
 
 interface StepWelcomeProps {
   userName: string | null
-  onNext: () => void
+  onNext: (company: string) => void
 }
 
 const concepts = [
@@ -33,6 +34,7 @@ const concepts = [
 
 export function StepWelcome({ userName, onNext }: StepWelcomeProps) {
   const firstName = userName?.split(' ')[0] ?? 'Comercial'
+  const [company, setCompany] = useState('')
 
   return (
     <div className="rounded-xl border border-border bg-card p-8 space-y-6">
@@ -62,8 +64,22 @@ export function StepWelcome({ userName, onNext }: StepWelcomeProps) {
         ))}
       </div>
 
+      {/* Company field */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-muted-foreground">
+          ¿En qué empresa trabajas? <span className="text-muted-foreground/60">(opcional)</span>
+        </label>
+        <input
+          type="text"
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          placeholder="Nombre de tu empresa..."
+          className="w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-colors"
+        />
+      </div>
+
       <button
-        onClick={onNext}
+        onClick={() => onNext(company.trim())}
         className="w-full flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,217,255,0.25)] transition-all"
       >
         Empezar configuración

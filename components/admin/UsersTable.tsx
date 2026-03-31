@@ -116,11 +116,11 @@ export function UsersTable({ users, filterRole }: UsersTableProps) {
                   <div className="flex items-center gap-2">
                     <UserActions user={user} />
                     <Link
-                      href={`/admin/users/${user.id}`}
+                      href={`/team/${user.id}`}
                       className="flex items-center gap-1 rounded px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                     >
                       <ExternalLink className="h-3 w-3" />
-                      Ver
+                      Ver perfil
                     </Link>
                   </div>
                 </td>

@@ -76,6 +76,13 @@ interface ActivityGoalOverride {
   monthly_goal: number
 }
 
+export async function saveOnboardingCompany(company: string) {
+  const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  await sb.from('profiles').update({ company: company || null }).eq('id', user.id)
+}
+
 export async function saveOnboardingActivities(overrides: ActivityGoalOverride[]) {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()

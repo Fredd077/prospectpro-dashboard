@@ -9,15 +9,16 @@ import {
   FlaskConical,
   ShieldCheck,
   Bot,
+  Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard',       icon: LayoutDashboard },
-  { href: '/checkin',   label: 'Check-in Diario', icon: ClipboardList   },
+  { href: '/dashboard', label: 'Dashboard',         icon: LayoutDashboard },
+  { href: '/checkin',   label: 'Check-in Diario',   icon: ClipboardList   },
   { href: '/coach',     label: 'Reportes Coach IA', icon: Bot             },
-  { href: '/activities',label: 'Actividades',     icon: ListChecks      },
-  { href: '/recipe',    label: 'Recetario',        icon: FlaskConical    },
+  { href: '/activities',label: 'Actividades',       icon: ListChecks      },
+  { href: '/recipe',    label: 'Recetario',          icon: FlaskConical    },
 ] as const
 
 interface SidebarNavProps {
@@ -27,14 +28,48 @@ interface SidebarNavProps {
 
 export function SidebarNav({ isAdmin, unreadCoachCount }: SidebarNavProps) {
   const pathname = usePathname()
+  const isTeamView = pathname.startsWith('/team')
 
   const allItems = [
     ...navItems,
-    ...(isAdmin ? [{ href: '/admin' as const, label: 'Admin Panel', icon: ShieldCheck }] : []),
+    ...(isAdmin ? [
+      { href: '/team'  as const, label: 'Mi Equipo',   icon: Users       },
+      { href: '/admin' as const, label: 'Admin Panel', icon: ShieldCheck },
+    ] : []),
   ]
 
   return (
-    <nav className="flex-1 overflow-y-auto py-3 px-2">
+    <nav className="flex-1 overflow-y-auto py-3 px-2 flex flex-col">
+      {/* Context toggle — admin only */}
+      {isAdmin && (
+        <div className="mb-2 px-1 hidden lg:block">
+          <div className="flex rounded-md bg-muted/40 p-0.5 text-[10px] font-semibold">
+            <Link
+              href="/dashboard"
+              className={cn(
+                'flex-1 rounded py-1.5 text-center transition-colors',
+                !isTeamView
+                  ? 'bg-sidebar text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              👤 Mi Prospección
+            </Link>
+            <Link
+              href="/team"
+              className={cn(
+                'flex-1 rounded py-1.5 text-center transition-colors',
+                isTeamView
+                  ? 'bg-sidebar text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              👥 Mi Equipo
+            </Link>
+          </div>
+        </div>
+      )}
+
       <ul className="space-y-0.5">
         {allItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || pathname.startsWith(`${href}/`)
@@ -49,7 +84,8 @@ export function SidebarNav({ isAdmin, unreadCoachCount }: SidebarNavProps) {
                   isActive
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
-                  href === '/admin' && !isActive && 'text-warning/70 hover:text-warning'
+                  href === '/admin' && !isActive && 'text-warning/70 hover:text-warning',
+                  href === '/team'  && !isActive && 'text-cyan-500/70 hover:text-cyan-400',
                 )}
               >
                 {isActive && (

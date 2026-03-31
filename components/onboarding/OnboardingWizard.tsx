@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { StepWelcome } from './StepWelcome'
 import { StepRecipe } from './StepRecipe'
 import { StepActivities } from './StepActivities'
-import { saveOnboardingRecipe, saveOnboardingActivities } from '@/lib/actions/onboarding'
+import { saveOnboardingRecipe, saveOnboardingActivities, saveOnboardingCompany } from '@/lib/actions/onboarding'
 
 export type WizardStep = 1 | 2 | 3
 
@@ -25,6 +25,16 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
   const [saving, setSaving]       = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [recipeData, setRecipeData] = useState<RecipeData | null>(null)
+  const [company, setCompany]     = useState('')
+
+  async function handleWelcomeNext(companyValue: string) {
+    setCompany(companyValue)
+    if (companyValue) {
+      // Save company immediately so it's available in /team
+      try { await saveOnboardingCompany(companyValue) } catch { /* non-fatal */ }
+    }
+    setStep(2)
+  }
 
   async function handleRecipeSave(data: RecipeData) {
     setSaving(true)
@@ -85,7 +95,7 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
       )}
 
       {/* Steps */}
-      {step === 1 && <StepWelcome userName={userName} onNext={() => setStep(2)} />}
+      {step === 1 && <StepWelcome userName={userName} onNext={handleWelcomeNext} />}
       {step === 2 && <StepRecipe onSave={handleRecipeSave} saving={saving} />}
       {step === 3 && <StepActivities onSave={handleActivitiesSave} saving={saving} recipeData={recipeData} />}
     </div>

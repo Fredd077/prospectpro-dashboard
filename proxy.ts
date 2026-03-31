@@ -78,8 +78,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Admin-only routes
-  if (pathname.startsWith(ADMIN_PREFIX) && role !== 'admin') {
+  // Admin-only routes (/admin and /team)
+  if ((pathname.startsWith(ADMIN_PREFIX) || pathname.startsWith('/team')) && role !== 'admin') {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
