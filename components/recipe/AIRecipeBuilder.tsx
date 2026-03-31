@@ -52,6 +52,7 @@ export function AIRecipeBuilder() {
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let receivedContent = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -71,10 +72,17 @@ export function AIRecipeBuilder() {
 
             if (parsed.error) {
               setError(parsed.error)
+              // Remove the empty placeholder so three-dots don't linger
+              setMessages((prev) => {
+                const last = prev[prev.length - 1]
+                if (last.role === 'assistant' && last.content === '') return prev.slice(0, -1)
+                return prev
+              })
               break
             }
 
             if (parsed.text) {
+              receivedContent = true
               setMessages((prev) => {
                 const updated = [...prev]
                 const last = updated[updated.length - 1]
@@ -93,8 +101,18 @@ export function AIRecipeBuilder() {
           }
         }
       }
+
+      // Stream closed without content and without an error event (e.g. Vercel timeout)
+      if (!receivedContent) {
+        setError('Ups, tuve un problema conectando con el coach. ¿Intentamos de nuevo?')
+        setMessages((prev) => {
+          const last = prev[prev.length - 1]
+          if (last.role === 'assistant' && last.content === '') return prev.slice(0, -1)
+          return prev
+        })
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error de conexión')
+      setError(err instanceof Error ? err.message : 'Ups, tuve un problema conectando con el coach. ¿Intentamos de nuevo?')
       // Remove the empty assistant placeholder on hard error
       setMessages((prev) => {
         const last = prev[prev.length - 1]

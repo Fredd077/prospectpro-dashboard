@@ -2,6 +2,9 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 
+// Allow up to 60 seconds — Vercel default (10-15s) is too short for streaming LLM responses
+export const maxDuration = 60
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const SYSTEM_PROMPT = `REGLAS ESTRICTAS DE CONVERSACIÓN — NUNCA LAS ROMPAS:
@@ -131,12 +134,15 @@ export async function POST(req: Request) {
       let fullText = ''
 
       try {
-        const claudeStream = client.messages.stream({
-          model: 'claude-opus-4-6',
-          max_tokens: maxTokens,
-          system: SYSTEM_PROMPT,
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
-        })
+        const claudeStream = client.messages.stream(
+          {
+            model: 'claude-sonnet-4-6',
+            max_tokens: maxTokens,
+            system: SYSTEM_PROMPT,
+            messages: messages.map((m) => ({ role: m.role, content: m.content })),
+          },
+          { signal: AbortSignal.timeout(55_000) },
+        )
 
         for await (const event of claudeStream) {
           if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
@@ -170,8 +176,11 @@ export async function POST(req: Request) {
 
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Error desconocido'
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`))
+        const isTimeout = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
+        const userMsg = isTimeout
+          ? 'Ups, tardé demasiado en responder. ¿Intentamos de nuevo?'
+          : 'Ups, tuve un problema conectando con el coach. ¿Intentamos de nuevo?'
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: userMsg })}\n\n`))
       } finally {
         controller.close()
       }
