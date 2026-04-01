@@ -33,3 +33,12 @@ export async function deactivateUser(userId: string) {
   await service.from('profiles').update({ role: 'inactive' }).eq('id', userId)
   revalidatePath('/admin')
 }
+
+export async function updateUserCompany(userId: string, company: string) {
+  await assertAdmin()
+  const service = getSupabaseServiceClient()
+  await service.from('profiles').update({ company: company.trim() || null }).eq('id', userId)
+  revalidatePath('/admin')
+  revalidatePath(`/admin/users/${userId}`)
+  revalidatePath('/team')
+}

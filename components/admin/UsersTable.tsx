@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserActions } from './UserActions'
+import { CompanyCell } from './CompanyCell'
 import type { Profile } from '@/lib/types/database'
 
 const ROLE_BADGE: Record<Profile['role'], { label: string; cls: string }> = {
@@ -98,8 +99,8 @@ export function UsersTable({ users, filterRole }: UsersTableProps) {
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
-                  {user.company ?? '—'}
+                <td className="px-4 py-3 hidden md:table-cell">
+                  <CompanyCell userId={user.id} initialValue={user.company ?? null} />
                 </td>
                 <td className="px-4 py-3">
                   <span className={cn('rounded border px-1.5 py-0.5 text-[10px] font-medium', badge.cls)}>

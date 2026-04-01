@@ -4,6 +4,7 @@ import { ChevronLeft, Building2, Mail, Calendar, Clock, Activity } from 'lucide-
 import { buttonVariants } from '@/components/ui/button-variants'
 import { TopBar } from '@/components/layout/TopBar'
 import { UserActions } from '@/components/admin/UserActions'
+import { CompanyCell } from '@/components/admin/CompanyCell'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 import type { Profile } from '@/lib/types/database'
@@ -106,7 +107,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
               {/* Info */}
               <div>
                 <InfoRow icon={Mail}     label="Email"         value={profile.email} />
-                <InfoRow icon={Building2} label="Empresa"      value={profile.company ?? '—'} />
+                <div className="flex items-center gap-3 py-2.5 border-b border-border/50">
+                  <Building2 className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                  <span className="text-xs text-muted-foreground w-28 shrink-0">Empresa</span>
+                  <CompanyCell userId={profile.id} initialValue={profile.company ?? null} />
+                </div>
                 <InfoRow icon={Calendar} label="Registrado"    value={formatDate(profile.created_at)} />
                 <InfoRow icon={Clock}    label="Último acceso" value={formatDate(profile.last_seen_at)} />
                 <InfoRow icon={Activity} label="Check-ins"     value={String(totalCheckins ?? 0)} />
