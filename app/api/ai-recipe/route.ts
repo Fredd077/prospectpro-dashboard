@@ -82,6 +82,8 @@ interface SaveRecipeData {
 
 async function saveRecipeToDb(data: SaveRecipeData): Promise<string> {
   const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
 
   const result = calcRecipe({
     monthly_revenue_goal:   data.monthly_revenue_goal,
@@ -94,6 +96,7 @@ async function saveRecipeToDb(data: SaveRecipeData): Promise<string> {
   })
 
   const { data: scenario, error } = await sb.from('recipe_scenarios').insert({
+    user_id:                 user.id,
     name:                    data.name,
     monthly_revenue_goal:    data.monthly_revenue_goal,
     average_ticket:          data.average_ticket,
