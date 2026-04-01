@@ -19,7 +19,7 @@ export default async function CheckinPage() {
   const weekStart = toISODate(startOfWeek(dateObj, { weekStartsOn: 1 }))
   const weekEnd   = toISODate(endOfWeek(dateObj, { weekStartsOn: 1 }))
 
-  const [{ data: activities }, { data: logs }, { data: weekLogs }, { data: activeScenario }] = await Promise.all([
+  const [{ data: activities }, { data: logs }, { data: weekLogs }, { data: activeScenario }, { data: todayCoach }] = await Promise.all([
     sb
       .from('activities')
       .select('*')
@@ -41,6 +41,12 @@ export default async function CheckinPage() {
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(1)
+      .maybeSingle(),
+    sb
+      .from('coach_messages')
+      .select('id, message')
+      .eq('type', 'daily')
+      .eq('period_date', date)
       .maybeSingle(),
   ])
 
@@ -64,6 +70,7 @@ export default async function CheckinPage() {
             existingLogs={logs ?? []}
             weeklyLogs={weeklyLogs}
             activeScenario={activeScenario}
+            todayCoachMessage={todayCoach ?? null}
           />
         </div>
       </div>

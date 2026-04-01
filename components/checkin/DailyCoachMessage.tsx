@@ -8,24 +8,61 @@ import { cn } from '@/lib/utils'
 interface DailyCoachMessageProps {
   show: boolean
   date?: string  // ISO date string e.g. "2026-03-31"
+  existingMessage?: { id: string; message: string } | null
 }
 
-export function DailyCoachMessage({ show, date }: DailyCoachMessageProps) {
+// Returns true if current time in Bogotá is before 18:00 (6pm)
+function isBefore6pmColombia(): boolean {
+  try {
+    const hour = parseInt(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Bogota',
+        hour: 'numeric',
+        hour12: false,
+      }).format(new Date()),
+      10,
+    )
+    return hour < 18
+  } catch {
+    return false // if timezone API fails, don't block generation
+  }
+}
+
+export function DailyCoachMessage({ show, date, existingMessage }: DailyCoachMessageProps) {
   const periodLabel = date
     ? (() => { try { return format(parseISO(date), "EEEE d 'de' MMMM 'de' yyyy", { locale: es }) } catch { return '' } })()
     : ''
-  const [message, setMessage]   = useState('')
-  const [loading, setLoading]   = useState(false)
+  const [message, setMessage]     = useState('')
+  const [loading, setLoading]     = useState(false)
   const [messageId, setMessageId] = useState<string | null>(null)
-  const [comment, setComment]   = useState('')
+  const [comment, setComment]     = useState('')
   const [commentSaved, setCommentSaved] = useState(false)
+  // true = cron hasn't run yet and it's before 6pm — show confirmation instead of generating
+  const [showPending, setShowPending] = useState(false)
   const hasFetched = useRef(false)
   const retryRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!show || hasFetched.current) return
     hasFetched.current = true
+
+    // Case 1: cron already ran — use cached report, no API call
+    if (existingMessage) {
+      setMessage(existingMessage.message)
+      setMessageId(existingMessage.id)
+      return
+    }
+
+    // Case 2: no report yet — check time
+    if (isBefore6pmColombia()) {
+      // Before 6pm: cron hasn't run, don't generate now
+      setShowPending(true)
+      return
+    }
+
+    // Case 3: after 6pm and no report — cron may have failed, generate now
     fetchCoachMessage()
+
     return () => {
       if (retryRef.current) clearTimeout(retryRef.current)
     }
@@ -95,6 +132,17 @@ export function DailyCoachMessage({ show, date }: DailyCoachMessageProps) {
 
   // Don't render if not triggered
   if (!show) return null
+
+  // Confirmation: cron hasn't run yet and it's before 6pm
+  if (showPending) {
+    return (
+      <div className="border-l-4 border-emerald-500/50 bg-emerald-500/5 rounded-r-lg px-4 py-3">
+        <p className="text-sm text-foreground leading-relaxed">
+          ✅ Check-in guardado. Tu Coach IA analizará tu día de hoy a las 6:00 pm 🤖
+        </p>
+      </div>
+    )
+  }
 
   // Loading skeleton
   if (loading) {

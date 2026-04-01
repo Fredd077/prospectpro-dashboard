@@ -19,9 +19,10 @@ interface CheckinFormProps {
   existingLogs: DailyCompliance[]
   weeklyLogs: Record<string, number>
   activeScenario?: RecipeScenario | null
+  todayCoachMessage?: { id: string; message: string } | null
 }
 
-export function CheckinForm({ date, activities, existingLogs, weeklyLogs, activeScenario }: CheckinFormProps) {
+export function CheckinForm({ date, activities, existingLogs, weeklyLogs, activeScenario, todayCoachMessage }: CheckinFormProps) {
   const router = useRouter()
   const isRetroactive = date !== todayISO()
 
@@ -112,7 +113,7 @@ export function CheckinForm({ date, activities, existingLogs, weeklyLogs, active
             activeScenario={activeScenario}
           />
           {!isRetroactive && (
-            <DailyCoachMessage show={submitted} date={date} />
+            <DailyCoachMessage show={submitted} date={date} existingMessage={todayCoachMessage} />
           )}
         </>
       )}
