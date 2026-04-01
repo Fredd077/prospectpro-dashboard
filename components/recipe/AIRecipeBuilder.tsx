@@ -25,19 +25,41 @@ export function AIRecipeBuilder() {
   const [savedRecipe, setSavedRecipe] = useState<SavedRecipe | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [started, setStarted] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const MAX_RETRIES = 3
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isStreaming])
 
-  async function sendMessages(msgs: Message[]) {
+  function removePlaceholder() {
+    setMessages((prev) => {
+      const last = prev[prev.length - 1]
+      if (last.role === 'assistant' && last.content === '') return prev.slice(0, -1)
+      return prev
+    })
+  }
+
+  async function sendMessages(msgs: Message[], attempt = 0) {
     setIsStreaming(true)
-    setError(null)
+    if (attempt === 0) {
+      setError(null)
+      setRetryCount(0)
+    }
 
     const assistantPlaceholder: Message = { role: 'assistant', content: '' }
-    setMessages((prev) => [...prev, assistantPlaceholder])
+    setMessages((prev) => {
+      // Don't double-add placeholder on retry — last message is already an empty assistant bubble
+      const last = prev[prev.length - 1]
+      if (last.role === 'assistant' && last.content === '') return prev
+      return [...prev, assistantPlaceholder]
+    })
+
+    let receivedContent = false
+    let failed = false
 
     try {
       const res = await fetch('/api/ai-recipe', {
@@ -52,7 +74,6 @@ export function AIRecipeBuilder() {
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-      let receivedContent = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -71,13 +92,8 @@ export function AIRecipeBuilder() {
             const parsed = JSON.parse(data)
 
             if (parsed.error) {
-              setError(parsed.error)
-              // Remove the empty placeholder so three-dots don't linger
-              setMessages((prev) => {
-                const last = prev[prev.length - 1]
-                if (last.role === 'assistant' && last.content === '') return prev.slice(0, -1)
-                return prev
-              })
+              failed = true
+              removePlaceholder()
               break
             }
 
@@ -102,27 +118,29 @@ export function AIRecipeBuilder() {
         }
       }
 
-      // Stream closed without content and without an error event (e.g. Vercel timeout)
+      // Stream closed with no content (e.g. Vercel timeout before first token)
       if (!receivedContent) {
-        setError('Ups, tuve un problema conectando con el coach. ¿Intentamos de nuevo?')
-        setMessages((prev) => {
-          const last = prev[prev.length - 1]
-          if (last.role === 'assistant' && last.content === '') return prev.slice(0, -1)
-          return prev
-        })
+        failed = true
+        removePlaceholder()
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ups, tuve un problema conectando con el coach. ¿Intentamos de nuevo?')
-      // Remove the empty assistant placeholder on hard error
-      setMessages((prev) => {
-        const last = prev[prev.length - 1]
-        if (last.role === 'assistant' && last.content === '') return prev.slice(0, -1)
-        return prev
-      })
-    } finally {
-      setIsStreaming(false)
-      setTimeout(() => inputRef.current?.focus(), 100)
+    } catch {
+      failed = true
+      removePlaceholder()
     }
+
+    if (failed) {
+      const nextAttempt = attempt + 1
+      if (nextAttempt < MAX_RETRIES) {
+        setRetryCount(nextAttempt)
+        await new Promise((r) => setTimeout(r, 1200))
+        return sendMessages(msgs, nextAttempt)
+      }
+      setError('No se pudo conectar con el coach después de varios intentos. ¿Intentamos de nuevo?')
+      setRetryCount(0)
+    }
+
+    setIsStreaming(false)
+    setTimeout(() => inputRef.current?.focus(), 100)
   }
 
   function handleStart() {
@@ -147,6 +165,7 @@ export function AIRecipeBuilder() {
     setSavedRecipe(null)
     setError(null)
     setStarted(false)
+    setRetryCount(0)
   }
 
   // Visible messages: skip the hidden __start__ trigger
@@ -189,7 +208,12 @@ export function AIRecipeBuilder() {
             <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
           </div>
           <span className="text-sm font-semibold text-foreground">Coach de Ventas IA</span>
-          {isStreaming && (
+          {isStreaming && retryCount > 0 && (
+            <span className="text-xs text-amber-400/80 animate-pulse">
+              Reconectando... ({retryCount}/{MAX_RETRIES - 1})
+            </span>
+          )}
+          {isStreaming && retryCount === 0 && (
             <span className="text-xs text-cyan-400/70 animate-pulse">escribiendo...</span>
           )}
         </div>
@@ -253,17 +277,14 @@ export function AIRecipeBuilder() {
           </div>
         )}
 
-        {/* Error */}
+        {/* Error — only shown after all retries exhausted */}
         {error && (
           <div className="flex justify-center">
             <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-400 flex items-center gap-2">
               <span>{error}</span>
               <button
-                onClick={() => {
-                  setError(null)
-                  sendMessages(messages)
-                }}
-                className="underline hover:no-underline"
+                onClick={() => { setError(null); sendMessages(messages, 0) }}
+                className="underline hover:no-underline whitespace-nowrap"
               >
                 Reintentar
               </button>

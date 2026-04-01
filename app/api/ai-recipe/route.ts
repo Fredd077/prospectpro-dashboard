@@ -144,12 +144,22 @@ export async function POST(req: Request) {
           { signal: AbortSignal.timeout(55_000) },
         )
 
+        // Send SSE keepalive pings every 3s until first token arrives.
+        // This prevents Vercel / proxies from closing an idle connection
+        // while Claude is still thinking before the first word.
+        let firstToken = false
+        const ping = setInterval(() => {
+          if (!firstToken) controller.enqueue(encoder.encode(': ping\n\n'))
+        }, 3000)
+
         for await (const event of claudeStream) {
           if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+            if (!firstToken) { firstToken = true; clearInterval(ping) }
             fullText += event.delta.text
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`))
           }
         }
+        clearInterval(ping)
 
         // Detect save_recipe JSON action in the full response
         const jsonMatch = fullText.match(/\{"action"\s*:\s*"save_recipe"[^}]*\}(?:\s*\})?/)
