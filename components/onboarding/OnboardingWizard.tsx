@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { StepWelcome } from './StepWelcome'
 import { StepRecipe } from './StepRecipe'
-import { StepActivities } from './StepActivities'
+import { StepActivities, type OnboardingActivityData } from './StepActivities'
 import { saveOnboardingRecipe, saveOnboardingActivities, saveOnboardingCompany } from '@/lib/actions/onboarding'
 
 export type WizardStep = 1 | 2 | 3
@@ -51,11 +51,11 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
     }
   }
 
-  async function handleActivitiesSave(overrides: { name: string; monthly_goal: number }[]) {
+  async function handleActivitiesSave(activities: OnboardingActivityData[]) {
     setSaving(true)
     setSaveError(null)
     try {
-      await saveOnboardingActivities(overrides)
+      await saveOnboardingActivities(activities)
       router.push('/dashboard')
       router.refresh()
     } catch (e) {

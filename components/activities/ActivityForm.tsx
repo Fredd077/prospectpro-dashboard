@@ -45,7 +45,7 @@ const schema = z.object({
   name: z.string().min(2, 'Mínimo 2 caracteres').max(100),
   type: z.enum(['OUTBOUND', 'INBOUND']),
   channel: z.string().min(1, 'Por favor escribe el nombre de tu canal personalizado'),
-  monthly_goal: z.number().int().min(1, 'Debe ser ≥ 1'),
+  weight: z.number().min(0, 'Mínimo 0').max(100, 'Máximo 100'),
   status: z.enum(['active', 'inactive']),
   description: z.string().max(500).optional(),
 })
@@ -72,7 +72,7 @@ export function ActivityForm({ activity }: ActivityFormProps) {
       name: activity?.name ?? '',
       type: activity?.type ?? 'OUTBOUND',
       channel: activity?.channel ?? '',
-      monthly_goal: activity?.monthly_goal ?? 20,
+      weight: activity?.weight ?? 0,
       status: activity?.status ?? 'active',
       description: activity?.description ?? '',
     },
@@ -80,7 +80,6 @@ export function ActivityForm({ activity }: ActivityFormProps) {
 
   const watchedType = watch('type')
   const watchedStatus = watch('status')
-  const monthlyGoal = watch('monthly_goal') || 0
 
   // Combobox state for channel
   const [channelInput, setChannelInput] = useState(activity?.channel ?? '')
@@ -102,23 +101,13 @@ export function ActivityForm({ activity }: ActivityFormProps) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  // Derived previews
-  const weeklyPreview = Math.ceil(monthlyGoal / 4)
-  const dailyPreview = Math.ceil(monthlyGoal / 20)
-  const isWeeklyActivity = dailyPreview < 1
-
   async function onSubmit(values: FormValues) {
     try {
-      const monthly = values.monthly_goal
-      const weekly_goal = Math.ceil(monthly / 4)
-      const daily_goal = Math.ceil(monthly / 20)
-      const payload = { ...values, weekly_goal, daily_goal }
-
       if (isEdit) {
-        await updateActivity(activity.id, payload)
+        await updateActivity(activity.id, values)
         toast.success('Actividad actualizada')
       } else {
-        await createActivity(payload)
+        await createActivity(values)
         toast.success('Actividad creada')
       }
       router.push('/activities')
@@ -210,29 +199,22 @@ export function ActivityForm({ activity }: ActivityFormProps) {
           </Field>
         </div>
 
-        {/* Monthly goal — single source of truth */}
-        <Field data-invalid={!!errors.monthly_goal}>
-          <FieldLabel>Meta mensual</FieldLabel>
+        {/* Weight — replaces manual monthly_goal */}
+        <Field data-invalid={!!errors.weight}>
+          <FieldLabel>Peso relativo (%)</FieldLabel>
           <Input
             type="number"
-            min={1}
-            {...register('monthly_goal', { valueAsNumber: true })}
+            min={0}
+            max={100}
+            step={0.01}
+            placeholder="0 – 100"
+            {...register('weight', { valueAsNumber: true })}
           />
-          <FieldError errors={[errors.monthly_goal]} />
-
-          {/* Live preview */}
-          {monthlyGoal >= 1 && (
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {'→ '}
-              <span className="text-foreground font-medium">Semanal: {weeklyPreview}</span>
-              {' | '}
-              {isWeeklyActivity ? (
-                <span className="text-amber-400">Esta actividad se trackea semanalmente</span>
-              ) : (
-                <span className="text-foreground font-medium">Diaria: {dailyPreview}</span>
-              )}
-            </p>
-          )}
+          <FieldError errors={[errors.weight]} />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            La meta mensual se calcula automáticamente en la página de Actividades
+            según el peso asignado y tu Recetario activo.
+          </p>
         </Field>
 
         {/* Description */}

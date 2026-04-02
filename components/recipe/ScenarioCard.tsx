@@ -23,7 +23,8 @@ import {
   DialogClose,
 } from '@/components/ui/dialog'
 import { formatCurrency, formatDecimal } from '@/lib/utils/formatters'
-import { deleteScenario, setActiveScenario, duplicateScenario } from '@/lib/queries/recipe'
+import { deleteScenario, duplicateScenario } from '@/lib/queries/recipe'
+import { activateScenario } from '@/lib/actions/activities'
 import type { RecipeScenario } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -51,7 +52,7 @@ export function ScenarioCard({ scenario: s }: ScenarioCardProps) {
 
   const handleSetActive = async () => {
     try {
-      await setActiveScenario(s.id)
+      await activateScenario(s.id)
       toast.success(`"${s.name}" ahora es el escenario activo`)
       router.refresh()
     } catch {

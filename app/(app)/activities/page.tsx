@@ -3,10 +3,8 @@ import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { TopBar } from '@/components/layout/TopBar'
-import { ActivityTable } from '@/components/activities/ActivityTable'
-import { RecipeValidationBanner } from '@/components/activities/RecipeValidationBanner'
+import { WeightDistributor } from '@/components/activities/WeightDistributor'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
 
 export const metadata: Metadata = {
   title: 'Actividades',
@@ -39,15 +37,11 @@ export default async function ActivitiesPage() {
     )
   }
 
-  const validation = activeScenario && activities
-    ? calcRecipeValidation(activeScenario, activities)
-    : null
-
   return (
     <div className="flex flex-col h-full">
       <TopBar
         title="Actividades"
-        description={`${activities?.length ?? 0} actividades configuradas`}
+        description="Distribuye el peso de cada actividad para calcular tus metas automáticamente"
         action={
           <Link href="/activities/new" className={buttonVariants({ size: 'sm' })}>
             <Plus className="mr-2 h-4 w-4" />
@@ -55,9 +49,10 @@ export default async function ActivitiesPage() {
           </Link>
         }
       />
-      <div className="flex-1 overflow-y-auto p-8 space-y-6">
-        <RecipeValidationBanner validation={validation} />
-        <ActivityTable activities={activities ?? []} />
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="mx-auto max-w-3xl">
+          <WeightDistributor activities={activities ?? []} activeScenario={activeScenario ?? null} />
+        </div>
       </div>
     </div>
   )

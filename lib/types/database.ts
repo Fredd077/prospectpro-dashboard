@@ -53,6 +53,7 @@ export interface Database {
           daily_goal: number
           weekly_goal: number
           monthly_goal: number
+          weight: number
           status: 'active' | 'inactive'
           sort_order: number
           description: string | null
@@ -68,6 +69,7 @@ export interface Database {
           daily_goal?: number
           weekly_goal?: number
           monthly_goal?: number
+          weight?: number
           status?: 'active' | 'inactive'
           sort_order?: number
           description?: string | null
@@ -83,6 +85,7 @@ export interface Database {
           daily_goal?: number
           weekly_goal?: number
           monthly_goal?: number
+          weight?: number
           status?: 'active' | 'inactive'
           sort_order?: number
           description?: string | null
