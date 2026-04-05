@@ -4,20 +4,23 @@ import type { ConversionResult } from '@/lib/calculations/pipeline'
 import { fmtUSD } from '@/lib/calculations/pipeline'
 import { cn } from '@/lib/utils'
 
-interface StageStat {
+export interface StageStat {
   stage: string
   real: number
   planned: number
+  realOutbound?: number  // present when showing combined (no type filter)
+  realInbound?: number
 }
 
 interface PipelineFunnelSummaryProps {
   stages: string[]
-  stageStats: StageStat[]        // one entry per stage (parallel to stages)
+  stageStats: StageStat[]
   conversions: ConversionResult[]
   openAmount: number
   closedAmount: number
   monthlyGoal: number
   periodLabel: string
+  typeFilter?: 'OUTBOUND' | 'INBOUND' | null
 }
 
 function semClass(gap: number) {
@@ -46,16 +49,36 @@ export function PipelineFunnelSummary({
   closedAmount,
   monthlyGoal,
   periodLabel,
+  typeFilter,
 }: PipelineFunnelSummaryProps) {
   const revenuePct = monthlyGoal > 0 ? Math.round((closedAmount / monthlyGoal) * 100) : 0
 
   return (
     <div className="rounded-lg border border-border bg-card p-5 space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">
           Funnel Real vs Recetario — <span className="text-muted-foreground font-normal capitalize">{periodLabel}</span>
         </h2>
+        {/* Legend — only for combined view */}
+        {!typeFilter && (
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="flex items-center gap-1 text-[10px] text-cyan-400">
+              <span className="inline-block h-1.5 w-3 rounded-full bg-cyan-400" /> OUTBOUND
+            </span>
+            <span className="flex items-center gap-1 text-[10px] text-purple-400">
+              <span className="inline-block h-1.5 w-3 rounded-full bg-purple-400" /> INBOUND
+            </span>
+          </div>
+        )}
+        {typeFilter && (
+          <span className={cn(
+            'text-[10px] font-bold px-2 py-0.5 rounded border',
+            typeFilter === 'OUTBOUND' ? 'bg-cyan-400/10 text-cyan-400 border-cyan-400/20' : 'bg-purple-400/10 text-purple-400 border-purple-400/20'
+          )}>
+            {typeFilter}
+          </span>
+        )}
       </div>
 
       {/* Stage rows */}
@@ -89,27 +112,48 @@ export function PipelineFunnelSummary({
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-foreground">{stat.stage}</span>
                   <div className="flex items-center gap-2">
-                    <span className="tabular-nums text-foreground font-semibold">
-                      {stat.real.toLocaleString('es-CO')}/{stat.planned.toLocaleString('es-CO')}
-                    </span>
-                    <span className={cn(
-                      'text-[10px] font-semibold px-1.5 py-0.5 rounded border',
-                      semBg(gap)
-                    )}>
+                    {!typeFilter && stat.realOutbound !== undefined && stat.realInbound !== undefined ? (
+                      <span className="tabular-nums text-foreground font-semibold flex items-center gap-1">
+                        <span className="text-cyan-400">{stat.realOutbound.toLocaleString('es-CO')}</span>
+                        <span className="text-muted-foreground/40">+</span>
+                        <span className="text-purple-400">{stat.realInbound.toLocaleString('es-CO')}</span>
+                        <span className="text-muted-foreground/60">/{stat.planned.toLocaleString('es-CO')}</span>
+                      </span>
+                    ) : (
+                      <span className="tabular-nums text-foreground font-semibold">
+                        {stat.real.toLocaleString('es-CO')}/{stat.planned.toLocaleString('es-CO')}
+                      </span>
+                    )}
+                    <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded border', semBg(gap))}>
                       {pct}% {semEmoji(gap)}
                     </span>
                   </div>
                 </div>
-                {/* Progress bar */}
+                {/* Progress bar(s) */}
+                {!typeFilter && stat.realOutbound !== undefined && stat.realInbound !== undefined ? (
+                  <div className="space-y-0.5">
+                    <div className="h-1 w-full rounded-full bg-muted/40">
+                      <div className="h-full rounded-full bg-cyan-400 transition-all"
+                        style={{ width: `${Math.min(100, stat.planned > 0 ? Math.round((stat.realOutbound / stat.planned) * 100) : 0)}%` }} />
+                    </div>
+                    <div className="h-1 w-full rounded-full bg-muted/40">
+                      <div className="h-full rounded-full bg-purple-400 transition-all"
+                        style={{ width: `${Math.min(100, stat.planned > 0 ? Math.round((stat.realInbound / stat.planned) * 100) : 0)}%` }} />
+                    </div>
+                  </div>
+                ) : (
                 <div className="h-1.5 w-full rounded-full bg-muted/40">
                   <div
                     className={cn(
                       'h-full rounded-full transition-all',
-                      pct >= 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-amber-400' : 'bg-red-400'
+                      typeFilter === 'OUTBOUND' ? 'bg-cyan-400'
+                      : typeFilter === 'INBOUND' ? 'bg-purple-400'
+                      : pct >= 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-amber-400' : 'bg-red-400'
                     )}
                     style={{ width: `${barPct}%` }}
                   />
                 </div>
+                )}
               </div>
             </div>
           )

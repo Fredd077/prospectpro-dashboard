@@ -5,6 +5,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface PipelineEntryData {
   stage: string
+  prospect_type: 'OUTBOUND' | 'INBOUND'
   company_name: string
   prospect_name: string
   quantity: number
@@ -25,6 +26,7 @@ export async function savePipelineEntry(data: PipelineEntryData): Promise<string
       user_id: user.id,
       recipe_scenario_id: data.recipe_scenario_id ?? null,
       stage: data.stage,
+      prospect_type: data.prospect_type,
       company_name: data.company_name.trim(),
       prospect_name: data.prospect_name.trim(),
       quantity: data.quantity,
@@ -53,6 +55,7 @@ export async function updatePipelineEntry(id: string, data: Partial<PipelineEntr
     .from('pipeline_entries')
     .update({
       stage:         data.stage,
+      prospect_type: data.prospect_type,
       company_name:  data.company_name?.trim(),
       prospect_name: data.prospect_name?.trim(),
       quantity:      data.quantity,

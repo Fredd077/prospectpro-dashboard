@@ -7,36 +7,32 @@ import { savePipelineEntry, updatePipelineEntry, getCompanyNames } from '@/lib/a
 import type { PipelineEntryData } from '@/lib/actions/pipeline'
 import type { PipelineEntry } from '@/lib/types/database'
 import { todayISO } from '@/lib/utils/dates'
+import { cn } from '@/lib/utils'
 
 interface PipelineEntryFormProps {
-  /** All funnel stages from active recipe (including first "Actividad" stage) */
   stages: string[]
-  /** ID of the active recipe scenario (optional, stored for reference) */
   scenarioId?: string | null
-  /** If set, the form pre-fills for editing */
   editEntry?: PipelineEntry | null
-  /** Called after a successful save with the new/updated entry id */
-  onSaved?: (id: string) => void
+  onSaved?: (id: string, prospectType: 'OUTBOUND' | 'INBOUND') => void
   onCancel?: () => void
 }
 
 export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCancel }: PipelineEntryFormProps) {
   const today = todayISO()
 
-  // Stages available for selection: exclude first (activities)
   const availableStages = stages.slice(1)
-  // Last 3 stages show the amount field
-  const amountStages = new Set(availableStages.slice(-3))
+  const amountStages    = new Set(availableStages.slice(-3))
 
-  const [stage, setStage]               = useState(editEntry?.stage ?? availableStages[0] ?? '')
-  const [company, setCompany]           = useState(editEntry?.company_name ?? '')
-  const [prospect, setProspect]         = useState(editEntry?.prospect_name ?? '')
-  const [quantity, setQuantity]         = useState(editEntry?.quantity ?? 1)
-  const [amount, setAmount]             = useState<string>(editEntry?.amount_usd != null ? String(editEntry.amount_usd) : '')
-  const [entryDate, setEntryDate]       = useState(editEntry?.entry_date ?? today)
-  const [notes, setNotes]               = useState(editEntry?.notes ?? '')
-  const [saving, setSaving]             = useState(false)
-  const [companies, setCompanies]       = useState<string[]>([])
+  const [stage, setStage]           = useState(editEntry?.stage ?? availableStages[0] ?? '')
+  const [prospectType, setProspectType] = useState<'OUTBOUND' | 'INBOUND'>(editEntry?.prospect_type ?? 'OUTBOUND')
+  const [company, setCompany]       = useState(editEntry?.company_name ?? '')
+  const [prospect, setProspect]     = useState(editEntry?.prospect_name ?? '')
+  const [quantity, setQuantity]     = useState(editEntry?.quantity ?? 1)
+  const [amount, setAmount]         = useState<string>(editEntry?.amount_usd != null ? String(editEntry.amount_usd) : '')
+  const [entryDate, setEntryDate]   = useState(editEntry?.entry_date ?? today)
+  const [notes, setNotes]           = useState(editEntry?.notes ?? '')
+  const [saving, setSaving]         = useState(false)
+  const [companies, setCompanies]   = useState<string[]>([])
 
   const showAmount = amountStages.has(stage)
   const stageLabel = stage ? `${stage}(s) realizados` : 'Cantidad'
@@ -63,6 +59,7 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
     try {
       const payload: PipelineEntryData = {
         stage,
+        prospect_type: prospectType,
         company_name:  company.trim(),
         prospect_name: prospect.trim(),
         quantity,
@@ -75,11 +72,11 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
       if (editEntry) {
         await updatePipelineEntry(editEntry.id, payload)
         toast.success('Registro actualizado ✓')
-        onSaved?.(editEntry.id)
+        onSaved?.(editEntry.id, prospectType)
       } else {
         const id = await savePipelineEntry(payload)
         toast.success('Movimiento registrado ✓')
-        onSaved?.(id)
+        onSaved?.(id, prospectType)
       }
     } catch {
       toast.error('Error al guardar')
@@ -121,7 +118,31 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
         </div>
       </div>
 
-      {/* Row 2: Company (with autocomplete) */}
+      {/* Type toggle: OUTBOUND / INBOUND */}
+      <div>
+        <label className={labelCls}>Tipo de prospecto</label>
+        <div className="flex rounded-md border border-border overflow-hidden w-fit">
+          {(['OUTBOUND', 'INBOUND'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setProspectType(t)}
+              className={cn(
+                'px-4 py-1.5 text-xs font-semibold transition-colors border-r border-border last:border-r-0',
+                prospectType === t
+                  ? t === 'OUTBOUND'
+                    ? 'bg-cyan-400/15 text-cyan-400 border-b border-b-cyan-400/40'
+                    : 'bg-purple-400/15 text-purple-400 border-b border-b-purple-400/40'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Company */}
       <div>
         <label className={labelCls}>Empresa <span className="text-red-400">*</span></label>
         <input
@@ -138,7 +159,7 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
         </datalist>
       </div>
 
-      {/* Row 3: Prospect name */}
+      {/* Prospect name */}
       <div>
         <label className={labelCls}>Prospecto (nombre completo) <span className="text-red-400">*</span></label>
         <input
@@ -150,7 +171,7 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
         />
       </div>
 
-      {/* Row 4: Quantity + Amount (conditional) */}
+      {/* Quantity + Amount */}
       <div className={showAmount ? 'grid grid-cols-2 gap-3' : ''}>
         <div>
           <label className={labelCls}>{stageLabel}</label>
@@ -183,7 +204,7 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
         )}
       </div>
 
-      {/* Row 5: Notes */}
+      {/* Notes */}
       <div>
         <label className={labelCls}>Notas <span className="text-muted-foreground/40">(opcional)</span></label>
         <textarea

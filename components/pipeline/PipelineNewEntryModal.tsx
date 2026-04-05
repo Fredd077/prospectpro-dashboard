@@ -15,7 +15,7 @@ export function PipelineNewEntryModal({ stages, scenarioId }: PipelineNewEntryMo
   const [open, setOpen] = useState(false)
   const router = useRouter()
 
-  function handleSaved() {
+  function handleSaved(_id: string) {
     setOpen(false)
     router.refresh()
   }

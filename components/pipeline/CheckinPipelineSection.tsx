@@ -11,6 +11,7 @@ import { fmtUSD } from '@/lib/calculations/pipeline'
 interface SavedEntry {
   id: string
   stage: string
+  prospect_type: 'OUTBOUND' | 'INBOUND'
   company_name: string
   prospect_name: string
   quantity: number
@@ -32,14 +33,11 @@ export function CheckinPipelineSection({ stages, scenarioId, date }: CheckinPipe
 
   if (stages.length <= 1) return null
 
-  async function handleSaved(id: string) {
-    // Re-fetch is done via revalidatePath inside the action.
-    // We update local state optimistically with a minimal entry representation.
+  async function handleSaved(id: string, prospectType: 'OUTBOUND' | 'INBOUND') {
     setShowForm(false)
-    // Keep form ready for next entry
     setSaved((prev) => [
       ...prev,
-      { id, stage: '…', company_name: '…', prospect_name: '…', quantity: 1, amount_usd: null },
+      { id, stage: '…', prospect_type: prospectType, company_name: '…', prospect_name: '…', quantity: 1, amount_usd: null },
     ])
     toast.success('Movimiento registrado ✓')
   }
@@ -90,6 +88,13 @@ export function CheckinPipelineSection({ stages, scenarioId, date }: CheckinPipe
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary shrink-0">
                       {e.stage}
+                    </span>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold shrink-0 ${
+                      e.prospect_type === 'OUTBOUND'
+                        ? 'bg-cyan-400/10 text-cyan-400'
+                        : 'bg-purple-400/10 text-purple-400'
+                    }`}>
+                      {e.prospect_type}
                     </span>
                     <span className="text-foreground/80 truncate">{e.company_name} — {e.prospect_name}</span>
                     {e.amount_usd != null && (

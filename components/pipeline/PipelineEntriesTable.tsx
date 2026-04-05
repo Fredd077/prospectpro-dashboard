@@ -73,6 +73,7 @@ export function PipelineEntriesTable({ entries, stages, scenarioId, stageFilter 
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Etapa</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tipo</th>
                   <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Empresa</th>
                   <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Prospecto</th>
                   <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Cant.</th>
@@ -84,7 +85,7 @@ export function PipelineEntriesTable({ entries, stages, scenarioId, stageFilter 
                 {dateEntries.map((entry) => (
                   editingId === entry.id ? (
                     <tr key={entry.id}>
-                      <td colSpan={6} className="px-4 py-4">
+                      <td colSpan={7} className="px-4 py-4">
                         <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
                           <div className="flex items-center justify-between mb-3">
                             <p className="text-xs font-semibold text-primary">Editando registro</p>
@@ -110,6 +111,16 @@ export function PipelineEntriesTable({ entries, stages, scenarioId, stageFilter 
                       <td className="px-4 py-2.5">
                         <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                           {entry.stage}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={cn(
+                          'inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-bold',
+                          entry.prospect_type === 'OUTBOUND'
+                            ? 'bg-cyan-400/10 text-cyan-400 border-cyan-400/20'
+                            : 'bg-purple-400/10 text-purple-400 border-purple-400/20'
+                        )}>
+                          {entry.prospect_type}
                         </span>
                       </td>
                       <td className="px-4 py-2.5">

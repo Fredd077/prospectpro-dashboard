@@ -24,6 +24,8 @@ export interface WeeklyBucket {
 export interface PipelineStageData {
   stage: string
   count: number
+  countOutbound: number
+  countInbound: number
   amount: number
 }
 
@@ -106,7 +108,7 @@ async function _fetchPipelineData(
 ): Promise<PipelineCoachData | undefined> {
   let q = sb
     .from('pipeline_entries')
-    .select('stage,quantity,amount_usd')
+    .select('stage,quantity,amount_usd,prospect_type')
     .gte('entry_date', dateStart)
     .lte('entry_date', dateEnd)
   if (userId) q = q.eq('user_id', userId)
@@ -123,14 +125,25 @@ async function _fetchPipelineData(
   const revenuePct   = monthlyGoal > 0 ? Math.round((pipelineVal.closed / monthlyGoal) * 100) : 0
 
   const countMap: Record<string, number> = {}
+  const countOutboundMap: Record<string, number> = {}
+  const countInboundMap: Record<string, number> = {}
   const amountMap: Record<string, number> = {}
   for (const e of entries) {
     countMap[e.stage]  = (countMap[e.stage] ?? 0) + e.quantity
     amountMap[e.stage] = (amountMap[e.stage] ?? 0) + (e.amount_usd ?? 0)
+    if (e.prospect_type === 'OUTBOUND') {
+      countOutboundMap[e.stage] = (countOutboundMap[e.stage] ?? 0) + e.quantity
+    } else {
+      countInboundMap[e.stage] = (countInboundMap[e.stage] ?? 0) + e.quantity
+    }
   }
 
   const byStage: PipelineStageData[] = stages.slice(1).map((s) => ({
-    stage: s, count: countMap[s] ?? 0, amount: amountMap[s] ?? 0,
+    stage: s,
+    count: countMap[s] ?? 0,
+    countOutbound: countOutboundMap[s] ?? 0,
+    countInbound: countInboundMap[s] ?? 0,
+    amount: amountMap[s] ?? 0,
   }))
 
   return {
@@ -455,8 +468,20 @@ export function formatContextForPrompt(ctx: CoachContext): string {
     const periodStr = ctx.period === 'daily' ? 'Hoy' : 'Esta semana'
     lines.push('')
     lines.push(`PIPELINE REAL vs RECETARIO (${periodStr}):`)
-    for (const s of p.byStage) {
-      lines.push(`  • ${s.stage}: ${s.count} realizados${s.amount > 0 ? ` | $${s.amount.toLocaleString('es-CO')} en monto` : ''}`)
+    const hasTypeSplit = p.byStage.some((s) => s.countOutbound > 0 || s.countInbound > 0)
+    if (hasTypeSplit) {
+      lines.push('  PIPELINE OUTBOUND:')
+      for (const s of p.byStage) {
+        lines.push(`    • ${s.stage}: ${s.countOutbound}`)
+      }
+      lines.push('  PIPELINE INBOUND:')
+      for (const s of p.byStage) {
+        lines.push(`    • ${s.stage}: ${s.countInbound}`)
+      }
+    } else {
+      for (const s of p.byStage) {
+        lines.push(`  • ${s.stage}: ${s.count} realizados${s.amount > 0 ? ` | $${s.amount.toLocaleString('es-CO')} en monto` : ''}`)
+      }
     }
     if (p.conversions.length) {
       lines.push('  Tasas de conversión:')

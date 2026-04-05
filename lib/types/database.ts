@@ -277,6 +277,7 @@ export interface Database {
           user_id: string
           recipe_scenario_id: string | null
           stage: string
+          prospect_type: 'OUTBOUND' | 'INBOUND'
           company_name: string
           prospect_name: string
           quantity: number
@@ -291,6 +292,7 @@ export interface Database {
           user_id?: string
           recipe_scenario_id?: string | null
           stage: string
+          prospect_type?: 'OUTBOUND' | 'INBOUND'
           company_name: string
           prospect_name: string
           quantity?: number
@@ -302,6 +304,7 @@ export interface Database {
         }
         Update: {
           stage?: string
+          prospect_type?: 'OUTBOUND' | 'INBOUND'
           company_name?: string
           prospect_name?: string
           quantity?: number
