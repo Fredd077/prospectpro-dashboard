@@ -467,22 +467,30 @@ export function formatContextForPrompt(ctx: CoachContext): string {
     const p = ctx.pipeline
     const periodStr = ctx.period === 'daily' ? 'Hoy' : 'Esta semana'
     lines.push('')
-    lines.push(`PIPELINE REAL vs RECETARIO (${periodStr}):`)
-    const hasTypeSplit = p.byStage.some((s) => s.countOutbound > 0 || s.countInbound > 0)
-    if (hasTypeSplit) {
-      lines.push('  PIPELINE OUTBOUND:')
-      for (const s of p.byStage) {
-        lines.push(`    • ${s.stage}: ${s.countOutbound}`)
-      }
-      lines.push('  PIPELINE INBOUND:')
-      for (const s of p.byStage) {
-        lines.push(`    • ${s.stage}: ${s.countInbound}`)
-      }
-    } else {
-      for (const s of p.byStage) {
-        lines.push(`  • ${s.stage}: ${s.count} realizados${s.amount > 0 ? ` | $${s.amount.toLocaleString('es-CO')} en monto` : ''}`)
-      }
+
+    // Helper: stage summary line with amount
+    function stageLine(s: PipelineStageData, count: number): string {
+      return `${s.stage}: ${count}${s.amount > 0 ? ` ($${s.amount.toLocaleString('es-CO')})` : ''}`
     }
+
+    // Conversion tags inline
+    function convTag(from: string, to: string): string {
+      const c = p.conversions.find((x) => x.fromStage === from && x.toStage === to)
+      if (!c) return ''
+      const sign = c.gap >= 0 ? '+' : ''
+      const marker = c.gap >= 0 ? '✅' : c.gap >= -10 ? '⚠️' : '🔴'
+      return ` | Conv. ${from}→${to}: Real ${c.realConversion}% Plan ${c.plannedConversion}% ${sign}${c.gap}% ${marker}`
+    }
+
+    lines.push(`PIPELINE OUTBOUND [${periodStr}]:`)
+    const obParts = p.byStage.map((s) => stageLine(s, s.countOutbound))
+    lines.push('  ' + obParts.join(' | '))
+
+    lines.push(`PIPELINE INBOUND [${periodStr}]:`)
+    const ibParts = p.byStage.map((s) => stageLine(s, s.countInbound))
+    lines.push('  ' + ibParts.join(' | '))
+
+    // Conversion rates
     if (p.conversions.length) {
       lines.push('  Tasas de conversión:')
       for (const c of p.conversions) {
@@ -491,6 +499,19 @@ export function formatContextForPrompt(ctx: CoachContext): string {
         lines.push(`    ${c.fromStage}→${c.toStage}: Real ${c.realConversion}% | Plan ${c.plannedConversion}% | ${sign}${c.gap}% ${marker}`)
       }
     }
+
+    // Company details (non-quick entries)
+    const detailStages = p.byStage.filter((s) => s.amount > 0)
+    if (detailStages.length > 0) {
+      lines.push('  EMPRESAS CON MONTO:')
+      for (const s of detailStages) {
+        lines.push(`    ${s.stage}: $${s.amount.toLocaleString('es-CO')}`)
+      }
+    }
+
+    // Inline conversion annotations per stage pair
+    void convTag
+
     lines.push(`  Pipeline abierto: $${p.openAmount.toLocaleString('es-CO')}`)
     lines.push(`  Cerrado: $${p.closedAmount.toLocaleString('es-CO')} de $${p.monthlyGoal.toLocaleString('es-CO')} meta (${p.revenuePct}%)`)
 

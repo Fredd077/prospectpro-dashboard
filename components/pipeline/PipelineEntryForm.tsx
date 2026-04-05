@@ -27,6 +27,7 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
   const [prospectType, setProspectType] = useState<'OUTBOUND' | 'INBOUND'>(editEntry?.prospect_type ?? 'OUTBOUND')
   const [company, setCompany]       = useState(editEntry?.company_name ?? '')
   const [prospect, setProspect]     = useState(editEntry?.prospect_name ?? '')
+  // company_name and prospect_name are optional (nullable)
   const [quantity, setQuantity]     = useState(editEntry?.quantity ?? 1)
   const [amount, setAmount]         = useState<string>(editEntry?.amount_usd != null ? String(editEntry.amount_usd) : '')
   const [entryDate, setEntryDate]   = useState(editEntry?.entry_date ?? today)
@@ -43,7 +44,6 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!company.trim() || !prospect.trim()) return
 
     const parsedAmount = amount.trim() ? parseFloat(amount.replace(/\./g, '').replace(',', '.')) : null
     if (showAmount && amount.trim() && (isNaN(parsedAmount!) || parsedAmount! <= 0)) {
@@ -60,13 +60,14 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
       const payload: PipelineEntryData = {
         stage,
         prospect_type: prospectType,
-        company_name:  company.trim(),
-        prospect_name: prospect.trim(),
+        company_name:  company.trim() || null,
+        prospect_name: prospect.trim() || null,
         quantity,
         amount_usd: showAmount && parsedAmount ? parsedAmount : null,
         entry_date: entryDate,
         notes: notes.trim() || null,
         recipe_scenario_id: scenarioId ?? null,
+        is_quick_entry: false,
       }
 
       if (editEntry) {
@@ -144,14 +145,13 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
 
       {/* Company */}
       <div>
-        <label className={labelCls}>Empresa <span className="text-red-400">*</span></label>
+        <label className={labelCls}>Empresa <span className="text-muted-foreground/40">(opcional)</span></label>
         <input
           list="company-suggestions"
           value={company}
           onChange={(e) => setCompany(e.target.value)}
           placeholder="Nombre de la empresa"
           className={inputCls}
-          required
           autoComplete="off"
         />
         <datalist id="company-suggestions">
@@ -161,13 +161,12 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
 
       {/* Prospect name */}
       <div>
-        <label className={labelCls}>Prospecto (nombre completo) <span className="text-red-400">*</span></label>
+        <label className={labelCls}>Prospecto <span className="text-muted-foreground/40">(opcional)</span></label>
         <input
           value={prospect}
           onChange={(e) => setProspect(e.target.value)}
           placeholder="Nombre del contacto"
           className={inputCls}
-          required
         />
       </div>
 
@@ -227,7 +226,7 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
             Cancelar
           </Button>
         )}
-        <Button type="submit" size="sm" disabled={saving || !company.trim() || !prospect.trim()}>
+        <Button type="submit" size="sm" disabled={saving}>
           {saving ? 'Guardando...' : editEntry ? 'Actualizar' : 'Registrar movimiento'}
         </Button>
       </div>

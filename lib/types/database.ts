@@ -278,12 +278,13 @@ export interface Database {
           recipe_scenario_id: string | null
           stage: string
           prospect_type: 'OUTBOUND' | 'INBOUND'
-          company_name: string
-          prospect_name: string
+          company_name: string | null
+          prospect_name: string | null
           quantity: number
           amount_usd: number | null
           entry_date: string
           notes: string | null
+          is_quick_entry: boolean
           created_at: string
           updated_at: string
         }
@@ -293,24 +294,26 @@ export interface Database {
           recipe_scenario_id?: string | null
           stage: string
           prospect_type?: 'OUTBOUND' | 'INBOUND'
-          company_name: string
-          prospect_name: string
+          company_name?: string | null
+          prospect_name?: string | null
           quantity?: number
           amount_usd?: number | null
           entry_date?: string
           notes?: string | null
+          is_quick_entry?: boolean
           created_at?: string
           updated_at?: string
         }
         Update: {
           stage?: string
           prospect_type?: 'OUTBOUND' | 'INBOUND'
-          company_name?: string
-          prospect_name?: string
+          company_name?: string | null
+          prospect_name?: string | null
           quantity?: number
           amount_usd?: number | null
           entry_date?: string
           notes?: string | null
+          is_quick_entry?: boolean
           updated_at?: string
         }
         Relationships: []
