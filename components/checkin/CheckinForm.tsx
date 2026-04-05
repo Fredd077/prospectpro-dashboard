@@ -9,6 +9,7 @@ import { CheckinActivityRow } from './CheckinActivityRow'
 import { CheckinSummary } from './CheckinSummary'
 import { DailyCoachMessage } from './DailyCoachMessage'
 import { DateNavigator } from './DateNavigator'
+import { CheckinPipelineSection } from '@/components/pipeline/CheckinPipelineSection'
 import { bulkUpsertLogs } from '@/lib/queries/logs'
 import { todayISO } from '@/lib/utils/dates'
 import type { Activity, DailyCompliance, RecipeScenario } from '@/lib/types/database'
@@ -20,9 +21,11 @@ interface CheckinFormProps {
   weeklyLogs: Record<string, number>
   activeScenario?: RecipeScenario | null
   todayCoachMessage?: { id: string; message: string } | null
+  pipelineStages?: string[]
+  pipelineScenarioId?: string | null
 }
 
-export function CheckinForm({ date, activities, existingLogs, weeklyLogs, activeScenario, todayCoachMessage }: CheckinFormProps) {
+export function CheckinForm({ date, activities, existingLogs, weeklyLogs, activeScenario, todayCoachMessage, pipelineStages, pipelineScenarioId }: CheckinFormProps) {
   const router = useRouter()
   const isRetroactive = date !== todayISO()
 
@@ -170,6 +173,15 @@ export function CheckinForm({ date, activities, existingLogs, weeklyLogs, active
             No hay actividades activas. Crea actividades primero.
           </p>
         </div>
+      )}
+
+      {/* Pipeline section — optional, below activities */}
+      {(pipelineStages?.length ?? 0) > 1 && !isRetroactive && (
+        <CheckinPipelineSection
+          stages={pipelineStages!}
+          scenarioId={pipelineScenarioId ?? null}
+          date={date}
+        />
       )}
 
       {/* Submit */}

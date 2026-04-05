@@ -71,6 +71,8 @@ export default async function CheckinPage() {
             weeklyLogs={weeklyLogs}
             activeScenario={activeScenario}
             todayCoachMessage={todayCoach ?? null}
+            pipelineStages={activeScenario?.funnel_stages ?? []}
+            pipelineScenarioId={activeScenario?.id ?? null}
           />
         </div>
       </div>

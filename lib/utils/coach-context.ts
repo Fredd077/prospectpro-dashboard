@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { todayISO, toISODate } from '@/lib/utils/dates'
+import { calcRealConversions, calcPipelineValue } from '@/lib/calculations/pipeline'
 
 type SbClient = SupabaseClient<Database>
 
@@ -18,6 +19,27 @@ export interface ActivityCompliance {
 export interface WeeklyBucket {
   weekLabel: string
   compliance: number
+}
+
+export interface PipelineStageData {
+  stage: string
+  count: number
+  amount: number
+}
+
+export interface PipelineCoachData {
+  byStage: PipelineStageData[]
+  conversions: {
+    fromStage: string
+    toStage: string
+    realConversion: number
+    plannedConversion: number
+    gap: number
+  }[]
+  openAmount: number
+  closedAmount: number
+  monthlyGoal: number
+  revenuePct: number
 }
 
 export interface CoachContext {
@@ -56,6 +78,8 @@ export interface CoachContext {
   worstWeek?: WeeklyBucket
   totalActivitiesDone?: number
   totalActivitiesGoal?: number
+  // Pipeline (daily + weekly)
+  pipeline?: PipelineCoachData
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -64,6 +88,62 @@ function toTrend(current: number, previous: number): CoachContext['trend'] {
   if (current > previous + 10) return 'improving'
   if (current < previous - 10) return 'declining'
   return 'stable'
+}
+
+// ─── Pipeline helper ─────────────────────────────────────────────────────────
+
+async function _fetchPipelineData(
+  sb: SbClient,
+  dateStart: string,
+  dateEnd: string,
+  activityTotal: number,
+  stages: string[],
+  outboundRates: number[],
+  inboundRates: number[],
+  outboundPct: number,
+  monthlyGoal: number,
+  userId?: string,
+): Promise<PipelineCoachData | undefined> {
+  let q = sb
+    .from('pipeline_entries')
+    .select('stage,quantity,amount_usd')
+    .gte('entry_date', dateStart)
+    .lte('entry_date', dateEnd)
+  if (userId) q = q.eq('user_id', userId)
+  const { data: entries } = await q
+  if (!entries?.length) return undefined
+
+  const combinedRates = outboundRates.map((r, i) => {
+    const ob = outboundPct / 100
+    return Math.round(r * ob + (inboundRates[i] ?? r) * (1 - ob))
+  })
+
+  const conversions  = calcRealConversions(activityTotal, entries, stages, combinedRates)
+  const pipelineVal  = calcPipelineValue(entries, stages)
+  const revenuePct   = monthlyGoal > 0 ? Math.round((pipelineVal.closed / monthlyGoal) * 100) : 0
+
+  const countMap: Record<string, number> = {}
+  const amountMap: Record<string, number> = {}
+  for (const e of entries) {
+    countMap[e.stage]  = (countMap[e.stage] ?? 0) + e.quantity
+    amountMap[e.stage] = (amountMap[e.stage] ?? 0) + (e.amount_usd ?? 0)
+  }
+
+  const byStage: PipelineStageData[] = stages.slice(1).map((s) => ({
+    stage: s, count: countMap[s] ?? 0, amount: amountMap[s] ?? 0,
+  }))
+
+  return {
+    byStage,
+    conversions: conversions.map((c) => ({
+      fromStage: c.fromStage, toStage: c.toStage,
+      realConversion: c.realConversion, plannedConversion: c.plannedConversion, gap: c.gap,
+    })),
+    openAmount:  pipelineVal.open,
+    closedAmount: pipelineVal.closed,
+    monthlyGoal,
+    revenuePct,
+  }
 }
 
 // ─── Daily ───────────────────────────────────────────────────────────────────
@@ -83,7 +163,7 @@ export async function buildDailyContext(date: string): Promise<CoachContext> {
     sb.from('vw_daily_compliance').select('activity_id,real_executed,day_goal').eq('log_date', date),
     sb
       .from('recipe_scenarios')
-      .select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages,activities_needed_daily,activities_needed_weekly,activities_needed_monthly')
+      .select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages,outbound_rates,inbound_rates,activities_needed_daily,activities_needed_weekly,activities_needed_monthly')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -138,26 +218,38 @@ export async function buildDailyContext(date: string): Promise<CoachContext> {
   const weakest  = withGoal.length ? withGoal.reduce((m, a) => a.pct < m.pct ? a : m) : null
   const strongest = withGoal.length ? withGoal.reduce((m, a) => a.pct > m.pct ? a : m) : null
 
+  const recipe = activeScenario ? {
+    name:                       activeScenario.name,
+    monthly_goal:               activeScenario.monthly_revenue_goal,
+    ticket:                     activeScenario.average_ticket,
+    outbound_pct:               activeScenario.outbound_pct,
+    funnel_stages:              activeScenario.funnel_stages ?? [],
+    activities_needed_daily:    activeScenario.activities_needed_daily   ?? 0,
+    activities_needed_weekly:   activeScenario.activities_needed_weekly  ?? 0,
+    activities_needed_monthly:  activeScenario.activities_needed_monthly ?? 0,
+  } : null
+
+  const pipeline = activeScenario ? await _fetchPipelineData(
+    sb, date, date, totalReal,
+    activeScenario.funnel_stages ?? [],
+    activeScenario.outbound_rates ?? [],
+    activeScenario.inbound_rates  ?? [],
+    activeScenario.outbound_pct   ?? 80,
+    activeScenario.monthly_revenue_goal,
+  ) : undefined
+
   return {
     userName,
     period: 'daily',
     periodDate: date,
-    recipe: activeScenario ? {
-      name:                       activeScenario.name,
-      monthly_goal:               activeScenario.monthly_revenue_goal,
-      ticket:                     activeScenario.average_ticket,
-      outbound_pct:               activeScenario.outbound_pct,
-      funnel_stages:              activeScenario.funnel_stages ?? [],
-      activities_needed_daily:    activeScenario.activities_needed_daily   ?? 0,
-      activities_needed_weekly:   activeScenario.activities_needed_weekly  ?? 0,
-      activities_needed_monthly:  activeScenario.activities_needed_monthly ?? 0,
-    } : null,
+    recipe,
     activities: actCompliance,
     overallCompliance,
     streak,
     weakestActivity:  weakest   ? { name: weakest.name,   pct: weakest.pct }   : null,
     strongestActivity: strongest ? { name: strongest.name, pct: strongest.pct } : null,
     trend: toTrend(overallCompliance, yestPct),
+    pipeline,
   }
 }
 
@@ -192,7 +284,7 @@ export async function buildWeeklyContext(weekStart: string): Promise<CoachContex
     sb.from('activity_logs').select('real_executed').gte('log_date', prevWeekStart).lte('log_date', prevWeekEnd),
     sb
       .from('recipe_scenarios')
-      .select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages,activities_needed_daily,activities_needed_weekly,activities_needed_monthly')
+      .select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages,outbound_rates,inbound_rates,activities_needed_daily,activities_needed_weekly,activities_needed_monthly')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -240,20 +332,31 @@ export async function buildWeeklyContext(weekStart: string): Promise<CoachContex
     if (prevCompliance < 70) weeksBelow70++
   }
 
+  const weeklyRecipe = activeScenario ? {
+    name:                       activeScenario.name,
+    monthly_goal:               activeScenario.monthly_revenue_goal,
+    ticket:                     activeScenario.average_ticket,
+    outbound_pct:               activeScenario.outbound_pct,
+    funnel_stages:              activeScenario.funnel_stages ?? [],
+    activities_needed_daily:    activeScenario.activities_needed_daily   ?? 0,
+    activities_needed_weekly:   activeScenario.activities_needed_weekly  ?? 0,
+    activities_needed_monthly:  activeScenario.activities_needed_monthly ?? 0,
+  } : null
+
+  const weeklyPipeline = activeScenario ? await _fetchPipelineData(
+    sb, weekStart, weekEnd, totalReal,
+    activeScenario.funnel_stages ?? [],
+    activeScenario.outbound_rates ?? [],
+    activeScenario.inbound_rates  ?? [],
+    activeScenario.outbound_pct   ?? 80,
+    activeScenario.monthly_revenue_goal,
+  ) : undefined
+
   return {
     userName,
     period: 'weekly',
     periodDate: weekStart,
-    recipe: activeScenario ? {
-      name:                       activeScenario.name,
-      monthly_goal:               activeScenario.monthly_revenue_goal,
-      ticket:                     activeScenario.average_ticket,
-      outbound_pct:               activeScenario.outbound_pct,
-      funnel_stages:              activeScenario.funnel_stages ?? [],
-      activities_needed_daily:    activeScenario.activities_needed_daily   ?? 0,
-      activities_needed_weekly:   activeScenario.activities_needed_weekly  ?? 0,
-      activities_needed_monthly:  activeScenario.activities_needed_monthly ?? 0,
-    } : null,
+    recipe: weeklyRecipe,
     activities: actCompliance,
     overallCompliance,
     streak: daysWithLogs,
@@ -267,6 +370,7 @@ export async function buildWeeklyContext(weekStart: string): Promise<CoachContex
       achievedPct,
     },
     weeksBelow70,
+    pipeline: weeklyPipeline,
   }
 }
 
@@ -345,6 +449,39 @@ export function formatContextForPrompt(ctx: CoachContext): string {
     lines.push(`CANAL MÁS FUERTE: ${ctx.strongestActivity.name} (${ctx.strongestActivity.pct}%)`)
   }
 
+  // ── Pipeline section ────────────────────────────────────────────────────────
+  if (ctx.pipeline) {
+    const p = ctx.pipeline
+    const periodStr = ctx.period === 'daily' ? 'Hoy' : 'Esta semana'
+    lines.push('')
+    lines.push(`PIPELINE REAL vs RECETARIO (${periodStr}):`)
+    for (const s of p.byStage) {
+      lines.push(`  • ${s.stage}: ${s.count} realizados${s.amount > 0 ? ` | $${s.amount.toLocaleString('es-CO')} en monto` : ''}`)
+    }
+    if (p.conversions.length) {
+      lines.push('  Tasas de conversión:')
+      for (const c of p.conversions) {
+        const sign = c.gap >= 0 ? '+' : ''
+        const marker = c.gap >= 0 ? '✅' : c.gap >= -10 ? '⚠️' : '🔴'
+        lines.push(`    ${c.fromStage}→${c.toStage}: Real ${c.realConversion}% | Plan ${c.plannedConversion}% | ${sign}${c.gap}% ${marker}`)
+      }
+    }
+    lines.push(`  Pipeline abierto: $${p.openAmount.toLocaleString('es-CO')}`)
+    lines.push(`  Cerrado: $${p.closedAmount.toLocaleString('es-CO')} de $${p.monthlyGoal.toLocaleString('es-CO')} meta (${p.revenuePct}%)`)
+
+    const weakConv = p.conversions.filter((c) => c.realConversion > 0).sort((a, b) => a.gap - b.gap)[0]
+    if (weakConv) {
+      lines.push(`  ETAPA MÁS DÉBIL: ${weakConv.fromStage}→${weakConv.toStage} (brecha: ${weakConv.gap}%)`)
+    }
+    if (p.monthlyGoal > 0 && p.openAmount > 0) {
+      const ticketEst = ctx.recipe?.ticket ?? 0
+      if (ticketEst > 0) {
+        const prospectsNeeded = Math.ceil((p.monthlyGoal - p.closedAmount) / ticketEst)
+        lines.push(`  INSTRUCCIÓN: el pipeline abierto es $${p.openAmount.toLocaleString('es-CO')}. Para cerrar la meta necesita ~${prospectsNeeded} cierres más al ticket promedio.`)
+      }
+    }
+  }
+
   if (ctx.period === 'monthly') {
     lines.push('')
     if (ctx.bestWeek)  lines.push(`MEJOR SEMANA DEL MES: ${ctx.bestWeek.weekLabel} (${ctx.bestWeek.compliance}%)`)
@@ -390,7 +527,7 @@ export async function buildMonthlyContextForCron(
 async function _fetchRecipe(sb: SbClient, userId?: string) {
   let q = sb
     .from('recipe_scenarios')
-    .select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages,activities_needed_daily,activities_needed_weekly,activities_needed_monthly')
+    .select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages,outbound_rates,inbound_rates,activities_needed_daily,activities_needed_weekly,activities_needed_monthly')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -452,6 +589,11 @@ async function _buildDailyContextCron(
   const yReal = (yLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
 
   const withGoal = actCompliance.filter((a) => a.goal > 0)
+  const cronDailyPipeline = scenario ? await _fetchPipelineData(
+    sb, date, date, totalReal,
+    scenario.funnel_stages ?? [], scenario.outbound_rates ?? [], scenario.inbound_rates ?? [],
+    scenario.outbound_pct ?? 80, scenario.monthly_revenue_goal, userId,
+  ) : undefined
   return {
     userName, period: 'daily', periodDate: date,
     recipe: recipeFromData(scenario),
@@ -459,6 +601,7 @@ async function _buildDailyContextCron(
     weakestActivity:   withGoal.length ? withGoal.reduce((m, a) => a.pct < m.pct ? a : m, withGoal[0]) && { name: withGoal.reduce((m, a) => a.pct < m.pct ? a : m).name, pct: withGoal.reduce((m, a) => a.pct < m.pct ? a : m).pct } : null,
     strongestActivity: withGoal.length ? { name: withGoal.reduce((m, a) => a.pct > m.pct ? a : m).name, pct: withGoal.reduce((m, a) => a.pct > m.pct ? a : m).pct } : null,
     trend: toTrend(overallCompliance, yGoal > 0 ? Math.round((yReal / yGoal) * 100) : 0),
+    pipeline: cronDailyPipeline,
   }
 }
 
@@ -507,6 +650,11 @@ async function _buildWeeklyContextCron(
   const monthReal = (monthLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
 
   const withGoal = actCompliance.filter((a) => a.goal > 0)
+  const cronWeeklyPipeline = scenario ? await _fetchPipelineData(
+    sb, weekStart, weekEnd, totalReal,
+    scenario.funnel_stages ?? [], scenario.outbound_rates ?? [], scenario.inbound_rates ?? [],
+    scenario.outbound_pct ?? 80, scenario.monthly_revenue_goal, userId,
+  ) : undefined
   return {
     userName, period: 'weekly', periodDate: weekStart,
     recipe: recipeFromData(scenario),
@@ -520,6 +668,7 @@ async function _buildWeeklyContextCron(
       achievedPct: monthlyGoalTotal > 0 ? Math.round((monthReal / monthlyGoalTotal) * 100) : 0,
     },
     weeksBelow70: overallCompliance < 70 && prevCompliance < 70 ? 2 : overallCompliance < 70 ? 1 : 0,
+    pipeline: cronWeeklyPipeline,
   }
 }
 

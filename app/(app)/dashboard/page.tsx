@@ -29,6 +29,7 @@ import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBO
 import type { PeriodType, ActivityType } from '@/lib/types/common'
 import type { DailyCompliance } from '@/lib/types/database'
 import { Activity, BarChart2, TrendingUp, Target } from 'lucide-react'
+import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
 
 interface PageProps {
   searchParams: Promise<{
@@ -363,6 +364,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           {recipeValidation && (
             <RecipeValidationCard validation={recipeValidation} />
           )}
+
+          {/* Funnel Real — pipeline mini card (fetches its own data) */}
+          <PipelineMiniCard />
 
           {/* Per-activity breakdown table */}
           {breakdownRows.length > 0 && (

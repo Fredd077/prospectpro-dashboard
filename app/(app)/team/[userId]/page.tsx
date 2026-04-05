@@ -5,14 +5,29 @@ import { ArrowLeft, Building2, Mail, Clock } from 'lucide-react'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { TeamUserTabs } from '@/components/team/TeamUserTabs'
 import { TeamUserGoalEditor } from '@/components/team/TeamUserGoalEditor'
+import { PipelineFunnelSummary } from '@/components/pipeline/PipelineFunnelSummary'
+import { PipelineEntriesTable } from '@/components/pipeline/PipelineEntriesTable'
 import { todayISO, toISODate } from '@/lib/utils/dates'
 import { startOfWeek, endOfWeek, parseISO, format, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
+import {
+  calcRealConversions,
+  calcPipelineValue,
+  scalePlanToperiod,
+} from '@/lib/calculations/pipeline'
+import {
+  calcRecipe,
+  DEFAULT_FUNNEL_STAGES,
+  DEFAULT_OUTBOUND_RATES,
+  DEFAULT_INBOUND_RATES,
+} from '@/lib/calculations/recipe'
+import type { PipelineEntry } from '@/lib/types/database'
+import type { ConversionResult } from '@/lib/calculations/pipeline'
 
 export const metadata: Metadata = { title: 'Perfil de usuario — ProspectPro' }
 
-type Tab = 'dashboard' | 'activities' | 'coach'
+type Tab = 'dashboard' | 'activities' | 'pipeline' | 'coach'
 
 interface Props {
   params:       Promise<{ userId: string }>
@@ -44,7 +59,7 @@ function complianceColor(pct: number) {
 export default async function TeamUserPage({ params, searchParams }: Props) {
   const { userId }  = await params
   const { tab = 'dashboard' } = await searchParams
-  const activeTab   = (['dashboard', 'activities', 'coach'] as Tab[]).includes(tab as Tab)
+  const activeTab   = (['dashboard', 'activities', 'pipeline', 'coach'] as Tab[]).includes(tab as Tab)
     ? (tab as Tab)
     : 'dashboard'
 
@@ -127,6 +142,65 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
       .from('activities').select('id,name,channel,type,monthly_goal,weekly_goal,daily_goal,status')
       .eq('user_id', userId).order('status').order('sort_order').order('name')
     activitiesForEdit = (data ?? []) as typeof activitiesForEdit
+  }
+
+  // ── Tab: Pipeline ────────────────────────────────────────────
+  let pipelineTabData: {
+    stages: string[]
+    stageStats: { stage: string; real: number; planned: number }[]
+    conversions: ConversionResult[]
+    openAmount: number
+    closedAmount: number
+    monthlyGoal: number
+    entries: PipelineEntry[]
+  } | null = null
+
+  if (activeTab === 'pipeline') {
+    const monthStart = today.slice(0, 8) + '01'
+    const [scenarioRes, entriesRes, actLogsRes] = await Promise.all([
+      service.from('recipe_scenarios').select('*').eq('user_id', userId).eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      service.from('pipeline_entries').select('*').eq('user_id', userId).gte('entry_date', monthStart).lte('entry_date', today).order('entry_date', { ascending: false }),
+      service.from('activity_logs').select('real_executed').eq('user_id', userId).gte('log_date', monthStart).lte('log_date', today),
+    ])
+
+    const sc            = scenarioRes.data
+    const stages        = sc?.funnel_stages  ?? DEFAULT_FUNNEL_STAGES
+    const outRates      = sc?.outbound_rates ?? DEFAULT_OUTBOUND_RATES
+    const inRates       = sc?.inbound_rates  ?? DEFAULT_INBOUND_RATES
+    const workingDays   = sc?.working_days_per_month ?? 20
+    const actTotal      = (actLogsRes.data ?? []).reduce((s, l) => s + l.real_executed, 0)
+    const outboundPct   = (sc?.outbound_pct ?? 80) / 100
+    const combinedRates = outRates.map((r, i) => Math.round(r * outboundPct + (inRates[i] ?? r) * (1 - outboundPct)))
+
+    const conversions   = calcRealConversions(actTotal, entriesRes.data ?? [], stages, combinedRates)
+    const pipelineVal   = calcPipelineValue(entriesRes.data ?? [], stages)
+
+    const recipeResult = sc ? calcRecipe({
+      monthly_revenue_goal:   sc.monthly_revenue_goal,
+      average_ticket:         sc.average_ticket,
+      outbound_pct:           sc.outbound_pct,
+      working_days_per_month: workingDays,
+      funnel_stages: stages, outbound_rates: outRates, inbound_rates: inRates,
+    }) : null
+
+    const countMap: Record<string, number> = {}
+    for (const e of entriesRes.data ?? []) countMap[e.stage] = (countMap[e.stage] ?? 0) + e.quantity
+
+    const stageStats = stages.map((stage, i) => {
+      const realCount   = i === 0 ? actTotal : (countMap[stage] ?? 0)
+      const monthlyPlan = recipeResult
+        ? Math.ceil((recipeResult.outbound.stage_values[i] ?? 0) + (recipeResult.inbound.stage_values[i] ?? 0))
+        : 0
+      return { stage, real: realCount, planned: scalePlanToperiod(monthlyPlan, 'monthly', workingDays) }
+    })
+
+    pipelineTabData = {
+      stages, stageStats, conversions,
+      openAmount:  pipelineVal.open,
+      closedAmount: pipelineVal.closed,
+      monthlyGoal: sc?.monthly_revenue_goal ?? 0,
+      entries: (entriesRes.data ?? []),
+    }
   }
 
   // ── Tab: Coach ───────────────────────────────────────────────
@@ -263,6 +337,39 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
               <p className="text-sm text-muted-foreground">Este usuario aún no tiene actividades configuradas.</p>
             ) : (
               <TeamUserGoalEditor activities={activitiesForEdit} userId={userId} />
+            )}
+          </div>
+        )}
+
+        {/* ── PIPELINE TAB ────────────────────────────────── */}
+        {activeTab === 'pipeline' && (
+          <div className="space-y-6 max-w-3xl">
+            <p className="text-xs text-muted-foreground">
+              Pipeline de <span className="font-medium text-foreground">{profile.full_name ?? profile.email}</span>
+              {' '}— este mes (solo lectura)
+            </p>
+            {!pipelineTabData ? (
+              <p className="text-sm text-muted-foreground">No se pudieron cargar los datos del pipeline.</p>
+            ) : (
+              <>
+                <PipelineFunnelSummary
+                  stages={pipelineTabData.stages}
+                  stageStats={pipelineTabData.stageStats}
+                  conversions={pipelineTabData.conversions}
+                  openAmount={pipelineTabData.openAmount}
+                  closedAmount={pipelineTabData.closedAmount}
+                  monthlyGoal={pipelineTabData.monthlyGoal}
+                  periodLabel="este mes"
+                />
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-3">Registros del mes</h3>
+                  <PipelineEntriesTable
+                    entries={pipelineTabData.entries}
+                    stages={pipelineTabData.stages}
+                    scenarioId={null}
+                  />
+                </div>
+              </>
             )}
           </div>
         )}

@@ -271,6 +271,47 @@ export interface Database {
         }
         Relationships: []
       }
+      pipeline_entries: {
+        Row: {
+          id: string
+          user_id: string
+          recipe_scenario_id: string | null
+          stage: string
+          company_name: string
+          prospect_name: string
+          quantity: number
+          amount_usd: number | null
+          entry_date: string
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          recipe_scenario_id?: string | null
+          stage: string
+          company_name: string
+          prospect_name: string
+          quantity?: number
+          amount_usd?: number | null
+          entry_date?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          stage?: string
+          company_name?: string
+          prospect_name?: string
+          quantity?: number
+          amount_usd?: number | null
+          entry_date?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       recipe_actuals: {
         Row: {
           id: string
@@ -385,3 +426,7 @@ export type DailyCompliance = Database['public']['Views']['vw_daily_compliance']
 
 export type CoachMessage = Database['public']['Tables']['coach_messages']['Row']
 export type CoachMessageInsert = Database['public']['Tables']['coach_messages']['Insert']
+
+export type PipelineEntry = Database['public']['Tables']['pipeline_entries']['Row']
+export type PipelineEntryInsert = Database['public']['Tables']['pipeline_entries']['Insert']
+export type PipelineEntryUpdate = Database['public']['Tables']['pipeline_entries']['Update']

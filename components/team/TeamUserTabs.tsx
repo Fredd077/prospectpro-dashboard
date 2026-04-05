@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 const TABS = [
   { value: 'dashboard',   label: 'Dashboard' },
   { value: 'activities',  label: 'Actividades y Metas' },
+  { value: 'pipeline',    label: 'Pipeline' },
   { value: 'coach',       label: 'Reportes Coach IA' },
 ] as const
 

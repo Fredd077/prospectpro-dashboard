@@ -1,0 +1,215 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { savePipelineEntry, updatePipelineEntry, getCompanyNames } from '@/lib/actions/pipeline'
+import type { PipelineEntryData } from '@/lib/actions/pipeline'
+import type { PipelineEntry } from '@/lib/types/database'
+import { todayISO } from '@/lib/utils/dates'
+
+interface PipelineEntryFormProps {
+  /** All funnel stages from active recipe (including first "Actividad" stage) */
+  stages: string[]
+  /** ID of the active recipe scenario (optional, stored for reference) */
+  scenarioId?: string | null
+  /** If set, the form pre-fills for editing */
+  editEntry?: PipelineEntry | null
+  /** Called after a successful save with the new/updated entry id */
+  onSaved?: (id: string) => void
+  onCancel?: () => void
+}
+
+export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCancel }: PipelineEntryFormProps) {
+  const today = todayISO()
+
+  // Stages available for selection: exclude first (activities)
+  const availableStages = stages.slice(1)
+  // Last 3 stages show the amount field
+  const amountStages = new Set(availableStages.slice(-3))
+
+  const [stage, setStage]               = useState(editEntry?.stage ?? availableStages[0] ?? '')
+  const [company, setCompany]           = useState(editEntry?.company_name ?? '')
+  const [prospect, setProspect]         = useState(editEntry?.prospect_name ?? '')
+  const [quantity, setQuantity]         = useState(editEntry?.quantity ?? 1)
+  const [amount, setAmount]             = useState<string>(editEntry?.amount_usd != null ? String(editEntry.amount_usd) : '')
+  const [entryDate, setEntryDate]       = useState(editEntry?.entry_date ?? today)
+  const [notes, setNotes]               = useState(editEntry?.notes ?? '')
+  const [saving, setSaving]             = useState(false)
+  const [companies, setCompanies]       = useState<string[]>([])
+
+  const showAmount = amountStages.has(stage)
+  const stageLabel = stage ? `${stage}(s) realizados` : 'Cantidad'
+
+  useEffect(() => {
+    getCompanyNames().then(setCompanies).catch(() => {})
+  }, [])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!company.trim() || !prospect.trim()) return
+
+    const parsedAmount = amount.trim() ? parseFloat(amount.replace(/\./g, '').replace(',', '.')) : null
+    if (showAmount && amount.trim() && (isNaN(parsedAmount!) || parsedAmount! <= 0)) {
+      toast.error('El monto debe ser mayor a 0')
+      return
+    }
+    if (entryDate > today) {
+      toast.error('La fecha no puede ser futura')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const payload: PipelineEntryData = {
+        stage,
+        company_name:  company.trim(),
+        prospect_name: prospect.trim(),
+        quantity,
+        amount_usd: showAmount && parsedAmount ? parsedAmount : null,
+        entry_date: entryDate,
+        notes: notes.trim() || null,
+        recipe_scenario_id: scenarioId ?? null,
+      }
+
+      if (editEntry) {
+        await updatePipelineEntry(editEntry.id, payload)
+        toast.success('Registro actualizado ✓')
+        onSaved?.(editEntry.id)
+      } else {
+        const id = await savePipelineEntry(payload)
+        toast.success('Movimiento registrado ✓')
+        onSaved?.(id)
+      }
+    } catch {
+      toast.error('Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputCls = 'w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary'
+  const labelCls = 'block text-xs font-medium text-muted-foreground mb-1'
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Row 1: Date + Stage */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Fecha</label>
+          <input
+            type="date"
+            value={entryDate}
+            max={today}
+            onChange={(e) => setEntryDate(e.target.value)}
+            className={inputCls}
+            required
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Etapa</label>
+          <select
+            value={stage}
+            onChange={(e) => setStage(e.target.value)}
+            className={`${inputCls} cursor-pointer bg-card [&>option]:bg-card [&>option]:text-foreground`}
+            required
+          >
+            {availableStages.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Row 2: Company (with autocomplete) */}
+      <div>
+        <label className={labelCls}>Empresa <span className="text-red-400">*</span></label>
+        <input
+          list="company-suggestions"
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          placeholder="Nombre de la empresa"
+          className={inputCls}
+          required
+          autoComplete="off"
+        />
+        <datalist id="company-suggestions">
+          {companies.map((c) => <option key={c} value={c} />)}
+        </datalist>
+      </div>
+
+      {/* Row 3: Prospect name */}
+      <div>
+        <label className={labelCls}>Prospecto (nombre completo) <span className="text-red-400">*</span></label>
+        <input
+          value={prospect}
+          onChange={(e) => setProspect(e.target.value)}
+          placeholder="Nombre del contacto"
+          className={inputCls}
+          required
+        />
+      </div>
+
+      {/* Row 4: Quantity + Amount (conditional) */}
+      <div className={showAmount ? 'grid grid-cols-2 gap-3' : ''}>
+        <div>
+          <label className={labelCls}>{stageLabel}</label>
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={quantity}
+            onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+            className={inputCls}
+            required
+          />
+        </div>
+        {showAmount && (
+          <div>
+            <label className={labelCls}>
+              {stage === availableStages[availableStages.length - 1]
+                ? 'Valor cerrado (USD)'
+                : 'Valor de la propuesta (USD)'}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0"
+              className={inputCls}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Row 5: Notes */}
+      <div>
+        <label className={labelCls}>Notas <span className="text-muted-foreground/40">(opcional)</span></label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          maxLength={500}
+          rows={2}
+          placeholder="Contexto adicional..."
+          className={`${inputCls} resize-none`}
+        />
+        {notes.length > 400 && (
+          <p className="text-[10px] text-muted-foreground mt-0.5 text-right">{500 - notes.length} caracteres restantes</p>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 justify-end pt-1">
+        {onCancel && (
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
+            Cancelar
+          </Button>
+        )}
+        <Button type="submit" size="sm" disabled={saving || !company.trim() || !prospect.trim()}>
+          {saving ? 'Guardando...' : editEntry ? 'Actualizar' : 'Registrar movimiento'}
+        </Button>
+      </div>
+    </form>
+  )
+}
