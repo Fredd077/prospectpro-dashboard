@@ -25,25 +25,28 @@ const navItems = [
 
 interface SidebarNavProps {
   isAdmin: boolean
+  isManager?: boolean
   unreadCoachCount: number
 }
 
-export function SidebarNav({ isAdmin, unreadCoachCount }: SidebarNavProps) {
+export function SidebarNav({ isAdmin, isManager = false, unreadCoachCount }: SidebarNavProps) {
   const pathname = usePathname()
   const isTeamView = pathname.startsWith('/team')
 
   const allItems = [
     ...navItems,
+    ...((isAdmin || isManager) ? [
+      { href: '/team' as const, label: 'Mi Equipo', icon: Users },
+    ] : []),
     ...(isAdmin ? [
-      { href: '/team'  as const, label: 'Mi Equipo',   icon: Users       },
       { href: '/admin' as const, label: 'Admin Panel', icon: ShieldCheck },
     ] : []),
   ]
 
   return (
     <nav className="flex-1 overflow-y-auto py-3 px-2 flex flex-col">
-      {/* Context toggle — admin only */}
-      {isAdmin && (
+      {/* Context toggle — admin and managers */}
+      {(isAdmin || isManager) && (
         <div className="mb-2 px-1 hidden lg:block">
           <div className="flex rounded-md bg-muted/40 p-0.5 text-[10px] font-semibold">
             <Link

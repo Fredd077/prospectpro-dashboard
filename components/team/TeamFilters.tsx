@@ -10,6 +10,7 @@ interface TeamFiltersProps {
   currentCompany: string
   currentStatus: string
   currentSort: string
+  showCompany?: boolean
 }
 
 const STATUS_OPTIONS = [
@@ -25,7 +26,7 @@ const SORT_OPTIONS = [
   { value: 'checkin',    label: 'Último check-in' },
 ]
 
-export function TeamFilters({ companies, currentCompany, currentStatus, currentSort }: TeamFiltersProps) {
+export function TeamFilters({ companies, currentCompany, currentStatus, currentSort, showCompany = true }: TeamFiltersProps) {
   const router   = useRouter()
   const pathname = usePathname()
   const sp       = useSearchParams()
@@ -51,17 +52,19 @@ export function TeamFilters({ companies, currentCompany, currentStatus, currentS
         />
       </div>
 
-      {/* Company filter */}
-      <select
-        value={currentCompany}
-        onChange={(e) => update('company', e.target.value)}
-        className="text-xs rounded-md border border-border bg-card text-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary/30 [&>option]:bg-card [&>option]:text-foreground"
-      >
-        <option value="">Todas las empresas</option>
-        {companies.map((c) => (
-          <option key={c} value={c}>{c}</option>
-        ))}
-      </select>
+      {/* Company filter — admin only */}
+      {showCompany && (
+        <select
+          value={currentCompany}
+          onChange={(e) => update('company', e.target.value)}
+          className="text-xs rounded-md border border-border bg-card text-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary/30 [&>option]:bg-card [&>option]:text-foreground"
+        >
+          <option value="">Todas las empresas</option>
+          {companies.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      )}
 
       {/* Status filter */}
       <div className="flex gap-1">

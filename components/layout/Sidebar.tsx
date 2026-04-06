@@ -9,18 +9,19 @@ export async function Sidebar() {
     data: { user },
   } = await sb.auth.getUser()
 
-  let profile: { full_name: string | null; email: string; avatar_url: string | null; role: string } | null = null
+  let profile: { full_name: string | null; email: string; avatar_url: string | null; role: string; org_role: string | null } | null = null
 
   if (user) {
     const { data } = await sb
       .from('profiles')
-      .select('full_name, email, avatar_url, role')
+      .select('full_name, email, avatar_url, role, org_role')
       .eq('id', user.id)
       .single()
     profile = data
   }
 
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin   = profile?.role === 'admin'
+  const isManager = profile?.org_role === 'manager'
   const email = profile?.email ?? user?.email ?? ''
 
   const { count: unreadCoachCount } = await sb
@@ -48,7 +49,7 @@ export async function Sidebar() {
       </div>
 
       {/* Nav */}
-      <SidebarNav isAdmin={isAdmin} unreadCoachCount={unreadCoachCount ?? 0} />
+      <SidebarNav isAdmin={isAdmin} isManager={isManager} unreadCoachCount={unreadCoachCount ?? 0} />
 
       {/* User + sign-out */}
       {user && (
