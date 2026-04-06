@@ -16,6 +16,19 @@ export async function GET(req: Request) {
   const sb   = getSupabaseServiceClient()
   const today = todayISO()
 
+  // Solo ejecutar de lunes a viernes (Colombia UTC-5)
+  // parseISO(today) es seguro porque todayISO() ya devuelve la fecha
+  // correcta en timezone Colombia — getDay(): 0=Dom, 1=Lun, ..., 6=Sáb
+  const dayOfWeek = parseISO(today).getDay()
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return Response.json({
+      skipped: true,
+      reason: 'Weekend — daily coach only runs Mon–Fri',
+      today,
+      dayOfWeek,
+    })
+  }
+
   // ── Fetch all active users ──────────────────────────────────────────────────
   const { data: users, error } = await sb
     .from('profiles')
