@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 
 interface WeightUpdate {
   id: string
@@ -44,14 +45,23 @@ export async function activateScenario(scenarioId: string) {
     .update({ is_active: true })
     .eq('id', scenarioId)
     .eq('user_id', user.id)
-    .select('activities_needed_monthly, outbound_pct, working_days_per_month')
+    .select('monthly_revenue_goal, average_ticket, outbound_pct, working_days_per_month, funnel_stages, outbound_rates, inbound_rates')
     .single()
 
   if (error || !scenario) throw error ?? new Error('Scenario not found')
 
-  const totalMonthly  = scenario.activities_needed_monthly ?? 0
-  const outboundTotal = Math.round(totalMonthly * scenario.outbound_pct / 100)
-  const inboundTotal  = totalMonthly - outboundTotal
+  // Use calcRecipe to get correct per-type activity counts (same formula as RecipeValidationCard)
+  const recipeResult = calcRecipe({
+    monthly_revenue_goal:   scenario.monthly_revenue_goal,
+    outbound_pct:           scenario.outbound_pct,
+    average_ticket:         scenario.average_ticket,
+    working_days_per_month: scenario.working_days_per_month ?? 20,
+    funnel_stages:  scenario.funnel_stages  ?? DEFAULT_FUNNEL_STAGES,
+    outbound_rates: scenario.outbound_rates ?? DEFAULT_OUTBOUND_RATES,
+    inbound_rates:  scenario.inbound_rates  ?? DEFAULT_INBOUND_RATES,
+  })
+  const outboundTotal = recipeResult.outbound.activities_monthly
+  const inboundTotal  = recipeResult.inbound.activities_monthly
   const workingDays   = scenario.working_days_per_month ?? 20
 
   const { data: activities } = await sb
@@ -63,9 +73,9 @@ export async function activateScenario(scenarioId: string) {
   if (activities && activities.length > 0) {
     await Promise.all(
       activities.map((act) => {
-        const typeTotal   = act.type === 'OUTBOUND' ? outboundTotal : inboundTotal
+        const typeTotal    = act.type === 'OUTBOUND' ? outboundTotal : inboundTotal
         const monthly_goal = Math.ceil(typeTotal * (act.weight ?? 0) / 100)
-        const weekly_goal  = Math.ceil(monthly_goal / 4)
+        const weekly_goal  = Math.ceil(monthly_goal / (workingDays / 5))
         const daily_goal   = Math.ceil(monthly_goal / workingDays)
         return sb.from('activities')
           .update({ monthly_goal, weekly_goal, daily_goal })

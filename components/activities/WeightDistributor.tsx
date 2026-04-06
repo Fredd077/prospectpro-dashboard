@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { saveWeightDistribution } from '@/lib/actions/activities'
 import { deleteActivity } from '@/lib/queries/activities'
+import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 import type { Activity, RecipeScenario } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 
@@ -26,7 +27,7 @@ interface WeightDistributorProps {
 
 function calcGoals(weight: number, typeTotal: number, workingDays: number) {
   const monthly = Math.ceil(typeTotal * weight / 100)
-  const weekly  = Math.ceil(monthly / 4)
+  const weekly  = Math.ceil(monthly / (workingDays / 5))
   const daily   = Math.ceil(monthly / workingDays)
   return { monthly, weekly, daily }
 }
@@ -72,11 +73,23 @@ export function WeightDistributor({ activities, activeScenario }: WeightDistribu
   const outbound = activities.filter((a) => a.type === 'OUTBOUND' && a.status === 'active')
   const inbound  = activities.filter((a) => a.type === 'INBOUND'  && a.status === 'active')
 
-  const totalMonthly   = activeScenario?.activities_needed_monthly ?? 0
-  const outboundPct    = activeScenario?.outbound_pct ?? 60
-  const outboundTotal  = Math.round(totalMonthly * outboundPct / 100)
-  const inboundTotal   = totalMonthly - outboundTotal
-  const workingDays    = activeScenario?.working_days_per_month ?? 20
+  // Use calcRecipe for outbound/inbound splits — same formula as RecipeValidationCard
+  // (simple percentage split of activities_needed_monthly diverges due to Math.ceil in calcFunnel)
+  const recipeResult = activeScenario
+    ? calcRecipe({
+        monthly_revenue_goal:   activeScenario.monthly_revenue_goal,
+        outbound_pct:           activeScenario.outbound_pct,
+        average_ticket:         activeScenario.average_ticket,
+        working_days_per_month: activeScenario.working_days_per_month ?? 20,
+        funnel_stages:  activeScenario.funnel_stages  ?? DEFAULT_FUNNEL_STAGES,
+        outbound_rates: activeScenario.outbound_rates ?? DEFAULT_OUTBOUND_RATES,
+        inbound_rates:  activeScenario.inbound_rates  ?? DEFAULT_INBOUND_RATES,
+      })
+    : null
+  const outboundTotal = recipeResult?.outbound.activities_monthly ?? 0
+  const inboundTotal  = recipeResult?.inbound.activities_monthly  ?? 0
+  const totalMonthly  = outboundTotal + inboundTotal
+  const workingDays   = activeScenario?.working_days_per_month ?? 20
 
   const outSum = outbound.reduce((s, a) => s + (weights[a.id] ?? 0), 0)
   const inSum  = inbound.reduce((s, a)  => s + (weights[a.id] ?? 0), 0)
