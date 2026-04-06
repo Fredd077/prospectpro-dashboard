@@ -59,7 +59,7 @@ export default async function TeamPage({ searchParams }: Props) {
 
   const { data: myProfile } = await sb
     .from('profiles')
-    .select('role, org_role')
+    .select('role, org_role, company')
     .eq('id', user.id)
     .single()
 
@@ -67,6 +67,7 @@ export default async function TeamPage({ searchParams }: Props) {
   const isManager = myProfile?.org_role === 'manager'
 
   if (!isAdmin && !isManager) redirect('/dashboard')
+  if (isManager && !myProfile?.company) redirect('/dashboard')
 
   const params         = await searchParams
   const searchQ        = (params.search ?? '').toLowerCase()
@@ -93,10 +94,11 @@ export default async function TeamPage({ searchParams }: Props) {
   if (isAdmin) {
     profilesQuery = profilesQuery.in('role', ['active', 'admin'])
   } else {
-    // Manager sees only their direct reports
-    profilesQuery = (profilesQuery as typeof profilesQuery)
-      .eq('manager_id' as never, user.id)
-      .in('role', ['active', 'admin', 'pending'])
+    // Manager sees everyone at the same company (excluding themselves)
+    profilesQuery = profilesQuery
+      .in('role', ['active', 'admin'])
+      .eq('company', myProfile!.company as string)
+      .neq('id', user.id)
   }
 
   const { data: profiles } = await profilesQuery
@@ -206,6 +208,8 @@ export default async function TeamPage({ searchParams }: Props) {
           <div className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-4 py-2.5 text-xs text-cyan-400">
             <Users className="h-3.5 w-3.5 shrink-0" />
             Viendo analítica de tu equipo —{' '}
+            <span className="font-semibold">{myProfile!.company}</span>
+            {' · '}
             <span className="font-semibold">{totalActive} {totalActive === 1 ? 'miembro' : 'miembros'}</span>
           </div>
         )}
