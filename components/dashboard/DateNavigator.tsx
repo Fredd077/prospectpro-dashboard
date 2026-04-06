@@ -1,8 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { parseISO, subDays, addDays, subWeeks, addWeeks, subMonths, addMonths, subQuarters, addQuarters } from 'date-fns'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { es } from 'date-fns/locale'
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
 import { toISODate, todayISO, getPeriodRange, periodLabel } from '@/lib/utils/dates'
 import type { PeriodType } from '@/lib/types/common'
 
@@ -21,6 +25,7 @@ function shiftDate(period: PeriodType, date: Date, direction: -1 | 1): Date {
 }
 
 export function DateNavigator({ period, refDate }: DateNavigatorProps) {
+  const [open, setOpen] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -31,12 +36,15 @@ export function DateNavigator({ period, refDate }: DateNavigatorProps) {
   const refStart = getPeriodRange(period, ref).start
   const isCurrentOrFuture = refStart >= currentStart
 
+  function navigateTo(isoDate: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('refDate', isoDate)
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
   function navigate(direction: -1 | 1) {
     if (direction === 1 && isCurrentOrFuture) return
-    const newDate = shiftDate(period, ref, direction)
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('refDate', toISODate(newDate))
-    router.push(`${pathname}?${params.toString()}`)
+    navigateTo(toISODate(shiftDate(period, ref, direction)))
   }
 
   return (
@@ -49,9 +57,27 @@ export function DateNavigator({ period, refDate }: DateNavigatorProps) {
         <ChevronLeft className="h-4 w-4" />
       </button>
 
-      <span className="text-sm font-mono text-foreground min-w-[160px] text-center">
-        {periodLabel(period, ref)}
-      </span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border hover:border-primary/40 hover:text-primary transition-colors text-sm font-mono text-foreground min-w-[160px] justify-center group">
+          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+          {periodLabel(period, ref)}
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" side="bottom" align="center">
+          <Calendar
+            mode="single"
+            selected={ref}
+            onSelect={(date) => {
+              if (date) {
+                navigateTo(toISODate(date))
+                setOpen(false)
+              }
+            }}
+            disabled={{ after: new Date() }}
+            locale={es}
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
 
       <button
         onClick={() => navigate(1)}
