@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: 'Vista general de tu prospección comercial',
 }
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector'
+import { DateNavigator } from '@/components/dashboard/DateNavigator'
+import { HistoricalBanner } from '@/components/dashboard/HistoricalBanner'
 import { FilterBar } from '@/components/dashboard/FilterBar'
 import { KpiCard } from '@/components/dashboard/KpiCard'
 import { ChartSwitcher } from '@/components/charts/ChartSwitcher'
@@ -17,7 +19,7 @@ import { RecipeValidationCard } from '@/components/dashboard/RecipeValidationCar
 import { WeeklyCoachMessage } from '@/components/dashboard/WeeklyCoachMessage'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
-import { startOfWeek, endOfWeek, subWeeks, parseISO, format } from 'date-fns'
+import { startOfWeek, endOfWeek, subWeeks, parseISO, isValid, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { calcCompliance } from '@/lib/calculations/compliance'
 import { calcProjection } from '@/lib/calculations/projection'
@@ -36,6 +38,7 @@ interface PageProps {
     period?: string
     type?: string
     channel?: string
+    refDate?: string
   }>
 }
 
@@ -64,7 +67,18 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const channelFilter = params.channel ?? null
 
   const today = todayISO()
-  const { start, end } = getPeriodRange(period, new Date())
+
+  // Resolve refDate: use param if valid ISO, otherwise fall back to today
+  const rawRefDate = params.refDate ?? ''
+  const parsedRef = /^\d{4}-\d{2}-\d{2}$/.test(rawRefDate) ? parseISO(rawRefDate) : null
+  const refDate = (parsedRef && isValid(parsedRef)) ? rawRefDate : today
+  const anchorDate = parseISO(refDate)
+
+  const { start, end } = getPeriodRange(period, anchorDate)
+
+  // Detect historical view
+  const currentPeriodStart = getPeriodRange(period, parseISO(today)).start
+  const isHistorical = start < currentPeriodStart
 
   const sb = await getSupabaseServerClient()
 
@@ -297,6 +311,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <Suspense>
             <PeriodSelector current={period} />
           </Suspense>
+          <div className="h-4 w-px bg-border" />
+          <Suspense>
+            <DateNavigator period={period} refDate={refDate} />
+          </Suspense>
           <Suspense>
             <FilterBar
               currentType={typeFilter}
@@ -305,6 +323,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             />
           </Suspense>
         </div>
+
+        {/* Historical period banner */}
+        <Suspense>
+          <HistoricalBanner isHistorical={isHistorical} />
+        </Suspense>
 
         <div className="p-8 space-y-8">
           {/* Today's status widget */}

@@ -23,6 +23,7 @@ export function PeriodSelector({ current }: PeriodSelectorProps) {
   function onChange(period: string) {
     const params = new URLSearchParams(searchParams.toString())
     params.set('period', period)
+    params.delete('refDate')
     router.push(`${pathname}?${params.toString()}`)
   }
 
