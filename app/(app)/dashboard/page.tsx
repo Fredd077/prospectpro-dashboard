@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { startOfWeek, endOfWeek, subWeeks, parseISO, isValid, format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -177,14 +178,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     if (log.type === 'OUTBOUND') dayRealMap[log.log_date].outbound += log.real_executed
     else                         dayRealMap[log.log_date].inbound  += log.real_executed
   }
+  const trendData: { date: string; meta: number; outbound: number; inbound: number }[] = []
   let cumMeta = 0, cumOut = 0, cumIn = 0
-  const trendData = allDates.map((date) => {
+  for (const date of allDates) {
     const day = dayRealMap[date] ?? { outbound: 0, inbound: 0 }
     cumMeta += dailyMetaShare
     cumOut  += day.outbound
     cumIn   += day.inbound
-    return { date, meta: Math.round(cumMeta), outbound: cumOut, inbound: cumIn }
-  })
+    trendData.push({ date, meta: Math.round(cumMeta), outbound: cumOut, inbound: cumIn })
+  }
 
   // --- Radar data (by channel) ---
   // Both goal and real are derived from allActivities so the radar is
@@ -419,7 +421,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             {!activeScenario && (
               <p className="mb-4 text-xs text-muted-foreground">
                 Para ver el Funnel crea un escenario activo en{' '}
-                <a href="/recipe" className="underline underline-offset-2 hover:text-foreground">Recetario</a>.
+                <Link href="/recipe" className="underline underline-offset-2 hover:text-foreground">Recetario</Link>.
               </p>
             )}
             <ChartSwitcher

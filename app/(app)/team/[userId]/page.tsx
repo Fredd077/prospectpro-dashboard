@@ -114,7 +114,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     const weeklyCompliance = weeklyGoal > 0 ? Math.round((weeklyReal / weeklyGoal) * 100) : 0
 
     // Streak: count distinct log_dates in last 14 days
-    const past14 = toISODate(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000))
+    const past14 = toISODate(new Date(parseISO(today).getTime() - 14 * 24 * 60 * 60 * 1000))
     const { data: streakLogs } = await service
       .from('activity_logs').select('log_date')
       .eq('user_id', userId).gte('log_date', past14)
