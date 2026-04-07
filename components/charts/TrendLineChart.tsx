@@ -30,7 +30,9 @@ const SERIES = [
   { key: 'inbound',  label: 'Inbound real',   color: CHART_COLORS.violet, dashed: false, dot: true  },
 ] as const
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipEntry { name: string; value: number; color: string; dataKey: string }
+interface TooltipProps { active?: boolean; payload?: TooltipEntry[]; label?: string }
+const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
   if (!active || !payload || !payload.length) return null
   return (
     <div style={{
@@ -50,7 +52,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       }}>
         {label}
       </p>
-      {payload.map((entry: any, index: number) => {
+      {payload.map((entry: TooltipEntry, index: number) => {
         const series = SERIES.find((s) => s.key === entry.dataKey)
         return (
           <p key={index} style={{

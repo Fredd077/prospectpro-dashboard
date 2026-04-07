@@ -81,7 +81,7 @@ export default async function TeamPage({ searchParams }: Props) {
   const todayDate = parseISO(today)
   const weekStart = toISODate(startOfWeek(todayDate, { weekStartsOn: 1 }))
   const weekEnd   = toISODate(endOfWeek(todayDate,   { weekStartsOn: 1 }))
-  const past14    = toISODate(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000))
+  const past14    = toISODate(new Date(parseISO(today).getTime() - 14 * 24 * 60 * 60 * 1000))
 
   const service = getSupabaseServiceClient()
 
@@ -169,7 +169,7 @@ export default async function TeamPage({ searchParams }: Props) {
     : teamUsers
 
   // ── Apply TeamFilters params
-  let filtered = baseUsers.filter((u) => {
+  const filtered = baseUsers.filter((u) => {
     if (searchQ && !u.full_name?.toLowerCase().includes(searchQ) && !u.email.toLowerCase().includes(searchQ)) return false
     if (isAdmin && companyFilter && u.company !== companyFilter) return false
     if (statusFilter === 'ontrack')  return u.weeklyCompliance >= 70

@@ -219,7 +219,7 @@ function DetailTab({ entries, stages, scenarioId, editingId, deletingId, setEdit
     return (
       <div className="rounded-lg border border-dashed border-border bg-card/50 py-10 text-center">
         <p className="text-sm text-muted-foreground">No hay registros con detalle de empresa en este período.</p>
-        <p className="text-xs text-muted-foreground/60 mt-1">Usa "+ Agregar detalle por empresa" al registrar avances.</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">Usa &ldquo;+ Agregar detalle por empresa&rdquo; al registrar avances.</p>
       </div>
     )
   }

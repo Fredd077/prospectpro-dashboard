@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
 import { Send, Sparkles, CheckCircle2, ExternalLink, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -266,13 +267,13 @@ export function AIRecipeBuilder() {
               <p className="text-xs text-muted-foreground">
                 Tu escenario fue creado exitosamente. Ve al Recetario para activarlo y usarlo en el Dashboard.
               </p>
-              <a
+              <Link
                 href="/recipe"
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
               >
                 <ExternalLink className="h-3 w-3" />
                 Ver en Recetario
-              </a>
+              </Link>
             </div>
           </div>
         )}

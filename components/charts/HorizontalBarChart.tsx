@@ -33,7 +33,9 @@ function realColor(real: number, goal: number): string {
 
 const NAME_MAP: Record<string, string> = { goal: 'Meta', real: 'Real' }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipEntry { name: string; value: number; color: string; dataKey: string }
+interface TooltipProps { active?: boolean; payload?: TooltipEntry[]; label?: string }
+const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
   if (!active || !payload || !payload.length) return null
   return (
     <div style={{
@@ -53,7 +55,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       }}>
         {label}
       </p>
-      {payload.map((entry: any, index: number) => (
+      {payload.map((entry: TooltipEntry, index: number) => (
         <p key={index} style={{
           color: '#FFFFFF',
           margin: '2px 0',

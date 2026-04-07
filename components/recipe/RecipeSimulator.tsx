@@ -70,7 +70,8 @@ export function RecipeSimulator({ scenario }: RecipeSimulatorProps) {
   const [simInputs, setSimInputs] = useState<RecipeInputsType>(savedInputs)
   const [isDirty, setIsDirty]     = useState(false)
 
-  const savedOutputs = useMemo(() => calcRecipe(savedInputs), [scenario.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/preserve-manual-memoization
+  const savedOutputs = useMemo(() => calcRecipe(savedInputs), [scenario.id])
   const simOutputs   = useMemo(() => calcRecipe(simInputs), [simInputs])
 
   const handleChange = (inputs: RecipeInputsType) => {
