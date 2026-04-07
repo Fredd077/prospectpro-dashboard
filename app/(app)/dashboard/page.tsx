@@ -1,11 +1,10 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
+import { redirect } from 'next/navigation'
+import { startOfWeek, endOfWeek, subWeeks, parseISO, isValid, format } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { Activity, BarChart2, TrendingUp, Target } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
-
-export const metadata: Metadata = {
-  title: 'Dashboard',
-  description: 'Vista general de tu prospección comercial',
-}
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector'
 import { DateNavigator } from '@/components/dashboard/DateNavigator'
 import { HistoricalBanner } from '@/components/dashboard/HistoricalBanner'
@@ -17,11 +16,9 @@ import type { ActivityBreakdownRow } from '@/components/dashboard/ActivityBreakd
 import { TodayWidget } from '@/components/dashboard/TodayWidget'
 import { RecipeValidationCard } from '@/components/dashboard/RecipeValidationCard'
 import { WeeklyCoachMessage } from '@/components/dashboard/WeeklyCoachMessage'
+import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
-import { redirect } from 'next/navigation'
-import { startOfWeek, endOfWeek, subWeeks, parseISO, isValid, format } from 'date-fns'
-import { es } from 'date-fns/locale'
 import { calcCompliance } from '@/lib/calculations/compliance'
 import { calcProjection } from '@/lib/calculations/projection'
 import { formatPercent } from '@/lib/utils/formatters'
@@ -31,8 +28,11 @@ import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
 import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 import type { PeriodType, ActivityType } from '@/lib/types/common'
 import type { DailyCompliance } from '@/lib/types/database'
-import { Activity, BarChart2, TrendingUp, Target } from 'lucide-react'
-import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
+
+export const metadata: Metadata = {
+  title: 'Dashboard',
+  description: 'Vista general de tu prospección comercial',
+}
 
 interface PageProps {
   searchParams: Promise<{
