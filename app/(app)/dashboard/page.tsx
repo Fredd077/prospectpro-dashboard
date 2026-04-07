@@ -19,6 +19,7 @@ import { RecipeValidationCard } from '@/components/dashboard/RecipeValidationCar
 import { WeeklyCoachMessage } from '@/components/dashboard/WeeklyCoachMessage'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
+import { redirect } from 'next/navigation'
 import { startOfWeek, endOfWeek, subWeeks, parseISO, isValid, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { calcCompliance } from '@/lib/calculations/compliance'
@@ -57,6 +58,19 @@ const CHANNEL_LABELS: Record<string, string> = {
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
+  // ── Auth + admin redirect (must run before any other logic)
+  const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: myProfile } = await sb
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (myProfile?.role === 'admin') redirect('/admin')
+
   const params = await searchParams
   const period = (['daily', 'weekly', 'monthly', 'quarterly'].includes(params.period ?? '')
     ? params.period
@@ -80,7 +94,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const currentPeriodStart = getPeriodRange(period, parseISO(today)).start
   const isHistorical = start < currentPeriodStart
 
-  const sb = await getSupabaseServerClient()
+  // sb is already initialized above for the auth/redirect check — reuse it
 
   let query = sb
     .from('vw_daily_compliance')
