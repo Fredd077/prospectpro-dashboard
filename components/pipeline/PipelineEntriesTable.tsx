@@ -100,7 +100,7 @@ export function PipelineEntriesTable({ entries, stages, scenarioId, stageFilter 
     }
   }
 
-  const detailEntries = filtered.filter((e) => e.company_name != null)
+  const detailEntries = filtered
 
   return (
     <div className="space-y-3">
@@ -108,7 +108,7 @@ export function PipelineEntriesTable({ entries, stages, scenarioId, stageFilter 
       <div className="flex rounded-md border border-border overflow-hidden w-fit">
         {[
           { value: 'summary', label: 'Resumen' },
-          { value: 'detail',  label: `Detalle por empresa${detailEntries.length > 0 ? ` (${detailEntries.length})` : ''}` },
+          { value: 'detail',  label: `Detalle (${detailEntries.length})` },
         ].map(({ value, label }) => (
           <button
             key={value}
@@ -297,7 +297,13 @@ function DetailTab({ entries, stages, scenarioId, editingId, deletingId, setEdit
                         </span>
                       </td>
                       <td className="px-4 py-2.5">
-                        <p className="text-xs font-medium text-foreground">{entry.company_name ?? '—'}</p>
+                        <p className="text-xs font-medium text-foreground">
+                          {entry.company_name ?? (
+                            <span className="text-[10px] text-muted-foreground/50 italic">
+                              Entrada rápida
+                            </span>
+                          )}
+                        </p>
                         {entry.prospect_name && (
                           <p className="text-[10px] text-muted-foreground/70">{entry.prospect_name}</p>
                         )}
