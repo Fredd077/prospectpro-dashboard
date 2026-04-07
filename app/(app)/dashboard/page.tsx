@@ -87,12 +87,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const rawRefDate = params.refDate ?? ''
   const parsedRef = /^\d{4}-\d{2}-\d{2}$/.test(rawRefDate) ? parseISO(rawRefDate) : null
   const refDate = (parsedRef && isValid(parsedRef)) ? rawRefDate : today
-  const anchorDate = parseISO(refDate)
+  // parseISO('YYYY-MM-DD') gives UTC midnight which toISODate() shifts back to
+  // the previous day when the server is ahead of Bogota (UTC-5). Use addDays
+  // on a known anchor instead: build the date as noon UTC to stay safely within
+  // the calendar day regardless of the server's timezone offset.
+  const [ry, rm, rd] = refDate.split('-').map(Number)
+  const anchorDate = new Date(Date.UTC(ry, rm - 1, rd, 12, 0, 0))
 
   const { start, end } = getPeriodRange(period, anchorDate)
 
-  // Detect historical view
-  const currentPeriodStart = getPeriodRange(period, parseISO(today)).start
+  // Detect historical view — same UTC-noon trick to avoid timezone shift
+  const [ty, tm, tday] = today.split('-').map(Number)
+  const todayAnchor = new Date(Date.UTC(ty, tm - 1, tday, 12, 0, 0))
+  const currentPeriodStart = getPeriodRange(period, todayAnchor).start
   const isHistorical = start < currentPeriodStart
 
   // sb is already initialized above for the auth/redirect check — reuse it
