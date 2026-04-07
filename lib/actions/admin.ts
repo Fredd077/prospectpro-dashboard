@@ -42,3 +42,21 @@ export async function updateUserCompany(userId: string, company: string) {
   revalidatePath(`/admin/users/${userId}`)
   revalidatePath('/team')
 }
+
+export async function updateUserOrgRole(userId: string, orgRole: 'member' | 'manager') {
+  await assertAdmin()
+  const service = getSupabaseServiceClient()
+  // If demoting from manager, clear manager_id from users they manage
+  if (orgRole === 'member') {
+    await service.from('profiles').update({ manager_id: null } as never).eq('manager_id', userId)
+  }
+  await service.from('profiles').update({ org_role: orgRole } as never).eq('id', userId)
+  revalidatePath('/admin')
+}
+
+export async function updateUserManager(userId: string, managerId: string | null) {
+  await assertAdmin()
+  const service = getSupabaseServiceClient()
+  await service.from('profiles').update({ manager_id: managerId } as never).eq('id', userId)
+  revalidatePath('/admin')
+}

@@ -39,12 +39,20 @@ function formatDate(iso: string | null) {
 interface UsersTableProps {
   users: Profile[]
   filterRole: string
+  filterCompany?: string
+  managerMap?: Record<string, string>
 }
 
-export function UsersTable({ users, filterRole }: UsersTableProps) {
-  const filtered = filterRole === 'all'
-    ? users
-    : users.filter((u) => u.role === filterRole)
+export function UsersTable({ users, filterRole, filterCompany = 'all', managerMap = {} }: UsersTableProps) {
+  let filtered = filterRole === 'all' ? users : users.filter((u) => u.role === filterRole)
+
+  if (filterCompany !== 'all') {
+    filtered = filtered.filter((u) =>
+      filterCompany === '__none__'
+        ? u.company == null
+        : u.company === filterCompany
+    )
+  }
 
   if (filtered.length === 0) {
     return (
@@ -68,6 +76,12 @@ export function UsersTable({ users, filterRole }: UsersTableProps) {
             <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Estado
             </th>
+            <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden xl:table-cell">
+              Rol org.
+            </th>
+            <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden xl:table-cell">
+              Manager
+            </th>
             <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden lg:table-cell">
               Registrado
             </th>
@@ -82,19 +96,14 @@ export function UsersTable({ users, filterRole }: UsersTableProps) {
         <tbody className="divide-y divide-border/50">
           {filtered.map((user) => {
             const badge = ROLE_BADGE[user.role]
+            const managerName = user.manager_id ? (managerMap[user.manager_id] ?? '—') : null
             return (
               <tr key={user.id} className="hover:bg-muted/20 transition-colors">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
-                    <Avatar
-                      name={user.full_name}
-                      email={user.email}
-                      avatarUrl={user.avatar_url}
-                    />
+                    <Avatar name={user.full_name} email={user.email} avatarUrl={user.avatar_url} />
                     <div>
-                      <p className="font-medium text-foreground text-xs">
-                        {user.full_name ?? '—'}
-                      </p>
+                      <p className="font-medium text-foreground text-xs">{user.full_name ?? '—'}</p>
                       <p className="text-[10px] text-muted-foreground">{user.email}</p>
                     </div>
                   </div>
@@ -107,6 +116,25 @@ export function UsersTable({ users, filterRole }: UsersTableProps) {
                     {badge.label}
                   </span>
                 </td>
+                <td className="px-4 py-3 hidden xl:table-cell">
+                  {user.org_role ? (
+                    <span className={cn(
+                      'rounded border px-1.5 py-0.5 text-[10px] font-medium',
+                      user.org_role === 'manager'
+                        ? 'bg-amber-400/10 text-amber-400 border-amber-400/20'
+                        : 'bg-muted/30 text-muted-foreground border-border'
+                    )}>
+                      {user.org_role === 'manager' ? 'Manager' : 'Miembro'}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground/40">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 hidden xl:table-cell">
+                  <span className="text-xs text-muted-foreground">
+                    {managerName ?? <span className="text-muted-foreground/40">—</span>}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground font-data hidden lg:table-cell">
                   {formatDate(user.created_at)}
                 </td>
@@ -115,7 +143,12 @@ export function UsersTable({ users, filterRole }: UsersTableProps) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <UserActions user={user} />
+                    <UserActions
+                      user={user}
+                      managers={Object.entries(managerMap)
+                        .filter(([id]) => id !== user.id)
+                        .map(([id, name]) => ({ id, name }))}
+                    />
                     <Link
                       href={`/team/${user.id}`}
                       className="flex items-center gap-1 rounded px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"

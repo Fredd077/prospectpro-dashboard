@@ -16,6 +16,8 @@ export interface Database {
           last_seen_at: string | null
           activated_at: string | null
           activated_by: string | null
+          org_role: 'member' | 'manager' | null
+          manager_id: string | null
         }
         Insert: {
           id: string
@@ -29,6 +31,8 @@ export interface Database {
           last_seen_at?: string | null
           activated_at?: string | null
           activated_by?: string | null
+          org_role?: 'member' | 'manager' | null
+          manager_id?: string | null
         }
         Update: {
           email?: string
@@ -40,6 +44,8 @@ export interface Database {
           last_seen_at?: string | null
           activated_at?: string | null
           activated_by?: string | null
+          org_role?: 'member' | 'manager' | null
+          manager_id?: string | null
         }
         Relationships: []
       }
