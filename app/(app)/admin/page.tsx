@@ -74,6 +74,8 @@ export default async function AdminPage({ searchParams }: Props) {
   const monthAgo = thirtyDaysAgo.toISOString().slice(0, 10)
 
   // ── Parallel fetches
+  // Profiles query uses only the stable base columns so a missing migration
+  // on org_role/manager_id doesn't wipe out all KPI data.
   const [
     { data: allUsersRaw },
     { data: todayLogsRaw },
@@ -82,7 +84,7 @@ export default async function AdminPage({ searchParams }: Props) {
   ] = await Promise.all([
     service
       .from('profiles')
-      .select('id,full_name,email,company,role,org_role,created_at,last_seen_at,avatar_url,manager_id')
+      .select('id,full_name,email,company,role,created_at,last_seen_at,avatar_url')
       .order('company', { ascending: true })
       .order('full_name', { ascending: true }),
     service
@@ -101,7 +103,28 @@ export default async function AdminPage({ searchParams }: Props) {
       .order('log_date', { ascending: false }),
   ])
 
-  const users: Profile[] = (allUsersRaw ?? []) as Profile[]
+  // Fetch org_role + manager_id separately — these come from migration 016
+  // which may not yet be applied on all environments. Fail gracefully.
+  const { data: orgRoleRaw } = await service
+    .from('profiles')
+    .select('id,org_role,manager_id')
+
+  type OrgRow = { id: string; org_role: string | null; manager_id: string | null }
+  const orgByUser: Record<string, OrgRow> = {}
+  for (const row of (orgRoleRaw ?? []) as OrgRow[]) {
+    orgByUser[row.id] = row
+  }
+
+  type BaseUser = { id: string; full_name: string | null; email: string; company: string | null; role: string; created_at: string; last_seen_at: string | null; avatar_url: string | null }
+  const users: Profile[] = ((allUsersRaw ?? []) as BaseUser[]).map((u) => ({
+    ...u,
+    role: u.role as Profile['role'],
+    onboarding_completed: false,
+    activated_at: null,
+    activated_by: null,
+    org_role: (orgByUser[u.id]?.org_role ?? null) as Profile['org_role'],
+    manager_id: orgByUser[u.id]?.manager_id ?? null,
+  }))
 
   // ── Index sets
   const todayUserIds   = new Set((todayLogsRaw  ?? []).map((l) => l.user_id))
@@ -143,7 +166,7 @@ export default async function AdminPage({ searchParams }: Props) {
       const activeMembers   = members.filter((u) => u.role === 'active' || u.role === 'admin')
       const checkins        = members.filter((u) => todayUserIds.has(u.id)).length
       const weekActive      = members.filter((u) => weekUserIds.has(u.id)).length
-      const managerCount    = members.filter((u) => (u as Profile & { org_role?: string }).org_role === 'manager').length
+      const managerCount    = members.filter((u) => u.org_role === 'manager').length
       const lastDates       = members.map((u) => lastLogByUser[u.id]).filter(Boolean)
       const lastCheckin     = lastDates.sort().at(-1) ?? null
       return {
@@ -170,7 +193,7 @@ export default async function AdminPage({ searchParams }: Props) {
   // ── Manager names for UsersTable
   const managerMap: Record<string, string> = {}
   for (const u of users) {
-    if ((u as Profile & { org_role?: string }).org_role === 'manager') {
+    if (u.org_role === 'manager') {
       managerMap[u.id] = u.full_name ?? u.email
     }
   }

@@ -9,19 +9,31 @@ export async function Sidebar() {
     data: { user },
   } = await sb.auth.getUser()
 
-  let profile: { full_name: string | null; email: string; avatar_url: string | null; role: string; org_role: string | null } | null = null
+  let profile: { full_name: string | null; email: string; avatar_url: string | null; role: string } | null = null
+  let isManager = false
 
   if (user) {
+    // Core profile — never fails due to schema additions
     const { data } = await sb
       .from('profiles')
-      .select('full_name, email, avatar_url, role, org_role')
+      .select('full_name, email, avatar_url, role')
       .eq('id', user.id)
       .single()
     profile = data
+
+    // org_role is a newer column — query separately so a missing migration
+    // doesn't break the core navigation (isAdmin / sidebar links)
+    if (profile && profile.role !== 'admin') {
+      const { data: orgData } = await sb
+        .from('profiles')
+        .select('org_role')
+        .eq('id', user.id)
+        .maybeSingle()
+      isManager = (orgData as { org_role?: string | null } | null)?.org_role === 'manager'
+    }
   }
 
-  const isAdmin   = profile?.role === 'admin'
-  const isManager = profile?.org_role === 'manager'
+  const isAdmin = profile?.role === 'admin'
   const email = profile?.email ?? user?.email ?? ''
 
   const { count: unreadCoachCount } = await sb
