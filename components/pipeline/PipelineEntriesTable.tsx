@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Pencil, Trash2, X } from 'lucide-react'
+import { Pencil, Trash2, X, ArrowRight } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { deletePipelineEntry } from '@/lib/actions/pipeline'
@@ -128,7 +128,7 @@ export function PipelineEntriesTable({ entries, stages, scenarioId, stageFilter 
 
       {/* Summary tab */}
       {tab === 'summary' && (
-        <SummaryTab entries={filtered} />
+        <SummaryTab entries={filtered} onViewDetail={() => setTab('detail')} />
       )}
 
       {/* Detail tab */}
@@ -149,7 +149,7 @@ export function PipelineEntriesTable({ entries, stages, scenarioId, stageFilter 
 
 // ── Summary tab component ─────────────────────────────────────────────────────
 
-function SummaryTab({ entries }: { entries: PipelineEntry[] }) {
+function SummaryTab({ entries, onViewDetail }: { entries: PipelineEntry[]; onViewDetail: () => void }) {
   const summary = buildSummary(entries)
   const grouped = groupByDate(summary)
 
@@ -169,6 +169,7 @@ function SummaryTab({ entries }: { entries: PipelineEntry[] }) {
                   <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-purple-400/70">IN</th>
                   <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</th>
                   <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Monto</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ver</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
@@ -190,6 +191,15 @@ function SummaryTab({ entries }: { entries: PipelineEntry[] }) {
                     </td>
                     <td className="px-4 py-2.5 text-right text-xs tabular-nums text-foreground">
                       {row.amount != null ? fmtUSD(row.amount) : <span className="text-muted-foreground/40">—</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <button
+                        onClick={onViewDetail}
+                        className="text-[10px] text-primary hover:underline flex items-center gap-1 ml-auto"
+                      >
+                        <ArrowRight className="h-3 w-3" />
+                        Ver registros
+                      </button>
                     </td>
                   </tr>
                 ))}

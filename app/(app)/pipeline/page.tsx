@@ -5,6 +5,7 @@ import { TopBar } from '@/components/layout/TopBar'
 import { PipelineFunnelSummary } from '@/components/pipeline/PipelineFunnelSummary'
 import { PipelineEntriesTable } from '@/components/pipeline/PipelineEntriesTable'
 import { PipelineNewEntryModal } from '@/components/pipeline/PipelineNewEntryModal'
+import { DateNavigator } from '@/components/dashboard/DateNavigator'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, periodLabel } from '@/lib/utils/dates'
 import {
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
 }
 
 interface PageProps {
-  searchParams: Promise<{ period?: string; stage?: string; type?: string }>
+  searchParams: Promise<{ period?: string; stage?: string; type?: string; refDate?: string }>
 }
 
 const PERIOD_OPTIONS: { value: PeriodType; label: string }[] = [
@@ -50,10 +51,22 @@ export default async function PipelinePage({ searchParams }: PageProps) {
   const period      = (['daily', 'weekly', 'monthly', 'quarterly'].includes(params.period ?? '')
     ? params.period
     : 'monthly') as PeriodType
-  const stageFilter = params.stage ?? ''
-  const typeFilter  = (['OUTBOUND', 'INBOUND'].includes(params.type ?? '') ? params.type : '') as 'OUTBOUND' | 'INBOUND' | ''
+  const stageFilter    = params.stage ?? ''
+  const typeFilter     = (['OUTBOUND', 'INBOUND'].includes(params.type ?? '') ? params.type : '') as 'OUTBOUND' | 'INBOUND' | ''
+  const refDateParam   = params.refDate ?? ''
 
-  const { start, end } = getPeriodRange(period, new Date())
+  const today = todayISO()
+  const [ty, tm, td] = today.split('-').map(Number)
+
+  let anchorDate: Date
+  if (/^\d{4}-\d{2}-\d{2}$/.test(refDateParam)) {
+    const [ry, rm, rd] = refDateParam.split('-').map(Number)
+    anchorDate = new Date(Date.UTC(ry, rm - 1, rd, 12, 0, 0))
+  } else {
+    anchorDate = new Date(Date.UTC(ty, tm - 1, td, 12, 0, 0))
+  }
+
+  const { start, end } = getPeriodRange(period, anchorDate)
 
   const sb = await getSupabaseServerClient()
 
@@ -136,7 +149,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     }
   })
 
-  const pLabel      = periodLabel(period, new Date())
+  const pLabel      = periodLabel(period, anchorDate)
   const monthlyGoal = scenario?.monthly_revenue_goal ?? 0
   const availableStages = stages.slice(1)
 
@@ -147,7 +160,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
 
         {/* Controls */}
         <div className="flex items-center gap-3 flex-wrap border-b border-border bg-background px-8 py-3">
-          {/* Period selector */}
+          {/* Period selector — switching period resets refDate */}
           <div className="flex items-center rounded-md border border-border overflow-hidden">
             {PERIOD_OPTIONS.map(({ value, label }) => (
               <Link key={value}
@@ -160,6 +173,11 @@ export default async function PipelinePage({ searchParams }: PageProps) {
               </Link>
             ))}
           </div>
+
+          {/* Date navigator */}
+          <Suspense>
+            <DateNavigator period={period} refDate={refDateParam || today} />
+          </Suspense>
 
           {/* Type filter: Todo / Outbound / Inbound */}
           <div className="flex items-center rounded-md border border-border overflow-hidden">
