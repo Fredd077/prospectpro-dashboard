@@ -1,8 +1,13 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, ShieldCheck, UserRound, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { UserActions } from './UserActions'
 import { CompanyCell } from './CompanyCell'
+import { updateUserOrgRole } from '@/lib/actions/admin'
 import type { Profile } from '@/lib/types/database'
 
 const ROLE_BADGE: Record<Profile['role'], { label: string; cls: string }> = {
@@ -34,6 +39,58 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('es-CO', {
     day: '2-digit', month: 'short', year: 'numeric',
   })
+}
+
+function OrgRoleBadge({ userId, initialRole, userName }: {
+  userId: string
+  initialRole: Profile['org_role']
+  userName: string
+}) {
+  const [role, setRole] = useState(initialRole)
+  const [loading, setLoading] = useState(false)
+
+  async function handleToggle() {
+    const next = role === 'manager' ? 'member' : 'manager'
+    setLoading(true)
+    try {
+      await updateUserOrgRole(userId, next)
+      setRole(next)
+      toast.success(
+        next === 'manager'
+          ? `${userName} es ahora Manager`
+          : `${userName} es ahora Vendedor`
+      )
+    } catch {
+      toast.error('No se pudo cambiar el rol')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const isManager = role === 'manager'
+
+  return (
+    <button
+      onClick={handleToggle}
+      disabled={loading}
+      title={isManager ? 'Click para cambiar a Vendedor' : 'Click para promover a Manager'}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border transition-opacity hover:opacity-80 cursor-pointer disabled:cursor-wait',
+        isManager
+          ? 'bg-primary/15 text-primary border-primary/40'
+          : 'bg-violet-500/15 text-violet-400 border-violet-500/40'
+      )}
+    >
+      {loading ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : isManager ? (
+        <ShieldCheck className="h-3 w-3" />
+      ) : (
+        <UserRound className="h-3 w-3" />
+      )}
+      {isManager ? 'Manager' : 'Vendedor'}
+    </button>
+  )
 }
 
 interface UsersTableProps {
@@ -76,8 +133,8 @@ export function UsersTable({ users, filterRole, filterCompany = 'all', managerMa
             <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Estado
             </th>
-            <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden xl:table-cell">
-              Rol org.
+            <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground min-w-[100px]">
+              Rol
             </th>
             <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden xl:table-cell">
               Manager
@@ -97,8 +154,15 @@ export function UsersTable({ users, filterRole, filterCompany = 'all', managerMa
           {filtered.map((user) => {
             const badge = ROLE_BADGE[user.role]
             const managerName = user.manager_id ? (managerMap[user.manager_id] ?? '—') : null
+            const isManager = user.org_role === 'manager'
             return (
-              <tr key={user.id} className="hover:bg-muted/20 transition-colors">
+              <tr
+                key={user.id}
+                className={cn(
+                  'hover:bg-muted/20 transition-colors border-l-2',
+                  isManager ? 'border-l-primary/50' : 'border-l-transparent'
+                )}
+              >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
                     <Avatar name={user.full_name} email={user.email} avatarUrl={user.avatar_url} />
@@ -116,19 +180,12 @@ export function UsersTable({ users, filterRole, filterCompany = 'all', managerMa
                     {badge.label}
                   </span>
                 </td>
-                <td className="px-4 py-3 hidden xl:table-cell">
-                  {user.org_role ? (
-                    <span className={cn(
-                      'rounded border px-1.5 py-0.5 text-[10px] font-medium',
-                      user.org_role === 'manager'
-                        ? 'bg-amber-400/10 text-amber-400 border-amber-400/20'
-                        : 'bg-muted/30 text-muted-foreground border-border'
-                    )}>
-                      {user.org_role === 'manager' ? 'Manager' : 'Miembro'}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground/40">—</span>
-                  )}
+                <td className="px-4 py-3 min-w-[100px]">
+                  <OrgRoleBadge
+                    userId={user.id}
+                    initialRole={user.org_role}
+                    userName={user.full_name ?? user.email}
+                  />
                 </td>
                 <td className="px-4 py-3 hidden xl:table-cell">
                   <span className="text-xs text-muted-foreground">
