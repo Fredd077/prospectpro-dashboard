@@ -176,7 +176,9 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   const router = useRouter()
   const today = todayISO()
-  const kanbanStages = stages.slice(1)
+  // 'Actividad' se registra via Check-in, no en deals — excluirla del Kanban.
+  // Si el funnel del usuario no empieza con 'Actividad', mostrar todos los stages.
+  const kanbanStages = stages[0]?.toLowerCase() === 'actividad' ? stages.slice(1) : stages
   const lastStage = stages[stages.length - 1]
 
   // Modal open/close state
@@ -821,7 +823,7 @@ export function KanbanBoard({
                   onChange={(e) => setEditStage(e.target.value)}
                   className={inputClass}
                 >
-                  {stages.slice(1).map((s) => (
+                  {kanbanStages.map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
