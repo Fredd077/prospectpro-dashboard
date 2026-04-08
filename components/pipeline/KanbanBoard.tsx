@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fmtUSD } from '@/lib/calculations/pipeline'
 import { todayISO } from '@/lib/utils/dates'
@@ -13,6 +14,7 @@ import {
   advanceDeal,
   closeDealWon,
   closeDealLost,
+  updateDeal,
 } from '@/lib/actions/deals'
 import type { Deal } from '@/lib/types/database'
 import type { PeriodType } from '@/lib/types/common'
@@ -71,13 +73,24 @@ interface DealCardProps {
   onAdvance: () => void
   onWin: () => void
   onLose: () => void
+  onEdit: () => void
 }
 
-function DealCard({ deal, isLastStage, onAdvance, onWin, onLose }: DealCardProps) {
+function DealCard({ deal, isLastStage, onAdvance, onWin, onLose, onEdit }: DealCardProps) {
   return (
     <div className="rounded-lg border border-border bg-card p-3 space-y-2.5 hover:border-primary/30 transition-colors cursor-default">
-      {/* Row 1: type + date */}
-      <div className="flex items-center justify-between">
+      {/* Row 0: stage tag + date */}
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[9px] font-bold uppercase tracking-widest rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-400 border border-amber-500/30">
+          {deal.current_stage}
+        </span>
+        <span className="text-[9px] text-muted-foreground">
+          {format(parseISO(deal.entry_date), 'd MMM', { locale: es })}
+        </span>
+      </div>
+
+      {/* Row 1: type badge */}
+      <div>
         <span className={cn(
           'text-[9px] font-bold rounded-full border px-1.5 py-0.5',
           deal.prospect_type === 'OUTBOUND'
@@ -85,9 +98,6 @@ function DealCard({ deal, isLastStage, onAdvance, onWin, onLose }: DealCardProps
             : 'bg-purple-400/10 text-purple-400 border-purple-400/20'
         )}>
           {deal.prospect_type}
-        </span>
-        <span className="text-[9px] text-muted-foreground">
-          {format(parseISO(deal.entry_date), 'd MMM', { locale: es })}
         </span>
       </div>
 
@@ -112,6 +122,13 @@ function DealCard({ deal, isLastStage, onAdvance, onWin, onLose }: DealCardProps
 
       {/* Row 4: action buttons */}
       <div className="flex gap-1.5 pt-1">
+        <button
+          onClick={onEdit}
+          className="rounded px-2 py-1 text-[10px] font-semibold bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+          title="Editar trato"
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
         {isLastStage ? (
           <button
             onClick={onWin}
@@ -167,7 +184,16 @@ export function KanbanBoard({
   const [advancingDeal, setAdvancingDeal] = useState<Deal | null>(null)
   const [losingDeal, setLosingDeal] = useState<Deal | null>(null)
   const [winningDeal, setWinningDeal] = useState<Deal | null>(null)
+  const [editingDeal, setEditingDeal] = useState<Deal | null>(null)
   const [saving, setSaving] = useState(false)
+
+  // Edit deal form state
+  const [editCompany, setEditCompany] = useState('')
+  const [editProspect, setEditProspect] = useState('')
+  const [editAmount, setEditAmount] = useState('')
+  const [editType, setEditType] = useState<'OUTBOUND' | 'INBOUND'>('OUTBOUND')
+  const [editDate, setEditDate] = useState(today)
+  const [editStage, setEditStage] = useState('')
 
   // New deal form state
   const [newStage, setNewStage] = useState(kanbanStages[0] ?? '')
@@ -273,6 +299,30 @@ export function KanbanBoard({
     }
   }
 
+  async function handleEditDeal() {
+    if (!editingDeal) return
+    setSaving(true)
+    try {
+      // Nota: cambiar current_stage aquí es una corrección directa.
+      // No registra pipeline_entry — usar advanceDeal() para movimientos reales.
+      await updateDeal(editingDeal.id, {
+        company_name:  editCompany.trim() || null,
+        prospect_name: editProspect.trim() || null,
+        amount_usd:    editAmount ? Number(editAmount) : null,
+        prospect_type: editType,
+        entry_date:    editDate,
+        current_stage: editStage,
+      })
+      toast.success('Trato actualizado ✓')
+      setEditingDeal(null)
+      router.refresh()
+    } catch {
+      toast.error('Error al actualizar el trato')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const inputClass =
     'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/60'
   const labelClass =
@@ -320,6 +370,15 @@ export function KanbanBoard({
                     setWinningDeal(deal)
                   }}
                   onLose={() => { setLostReason(''); setLosingDeal(deal) }}
+                  onEdit={() => {
+                    setEditCompany(deal.company_name ?? '')
+                    setEditProspect(deal.prospect_name ?? '')
+                    setEditAmount(deal.amount_usd != null ? String(deal.amount_usd) : '')
+                    setEditType(deal.prospect_type)
+                    setEditDate(deal.entry_date)
+                    setEditStage(deal.current_stage)
+                    setEditingDeal(deal)
+                  }}
                 />
               ))}
             </div>
@@ -657,6 +716,131 @@ export function KanbanBoard({
                 className="flex-1 rounded-lg bg-red-500/20 border border-red-500/30 py-2 text-sm font-semibold text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50"
               >
                 {saving ? 'Guardando...' : 'Marcar como perdido ✗'}
+              </button>
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* ── Modal: Edit Deal ────────────────────────────────────────────── */}
+      {editingDeal && (
+        <ModalOverlay>
+          <div className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
+            <button
+              onClick={() => setEditingDeal(null)}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground text-lg leading-none"
+              aria-label="Cerrar"
+            >
+              ✕
+            </button>
+            <h2 className="text-sm font-bold text-foreground mb-1">Editar trato</h2>
+            <p className="text-xs text-muted-foreground mb-5">
+              {editingDeal.company_name ?? editingDeal.prospect_name ?? 'Trato sin nombre'}
+            </p>
+            <div className="space-y-3">
+              {/* Empresa */}
+              <div>
+                <label className={labelClass}>Empresa</label>
+                <input
+                  type="text"
+                  value={editCompany}
+                  onChange={(e) => setEditCompany(e.target.value)}
+                  placeholder="Nombre de empresa..."
+                  className={inputClass}
+                />
+              </div>
+
+              {/* Prospecto */}
+              <div>
+                <label className={labelClass}>Prospecto</label>
+                <input
+                  type="text"
+                  value={editProspect}
+                  onChange={(e) => setEditProspect(e.target.value)}
+                  placeholder="Nombre del prospecto..."
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Monto */}
+                <div>
+                  <label className={labelClass}>Monto USD</label>
+                  <input
+                    type="number"
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    placeholder="0"
+                    min={0}
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Fecha */}
+                <div>
+                  <label className={labelClass}>Fecha entrada</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    max={today}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              {/* Tipo */}
+              <div>
+                <label className={labelClass}>Tipo</label>
+                <div className="flex rounded-md border border-border overflow-hidden">
+                  {(['OUTBOUND', 'INBOUND'] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setEditType(t)}
+                      className={cn(
+                        'flex-1 py-1.5 text-[11px] font-bold transition-colors',
+                        editType === t
+                          ? t === 'OUTBOUND'
+                            ? 'bg-cyan-400/15 text-cyan-400'
+                            : 'bg-purple-400/15 text-purple-400'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                      )}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Etapa — corrección directa, no registra movimiento */}
+              <div>
+                <label className={labelClass}>Etapa actual</label>
+                <select
+                  value={editStage}
+                  onChange={(e) => setEditStage(e.target.value)}
+                  className={inputClass}
+                >
+                  {stages.slice(1).map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-muted-foreground/50 mt-1">
+                  Corrección manual — no registra movimiento en el historial.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-5">
+              <button onClick={() => setEditingDeal(null)} className={cancelBtnClass}>
+                Cancelar
+              </button>
+              <button
+                onClick={handleEditDeal}
+                disabled={saving}
+                className="flex-1 rounded-lg bg-primary/15 border border-primary/30 py-2 text-sm font-semibold text-primary hover:bg-primary/25 transition-colors disabled:opacity-50"
+              >
+                {saving ? 'Guardando...' : 'Guardar cambios'}
               </button>
             </div>
           </div>

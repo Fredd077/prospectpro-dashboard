@@ -197,3 +197,31 @@ export async function closeDealLost(
   // lostDate param accepted for API consistency; not stored on lost deals
   void lostDate
 }
+
+export async function updateDeal(
+  dealId: string,
+  data: {
+    company_name?: string | null
+    prospect_name?: string | null
+    amount_usd?: number | null
+    prospect_type?: 'OUTBOUND' | 'INBOUND'
+    entry_date?: string
+    current_stage?: string
+  },
+): Promise<void> {
+  const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { error } = await sb
+    .from('deals')
+    .update({
+      ...data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', dealId)
+    .eq('user_id', user.id)
+
+  if (error) throw error
+  revalidatePath('/pipeline')
+}
