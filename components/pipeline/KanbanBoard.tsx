@@ -350,6 +350,7 @@ export function KanbanBoard({
         {/* Active stage columns */}
         {kanbanStages.map((stage) => {
           const stageDeals = activeDeals.filter((d) => d.current_stage === stage)
+          const stageCount = stageDeals.length
           return (
             <div key={stage} className="flex flex-col gap-3 min-w-[220px] max-w-[220px]">
               <div className="flex items-center justify-between mb-2">
@@ -357,7 +358,7 @@ export function KanbanBoard({
                   {stage}
                 </span>
                 <span className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-primary/10 text-primary">
-                  {stageDeals.length}
+                  {stageCount}
                 </span>
               </div>
               {stageDeals.map((deal) => (
