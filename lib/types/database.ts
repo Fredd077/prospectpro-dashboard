@@ -282,7 +282,9 @@ export interface Database {
           id: string
           user_id: string
           recipe_scenario_id: string | null
+          deal_id: string | null
           stage: string
+          from_stage: string | null
           prospect_type: 'OUTBOUND' | 'INBOUND'
           company_name: string | null
           prospect_name: string | null
@@ -298,7 +300,9 @@ export interface Database {
           id?: string
           user_id?: string
           recipe_scenario_id?: string | null
+          deal_id?: string | null
           stage: string
+          from_stage?: string | null
           prospect_type?: 'OUTBOUND' | 'INBOUND'
           company_name?: string | null
           prospect_name?: string | null
@@ -311,7 +315,9 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          deal_id?: string | null
           stage?: string
+          from_stage?: string | null
           prospect_type?: 'OUTBOUND' | 'INBOUND'
           company_name?: string | null
           prospect_name?: string | null
@@ -321,6 +327,57 @@ export interface Database {
           notes?: string | null
           is_quick_entry?: boolean
           updated_at?: string
+        }
+        Relationships: []
+      }
+      deals: {
+        Row: {
+          id: string
+          user_id: string
+          recipe_scenario_id: string | null
+          company_name: string | null
+          prospect_name: string | null
+          prospect_type: 'OUTBOUND' | 'INBOUND'
+          current_stage: string
+          status: 'active' | 'won' | 'lost'
+          amount_usd: number | null
+          lost_reason: string | null
+          lost_at_stage: string | null
+          entry_date: string
+          created_at: string
+          updated_at: string
+          closed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          recipe_scenario_id?: string | null
+          company_name?: string | null
+          prospect_name?: string | null
+          prospect_type?: 'OUTBOUND' | 'INBOUND'
+          current_stage: string
+          status?: 'active' | 'won' | 'lost'
+          amount_usd?: number | null
+          lost_reason?: string | null
+          lost_at_stage?: string | null
+          entry_date?: string
+          created_at?: string
+          updated_at?: string
+          closed_at?: string | null
+        }
+        Update: {
+          recipe_scenario_id?: string | null
+          company_name?: string | null
+          prospect_name?: string | null
+          prospect_type?: 'OUTBOUND' | 'INBOUND'
+          current_stage?: string
+          status?: 'active' | 'won' | 'lost'
+          amount_usd?: number | null
+          lost_reason?: string | null
+          lost_at_stage?: string | null
+          entry_date?: string
+          updated_at?: string
+          closed_at?: string | null
         }
         Relationships: []
       }
@@ -442,3 +499,7 @@ export type CoachMessageInsert = Database['public']['Tables']['coach_messages'][
 export type PipelineEntry = Database['public']['Tables']['pipeline_entries']['Row']
 export type PipelineEntryInsert = Database['public']['Tables']['pipeline_entries']['Insert']
 export type PipelineEntryUpdate = Database['public']['Tables']['pipeline_entries']['Update']
+
+export type Deal = Database['public']['Tables']['deals']['Row']
+export type DealInsert = Database['public']['Tables']['deals']['Insert']
+export type DealUpdate = Database['public']['Tables']['deals']['Update']
