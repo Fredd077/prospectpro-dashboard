@@ -6,6 +6,7 @@ import { PipelineFunnelSummary } from '@/components/pipeline/PipelineFunnelSumma
 import { PipelineEntriesTable } from '@/components/pipeline/PipelineEntriesTable'
 import { PipelineNewEntryModal } from '@/components/pipeline/PipelineNewEntryModal'
 import { DateNavigator } from '@/components/dashboard/DateNavigator'
+import { KanbanBoard } from '@/components/pipeline/KanbanBoard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, periodLabel } from '@/lib/utils/dates'
 import {
@@ -20,6 +21,7 @@ import {
   DEFAULT_INBOUND_RATES,
 } from '@/lib/calculations/recipe'
 import type { PeriodType } from '@/lib/types/common'
+import type { Deal } from '@/lib/types/database'
 
 export const metadata: Metadata = {
   title: 'Mi Pipeline',
@@ -27,7 +29,13 @@ export const metadata: Metadata = {
 }
 
 interface PageProps {
-  searchParams: Promise<{ period?: string; stage?: string; type?: string; refDate?: string }>
+  searchParams: Promise<{
+    period?: string
+    stage?: string
+    type?: string
+    refDate?: string
+    tab?: string
+  }>
 }
 
 const PERIOD_OPTIONS: { value: PeriodType; label: string }[] = [
@@ -35,6 +43,12 @@ const PERIOD_OPTIONS: { value: PeriodType; label: string }[] = [
   { value: 'weekly',    label: 'Semana'    },
   { value: 'monthly',   label: 'Mes'       },
   { value: 'quarterly', label: 'Trimestre' },
+]
+
+const TAB_OPTIONS = [
+  { value: 'kanban',    label: 'Kanban'             },
+  { value: 'funnel',    label: 'Funnel vs Recetario' },
+  { value: 'registros', label: 'Registros'           },
 ]
 
 function buildUrl(base: Record<string, string | undefined>) {
@@ -47,10 +61,13 @@ function buildUrl(base: Record<string, string | undefined>) {
 }
 
 export default async function PipelinePage({ searchParams }: PageProps) {
-  const params      = await searchParams
-  const period      = (['daily', 'weekly', 'monthly', 'quarterly'].includes(params.period ?? '')
+  const params         = await searchParams
+  const period         = (['daily', 'weekly', 'monthly', 'quarterly'].includes(params.period ?? '')
     ? params.period
     : 'monthly') as PeriodType
+  const tabParam       = (['kanban', 'funnel', 'registros'].includes(params.tab ?? '')
+    ? params.tab
+    : 'kanban') as 'kanban' | 'funnel' | 'registros'
   const stageFilter    = params.stage ?? ''
   const typeFilter     = (['OUTBOUND', 'INBOUND'].includes(params.type ?? '') ? params.type : '') as 'OUTBOUND' | 'INBOUND' | ''
   const refDateParam   = params.refDate ?? ''
@@ -69,13 +86,24 @@ export default async function PipelinePage({ searchParams }: PageProps) {
   const { start, end } = getPeriodRange(period, anchorDate)
 
   const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
 
-  const [{ data: scenario }, { data: allEntries }, { data: actLogs }] = await Promise.all([
+  const [
+    { data: scenario },
+    { data: allEntries },
+    { data: actLogs },
+    { data: activeDealsRaw },
+    { data: closedDealsRaw },
+  ] = await Promise.all([
     sb.from('recipe_scenarios').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     sb.from('pipeline_entries').select('*').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
-    // Use vw_daily_compliance for type-split activity counts
     sb.from('vw_daily_compliance').select('type,real_executed').gte('log_date', start).lte('log_date', end),
+    sb.from('deals').select('*').eq('user_id', user?.id ?? '').eq('status', 'active').order('entry_date', { ascending: false }),
+    sb.from('deals').select('*').eq('user_id', user?.id ?? '').in('status', ['won', 'lost']).gte('closed_at', `${start}T00:00:00`).lte('closed_at', `${end}T23:59:59`),
   ])
+
+  const activeDeals = (activeDealsRaw ?? []) as Deal[]
+  const closedDeals = (closedDealsRaw ?? []) as Deal[]
 
   const stages        = scenario?.funnel_stages  ?? DEFAULT_FUNNEL_STAGES
   const outboundRates = scenario?.outbound_rates ?? DEFAULT_OUTBOUND_RATES
@@ -144,7 +172,6 @@ export default async function PipelinePage({ searchParams }: PageProps) {
       stage,
       real,
       planned: scalePlanToperiod(monthlyPlan, period, workingDays),
-      // Only pass per-type breakdown when showing combined view
       ...(!typeFilter ? { realOutbound, realInbound } : {}),
     }
   })
@@ -158,13 +185,36 @@ export default async function PipelinePage({ searchParams }: PageProps) {
       <TopBar title="Mi Pipeline" description="Seguimiento de tu funnel comercial" />
       <div className="flex-1 overflow-y-auto">
 
-        {/* Controls */}
+        {/* Tab navigation */}
+        <div className="flex items-center border-b border-border bg-background px-8">
+          {TAB_OPTIONS.map(({ value, label }) => (
+            <Link
+              key={value}
+              href={buildUrl({
+                tab:     value,
+                period,
+                type:    typeFilter || undefined,
+                stage:   stageFilter || undefined,
+                refDate: refDateParam || undefined,
+              })}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                tabParam === value
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+
+        {/* Controls bar */}
         <div className="flex items-center gap-3 flex-wrap border-b border-border bg-background px-8 py-3">
-          {/* Period selector — switching period resets refDate */}
+          {/* Period selector */}
           <div className="flex items-center rounded-md border border-border overflow-hidden">
             {PERIOD_OPTIONS.map(({ value, label }) => (
               <Link key={value}
-                href={buildUrl({ period: value, type: typeFilter || undefined, stage: stageFilter || undefined })}
+                href={buildUrl({ tab: tabParam, period: value, type: typeFilter || undefined, stage: stageFilter || undefined })}
                 className={`px-3 py-1.5 text-xs font-medium transition-colors border-r border-border last:border-r-0 ${
                   period === value ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
                 }`}
@@ -174,37 +224,39 @@ export default async function PipelinePage({ searchParams }: PageProps) {
             ))}
           </div>
 
-          {/* Date navigator */}
+          {/* Date navigator — preserves all params including tab via useSearchParams */}
           <Suspense>
             <DateNavigator period={period} refDate={refDateParam || today} />
           </Suspense>
 
-          {/* Type filter: Todo / Outbound / Inbound */}
-          <div className="flex items-center rounded-md border border-border overflow-hidden">
-            {[
-              { value: '',         label: 'Todo'     },
-              { value: 'OUTBOUND', label: 'Outbound' },
-              { value: 'INBOUND',  label: 'Inbound'  },
-            ].map(({ value, label }) => (
-              <Link key={value}
-                href={buildUrl({ period, type: value || undefined, stage: stageFilter || undefined })}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors border-r border-border last:border-r-0 ${
-                  typeFilter === value
-                    ? value === 'OUTBOUND' ? 'bg-cyan-400/10 text-cyan-400'
-                      : value === 'INBOUND' ? 'bg-purple-400/10 text-purple-400'
-                      : 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
-                }`}
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
+          {/* Type filter — hidden on kanban (no meaningful interaction there) */}
+          {tabParam !== 'kanban' && (
+            <div className="flex items-center rounded-md border border-border overflow-hidden">
+              {[
+                { value: '',         label: 'Todo'     },
+                { value: 'OUTBOUND', label: 'Outbound' },
+                { value: 'INBOUND',  label: 'Inbound'  },
+              ].map(({ value, label }) => (
+                <Link key={value}
+                  href={buildUrl({ tab: tabParam, period, type: value || undefined, stage: stageFilter || undefined })}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors border-r border-border last:border-r-0 ${
+                    typeFilter === value
+                      ? value === 'OUTBOUND' ? 'bg-cyan-400/10 text-cyan-400'
+                        : value === 'INBOUND' ? 'bg-purple-400/10 text-purple-400'
+                        : 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                  }`}
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+          )}
 
-          {/* Stage filter */}
-          {availableStages.length > 0 && (
+          {/* Stage filter — only for funnel/registros */}
+          {tabParam !== 'kanban' && availableStages.length > 0 && (
             <div className="flex items-center gap-1 flex-wrap">
-              <Link href={buildUrl({ period, type: typeFilter || undefined })}
+              <Link href={buildUrl({ tab: tabParam, period, type: typeFilter || undefined })}
                 className={`px-2.5 py-1 rounded text-xs transition-colors ${
                   !stageFilter ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
@@ -213,7 +265,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
               </Link>
               {availableStages.map((s) => (
                 <Link key={s}
-                  href={buildUrl({ period, type: typeFilter || undefined, stage: s })}
+                  href={buildUrl({ tab: tabParam, period, type: typeFilter || undefined, stage: s })}
                   className={`px-2.5 py-1 rounded text-xs transition-colors ${
                     stageFilter === s ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
                   }`}
@@ -224,50 +276,81 @@ export default async function PipelinePage({ searchParams }: PageProps) {
             </div>
           )}
 
-          <div className="ml-auto">
-            <Suspense>
-              <PipelineNewEntryModal stages={stages} scenarioId={scenario?.id ?? null} />
-            </Suspense>
-          </div>
-        </div>
-
-        <div className="p-8 space-y-8 max-w-4xl">
-          {!scenario && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-400">
-              Configura un recetario activo en{' '}
-              <Link href="/recipe" className="underline underline-offset-2">Recetario</Link>
-              {' '}para ver el análisis completo del pipeline.
+          {/* New entry button — only for funnel/registros */}
+          {tabParam !== 'kanban' && (
+            <div className="ml-auto">
+              <Suspense>
+                <PipelineNewEntryModal stages={stages} scenarioId={scenario?.id ?? null} />
+              </Suspense>
             </div>
           )}
+        </div>
 
-          <PipelineFunnelSummary
-            stages={stages}
-            stageStats={stageStats}
-            conversions={conversions}
-            openAmount={pipelineValue.open}
-            closedAmount={pipelineValue.closed}
-            monthlyGoal={monthlyGoal}
-            periodLabel={pLabel}
-            typeFilter={typeFilter || null}
-          />
-
-          <div>
-            <h2 className="text-sm font-semibold text-foreground mb-3">
-              Registros
-              {(stageFilter || typeFilter) && (
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  {[typeFilter, stageFilter].filter(Boolean).join(' · ')}
-                </span>
-              )}
-            </h2>
-            <PipelineEntriesTable
-              entries={tableEntries}
+        {/* ── Kanban tab ─────────────────────────────────────────────────── */}
+        {tabParam === 'kanban' && (
+          <div className="p-6">
+            <KanbanBoard
+              activeDeals={activeDeals}
+              closedDeals={closedDeals}
               stages={stages}
               scenarioId={scenario?.id ?? null}
-              stageFilter={stageFilter || undefined}
+              period={period}
             />
           </div>
-        </div>
+        )}
+
+        {/* ── Funnel tab ─────────────────────────────────────────────────── */}
+        {tabParam === 'funnel' && (
+          <div className="p-8 space-y-8 max-w-4xl">
+            {!scenario && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-400">
+                Configura un recetario activo en{' '}
+                <Link href="/recipe" className="underline underline-offset-2">Recetario</Link>
+                {' '}para ver el análisis completo del pipeline.
+              </div>
+            )}
+            <PipelineFunnelSummary
+              stages={stages}
+              stageStats={stageStats}
+              conversions={conversions}
+              openAmount={pipelineValue.open}
+              closedAmount={pipelineValue.closed}
+              monthlyGoal={monthlyGoal}
+              periodLabel={pLabel}
+              typeFilter={typeFilter || null}
+            />
+          </div>
+        )}
+
+        {/* ── Registros tab ──────────────────────────────────────────────── */}
+        {tabParam === 'registros' && (
+          <div className="p-8 space-y-8 max-w-4xl">
+            {!scenario && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-400">
+                Configura un recetario activo en{' '}
+                <Link href="/recipe" className="underline underline-offset-2">Recetario</Link>
+                {' '}para ver el análisis completo del pipeline.
+              </div>
+            )}
+            <div>
+              <h2 className="text-sm font-semibold text-foreground mb-3">
+                Registros
+                {(stageFilter || typeFilter) && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {[typeFilter, stageFilter].filter(Boolean).join(' · ')}
+                  </span>
+                )}
+              </h2>
+              <PipelineEntriesTable
+                entries={tableEntries}
+                stages={stages}
+                scenarioId={scenario?.id ?? null}
+                stageFilter={stageFilter || undefined}
+              />
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
