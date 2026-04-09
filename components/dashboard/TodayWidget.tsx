@@ -77,15 +77,18 @@ export function TodayWidget({ today, totalReal, totalGoal, hasActivities }: Toda
       )}
 
       {/* CTA */}
-      {!checkinDone && (
-        <Link
-          href="/checkin"
-          className="shrink-0 flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-400/20"
-        >
-          Ir al check-in
-          <ArrowRight className="h-3 w-3" />
-        </Link>
-      )}
+      <Link
+        href="/checkin"
+        className={cn(
+          'shrink-0 flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+          checkinDone
+            ? 'border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20'
+            : 'border border-amber-400/30 bg-amber-400/10 text-amber-400 hover:bg-amber-400/20'
+        )}
+      >
+        {checkinDone ? 'Actualizar check-in' : 'Ir al check-in'}
+        <ArrowRight className="h-3 w-3" />
+      </Link>
     </div>
   )
 }
