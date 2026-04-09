@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Link from 'next/link'
-import { Send, Sparkles, CheckCircle2, ExternalLink, RotateCcw } from 'lucide-react'
+import { Send, Sparkles, CheckCircle2, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Message {
@@ -19,7 +18,11 @@ const INITIAL_MESSAGE: Message = {
   content: '__start__',
 }
 
-export function AIRecipeBuilder() {
+interface AIRecipeBuilderProps {
+  onSaved?: () => void
+}
+
+export function AIRecipeBuilder({ onSaved }: AIRecipeBuilderProps) {
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -35,6 +38,13 @@ export function AIRecipeBuilder() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isStreaming])
+
+  useEffect(() => {
+    if (savedRecipe && onSaved) {
+      const timer = setTimeout(() => onSaved(), 2500)
+      return () => clearTimeout(timer)
+    }
+  }, [savedRecipe, onSaved])
 
   function removePlaceholder() {
     setMessages((prev) => {
@@ -245,7 +255,7 @@ export function AIRecipeBuilder() {
                   : 'bg-muted/50 text-foreground rounded-bl-sm border border-border/50'
               )}
             >
-              {msg.content || (
+              {msg.content.replace(/\{"action":"save_recipe"[^}]*(?:\{[^}]*\}[^}]*)?\}/g, '').trim() || (
                 <span className="flex gap-1 items-center text-muted-foreground">
                   <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:0ms]" />
                   <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:150ms]" />
@@ -259,21 +269,27 @@ export function AIRecipeBuilder() {
         {/* Saved confirmation card */}
         {savedRecipe && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 space-y-2">
+            <div className="max-w-[85%] rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-4 space-y-3">
               <div className="flex items-center gap-2 text-emerald-400">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span className="text-sm font-semibold">¡Recetario guardado!</span>
+                <CheckCircle2 className="h-5 w-5 shrink-0" />
+                <span className="text-sm font-bold">¡Tu Recetario está listo! 🎉</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Tu escenario fue creado exitosamente. Ve al Recetario para activarlo y usarlo en el Dashboard.
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Tu escenario comercial fue creado y guardado correctamente. Ahora necesitas:
               </p>
-              <Link
-                href="/recipe"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
-              >
-                <ExternalLink className="h-3 w-3" />
-                Ver en Recetario
-              </Link>
+              <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                <li>Activar el escenario en tu Recetario</li>
+                <li>Configurar tus actividades de prospección</li>
+                <li>¡Empezar a registrar tu progreso diario!</li>
+              </ol>
+              {onSaved && (
+                <button
+                  onClick={onSaved}
+                  className="w-full rounded-md bg-emerald-500/20 border border-emerald-500/30 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                >
+                  Continuar → Configurar actividades
+                </button>
+              )}
             </div>
           </div>
         )}

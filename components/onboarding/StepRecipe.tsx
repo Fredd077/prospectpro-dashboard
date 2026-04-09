@@ -23,6 +23,7 @@ interface StepRecipeProps {
     inbound_rates: number[]
   }) => void
   saving: boolean
+  onNext?: () => void
 }
 
 function fmt(n: number) {
@@ -61,7 +62,7 @@ function RateField({
   )
 }
 
-export function StepRecipe({ onSave, saving }: StepRecipeProps) {
+export function StepRecipe({ onSave, saving, onNext }: StepRecipeProps) {
   const [mode, setMode] = useState<'ai' | 'manual'>('ai')
   const [name, setName]         = useState('Mi recetario')
   const [revenue, setRevenue]   = useState(50000000)
@@ -162,7 +163,7 @@ export function StepRecipe({ onSave, saving }: StepRecipeProps) {
       </div>
 
       {mode === 'ai' ? (
-        <AIRecipeBuilder />
+        <AIRecipeBuilder onSaved={onNext} />
       ) : (
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Name */}

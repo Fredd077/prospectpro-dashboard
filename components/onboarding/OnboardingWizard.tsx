@@ -36,6 +36,10 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
     setStep(2)
   }
 
+  function handleAIRecipeDone() {
+    setStep(3)
+  }
+
   async function handleRecipeSave(data: RecipeData) {
     setSaving(true)
     setSaveError(null)
@@ -96,7 +100,7 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
 
       {/* Steps */}
       {step === 1 && <StepWelcome userName={userName} onNext={handleWelcomeNext} />}
-      {step === 2 && <StepRecipe onSave={handleRecipeSave} saving={saving} />}
+      {step === 2 && <StepRecipe onSave={handleRecipeSave} saving={saving} onNext={handleAIRecipeDone} />}
       {step === 3 && <StepActivities onSave={handleActivitiesSave} saving={saving} recipeData={recipeData} />}
     </div>
   )
