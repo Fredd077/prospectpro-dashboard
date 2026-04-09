@@ -67,10 +67,14 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) redirect('/login')
-  const { data: myProfile } = await sb.from('profiles').select('role').eq('id', user.id).single()
-  if (myProfile?.role !== 'admin') redirect('/dashboard')
 
+  // Use service client to bypass RLS — same pattern as team/page.tsx
   const service = getSupabaseServiceClient()
+  const { data: myProfile } = await service.from('profiles').select('role, org_role, company').eq('id', user.id).single()
+
+  const isAdmin   = myProfile?.role === 'admin'
+  const isManager = myProfile?.org_role === 'manager'
+  if (!isAdmin && !isManager) redirect('/dashboard')
 
   // Fetch target user profile
   const { data: profile } = await service
@@ -80,6 +84,13 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     .single()
 
   if (!profile) notFound()
+
+  // Managers can only view profiles from their own company
+  if (isManager && !isAdmin) {
+    if (!profile.company || profile.company !== myProfile?.company) {
+      redirect('/team')
+    }
+  }
 
   const today     = todayISO()
   const todayDate = parseISO(today)
@@ -231,7 +242,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
           </Link>
           <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-1.5">
             <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">
-              Viendo como admin — datos de {profile.full_name ?? profile.email}
+              {isAdmin ? 'Viendo como admin' : 'Viendo como manager'} — datos de {profile.full_name ?? profile.email}
             </span>
           </div>
         </div>

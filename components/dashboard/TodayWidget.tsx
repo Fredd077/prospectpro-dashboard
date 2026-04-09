@@ -17,8 +17,6 @@ export function TodayWidget({ today, totalReal, totalGoal, hasActivities }: Toda
   const compliance = calcCompliance(totalReal, totalGoal)
   const checkinDone = done && compliance.pct >= 50
 
-  if (!hasActivities) return null
-
   return (
     <div className={cn(
       'rounded-lg border p-4 flex items-center gap-4',
