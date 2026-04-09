@@ -353,11 +353,11 @@ export function KanbanBoard({
           const stageCount = stageDeals.length
           return (
             <div key={stage} className="flex flex-col gap-3 min-w-[220px] max-w-[220px]">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 mb-3">
                 <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   {stage}
                 </span>
-                <span className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-primary/10 text-primary">
+                <span className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-primary/10 text-primary min-w-[20px] text-center">
                   {stageCount}
                 </span>
               </div>
@@ -390,11 +390,11 @@ export function KanbanBoard({
 
         {/* Won column — read only */}
         <div className="flex flex-col gap-3 min-w-[220px] max-w-[220px]">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 mb-3">
             <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">
               🏆 Ganados
             </span>
-            <span className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-emerald-500/10 text-emerald-400">
+            <span className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-emerald-500/10 text-emerald-400 min-w-[20px] text-center">
               {wonDeals.length}
             </span>
           </div>
@@ -420,11 +420,11 @@ export function KanbanBoard({
 
         {/* Lost column — read only */}
         <div className="flex flex-col gap-3 min-w-[220px] max-w-[220px]">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 mb-3">
             <span className="text-xs font-bold uppercase tracking-widest text-red-400">
               ✗ Perdidos
             </span>
-            <span className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-red-500/10 text-red-400">
+            <span className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-red-500/10 text-red-400 min-w-[20px] text-center">
               {lostDeals.length}
             </span>
           </div>
@@ -451,7 +451,7 @@ export function KanbanBoard({
       {/* FAB — New Deal */}
       <button
         onClick={() => { setNewStage(kanbanStages[0] ?? ''); setShowNewDeal(true) }}
-        className="fixed bottom-24 right-4 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_0_20px_rgba(0,217,255,0.3)] hover:opacity-90 transition-all"
+        className="fixed bottom-20 right-20 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_0_20px_rgba(0,217,255,0.3)] hover:opacity-90 transition-all"
       >
         + Nuevo trato
       </button>
