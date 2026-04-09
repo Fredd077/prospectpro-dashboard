@@ -78,10 +78,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Admin-only routes (/admin and /team)
-  if ((pathname.startsWith(ADMIN_PREFIX) || pathname.startsWith('/team')) && role !== 'admin') {
+  // Admin-only routes
+  if (pathname.startsWith(ADMIN_PREFIX) && role !== 'admin') {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
+  // /team: allow active users through — team/page.tsx checks org_role with service client
 
   // Onboarding: active (non-admin) users who haven't completed it
   if (
