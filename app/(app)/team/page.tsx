@@ -57,11 +57,16 @@ export default async function TeamPage({ searchParams }: Props) {
   const { data: { user } } = await sb.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: myProfile } = await sb
+  // Use service client to bypass RLS — ensures org_role is readable regardless of policy
+  const service = getSupabaseServiceClient()
+
+  const { data: myProfile } = await service
     .from('profiles')
     .select('role, org_role, company')
     .eq('id', user.id)
     .single()
+
+  console.log('[team] myProfile:', myProfile?.role, myProfile?.org_role)
 
   const isAdmin   = myProfile?.role === 'admin'
   const isManager = myProfile?.org_role === 'manager'
@@ -82,8 +87,6 @@ export default async function TeamPage({ searchParams }: Props) {
   const weekStart = toISODate(startOfWeek(todayDate, { weekStartsOn: 1 }))
   const weekEnd   = toISODate(endOfWeek(todayDate,   { weekStartsOn: 1 }))
   const past14    = toISODate(new Date(parseISO(today).getTime() - 14 * 24 * 60 * 60 * 1000))
-
-  const service = getSupabaseServiceClient()
 
   // ── Fetch team members
   let profilesQuery = service
