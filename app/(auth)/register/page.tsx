@@ -5,7 +5,12 @@ import { RegisterForm } from '@/components/auth/RegisterForm'
 
 export const metadata: Metadata = { title: 'Crear cuenta — ProspectPro' }
 
-export default function RegisterPage() {
+interface Props {
+  searchParams: Promise<{ error?: string }>
+}
+
+export default async function RegisterPage({ searchParams }: Props) {
+  const { error } = await searchParams
   return (
     <div className="w-full max-w-sm space-y-6">
       {/* Brand */}
@@ -32,7 +37,7 @@ export default function RegisterPage() {
           <div className="flex-1 h-px bg-border" />
         </div>
 
-        <RegisterForm />
+        <RegisterForm errorParam={error} />
       </div>
     </div>
   )

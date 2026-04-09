@@ -1,19 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Eye, EyeOff, UserPlus, CheckCircle } from 'lucide-react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  errorParam?: string
+}
+
+export function RegisterForm({ errorParam }: RegisterFormProps) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [company, setCompany] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(errorParam ?? null)
   const [success, setSuccess] = useState(false)
+
+  // Clear ?error= from the URL after it has been shown — prevents stale error on reload
+  useEffect(() => {
+    if (errorParam) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('error')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [errorParam])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
