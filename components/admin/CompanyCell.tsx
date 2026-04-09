@@ -8,9 +8,10 @@ import { updateUserCompany } from '@/lib/actions/admin'
 interface CompanyCellProps {
   userId: string
   initialValue: string | null
+  existingCompanies?: string[]
 }
 
-export function CompanyCell({ userId, initialValue }: CompanyCellProps) {
+export function CompanyCell({ userId, initialValue, existingCompanies }: CompanyCellProps) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(initialValue ?? '')
   const [saving, setSaving] = useState(false)
@@ -43,6 +44,7 @@ export function CompanyCell({ userId, initialValue }: CompanyCellProps) {
       <div className="flex items-center gap-1">
         <input
           ref={inputRef}
+          list={existingCompanies?.length ? `company-list-${userId}` : undefined}
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -51,6 +53,11 @@ export function CompanyCell({ userId, initialValue }: CompanyCellProps) {
           placeholder="Empresa..."
           className="w-32 rounded px-2 py-0.5 text-xs text-white border border-[#00D9FF] bg-[rgba(0,217,255,0.05)] outline-none placeholder:text-white/30 disabled:opacity-50"
         />
+        {existingCompanies?.length ? (
+          <datalist id={`company-list-${userId}`}>
+            {existingCompanies.map((c) => <option key={c} value={c} />)}
+          </datalist>
+        ) : null}
         <button
           onClick={handleSave}
           disabled={saving}

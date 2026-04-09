@@ -74,8 +74,6 @@ export default async function AdminPage({ searchParams }: Props) {
   const monthAgo = thirtyDaysAgo.toISOString().slice(0, 10)
 
   // ── Parallel fetches
-  // Profiles query uses only the stable base columns so a missing migration
-  // on org_role/manager_id doesn't wipe out all KPI data.
   const [
     { data: allUsersRaw },
     { data: todayLogsRaw },
@@ -84,7 +82,7 @@ export default async function AdminPage({ searchParams }: Props) {
   ] = await Promise.all([
     service
       .from('profiles')
-      .select('id,full_name,email,company,role,created_at,last_seen_at,avatar_url')
+      .select('id,full_name,email,company,role,org_role,manager_id,created_at,last_seen_at,avatar_url')
       .order('company', { ascending: true })
       .order('full_name', { ascending: true }),
     service
@@ -103,27 +101,15 @@ export default async function AdminPage({ searchParams }: Props) {
       .order('log_date', { ascending: false }),
   ])
 
-  // Fetch org_role + manager_id separately — these come from migration 016
-  // which may not yet be applied on all environments. Fail gracefully.
-  const { data: orgRoleRaw } = await service
-    .from('profiles')
-    .select('id,org_role,manager_id')
-
-  type OrgRow = { id: string; org_role: string | null; manager_id: string | null }
-  const orgByUser: Record<string, OrgRow> = {}
-  for (const row of (orgRoleRaw ?? []) as OrgRow[]) {
-    orgByUser[row.id] = row
-  }
-
-  type BaseUser = { id: string; full_name: string | null; email: string; company: string | null; role: string; created_at: string; last_seen_at: string | null; avatar_url: string | null }
+  type BaseUser = { id: string; full_name: string | null; email: string; company: string | null; role: string; org_role: string | null; manager_id: string | null; created_at: string; last_seen_at: string | null; avatar_url: string | null }
   const users: Profile[] = ((allUsersRaw ?? []) as BaseUser[]).map((u) => ({
     ...u,
     role: u.role as Profile['role'],
     onboarding_completed: false,
     activated_at: null,
     activated_by: null,
-    org_role: (orgByUser[u.id]?.org_role ?? null) as Profile['org_role'],
-    manager_id: orgByUser[u.id]?.manager_id ?? null,
+    org_role: (u.org_role ?? null) as Profile['org_role'],
+    manager_id: u.manager_id ?? null,
   }))
 
   // ── Index sets
@@ -137,17 +123,21 @@ export default async function AdminPage({ searchParams }: Props) {
   }
 
   // ── Global KPIs
-  const uniqueCompanies = new Set(users.map((u) => u.company).filter(Boolean)).size
+  const uniqueCompanies = new Set(users.map((u) => (u.company ?? '').toLowerCase().trim()).filter(Boolean)).size
   const totalActive     = users.filter((u) => u.role === 'active' || u.role === 'admin').length
   const totalPending    = users.filter((u) => u.role === 'pending').length
   const checkinsToday   = todayUserIds.size
   const activeThisWeek  = weekUserIds.size
 
-  // ── Company aggregation
+  // ── Company aggregation (normalized key to merge same-company different-casing)
   const companyMap: Record<string, Profile[]> = {}
+  const companyDisplayName: Record<string, string> = {}
   for (const u of users) {
-    const key = u.company ?? '__none__'
-    if (!companyMap[key]) companyMap[key] = []
+    const key = (u.company ?? '').toLowerCase().trim() || '__none__'
+    if (!companyMap[key]) {
+      companyMap[key] = []
+      companyDisplayName[key] = u.company ?? ''
+    }
     companyMap[key].push(u)
   }
 
@@ -171,7 +161,7 @@ export default async function AdminPage({ searchParams }: Props) {
       const lastCheckin     = lastDates.sort().at(-1) ?? null
       return {
         key,
-        name:           key === '__none__' ? 'Sin empresa asignada' : key,
+        name:           key === '__none__' ? 'Sin empresa asignada' : (companyDisplayName[key] ?? key),
         activeUsers:    activeMembers.length,
         managerCount,
         checkinsToday:  checkins,
@@ -188,7 +178,7 @@ export default async function AdminPage({ searchParams }: Props) {
     })
 
   // ── Company list for filters
-  const companyList = ['all', ...Object.keys(companyMap).filter((k) => k !== '__none__').sort()]
+  const companyList = ['all', ...Object.keys(companyMap).filter((k) => k !== '__none__').map((k) => companyDisplayName[k] ?? k).sort()]
 
   // ── Manager names for UsersTable
   const managerMap: Record<string, string> = {}

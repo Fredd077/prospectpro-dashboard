@@ -48,10 +48,14 @@ export async function updateUserOrgRole(userId: string, orgRole: 'member' | 'man
   const service = getSupabaseServiceClient()
   // If demoting from manager, clear manager_id from users they manage
   if (orgRole === 'member') {
-    await service.from('profiles').update({ manager_id: null } as never).eq('manager_id', userId)
+    const { error: clearErr } = await service.from('profiles').update({ manager_id: null } as never).eq('manager_id', userId)
+    if (clearErr) throw clearErr
   }
-  await service.from('profiles').update({ org_role: orgRole } as never).eq('id', userId)
+  const { error } = await service.from('profiles').update({ org_role: orgRole } as never).eq('id', userId)
+  if (error) throw error
   revalidatePath('/admin')
+  revalidatePath('/team')
+  revalidatePath('/', 'layout')
 }
 
 export async function updateUserManager(userId: string, managerId: string | null) {

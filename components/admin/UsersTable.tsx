@@ -101,13 +101,15 @@ interface UsersTableProps {
 }
 
 export function UsersTable({ users, filterRole, filterCompany = 'all', managerMap = {} }: UsersTableProps) {
+  const existingCompanies = [...new Set(users.map((u) => u.company).filter(Boolean) as string[])].sort()
+
   let filtered = filterRole === 'all' ? users : users.filter((u) => u.role === filterRole)
 
   if (filterCompany !== 'all') {
     filtered = filtered.filter((u) =>
       filterCompany === '__none__'
         ? u.company == null
-        : u.company === filterCompany
+        : (u.company ?? '').toLowerCase().trim() === filterCompany.toLowerCase().trim()
     )
   }
 
@@ -173,7 +175,7 @@ export function UsersTable({ users, filterRole, filterCompany = 'all', managerMa
                   </div>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
-                  <CompanyCell userId={user.id} initialValue={user.company ?? null} />
+                  <CompanyCell userId={user.id} initialValue={user.company ?? null} existingCompanies={existingCompanies} />
                 </td>
                 <td className="px-4 py-3">
                   <span className={cn('rounded border px-1.5 py-0.5 text-[10px] font-medium', badge.cls)}>
