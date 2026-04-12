@@ -67,6 +67,29 @@ function safeWeekRange(isoWeekStart: string): { weekStart: string; weekEnd: stri
   }
 }
 
+// ─── Scope label builder ─────────────────────────────────────────────────────
+
+function buildScopeLabel(opts: {
+  filterCompany?: string
+  filterUserIds?: string[]
+  scope: 'team' | 'at_risk'
+  threshold: number
+}): string {
+  const { filterCompany, filterUserIds, scope, threshold } = opts
+  let label: string
+  if (filterCompany && filterUserIds?.length) {
+    label = `${filterCompany} · ${filterUserIds.length} representantes seleccionados`
+  } else if (filterCompany) {
+    label = `${filterCompany} · Equipo completo`
+  } else if (filterUserIds?.length) {
+    label = `${filterUserIds.length} representantes seleccionados`
+  } else {
+    label = 'Toda la plataforma'
+  }
+  if (scope === 'at_risk') label += ` · Solo en riesgo (<${threshold}%)`
+  return label
+}
+
 // ─── Main export ─────────────────────────────────────────────────────────────
 
 export async function generateTeamReport(
@@ -98,6 +121,9 @@ export async function generateTeamReport(
     users = users.filter((u) => filterUserIds.includes(u.id))
   }
   if (!users.length) throw new Error('[team-report] No users match the applied filters')
+
+  // Build descriptive scope label from applied filters
+  const scopeLabel = buildScopeLabel({ filterCompany, filterUserIds, scope, threshold })
 
   // 2. Build weekly context for each user (sequential to avoid DB overload)
   const summaries: UserSummary[] = []
@@ -229,6 +255,7 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
   const html = buildTeamReportEmail({
     weekLabel,
     weekEndLabel,
+    scopeLabel,
     scope,
     threshold,
     summaries: filtered,
@@ -253,7 +280,7 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
     body: JSON.stringify({
       from: 'ProspectPro Reports <onboarding@resend.dev>',
       to: adminEmail,
-      subject: `Reporte de equipo — ${weekLabel}–${weekEndLabel} (${scope === 'at_risk' ? 'En riesgo' : 'Completo'})`,
+      subject: `ProspectPro · Reporte de equipo — ${scopeLabel} · ${weekLabel}–${weekEndLabel}`,
       html,
     }),
   })
@@ -276,7 +303,7 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
         period_date:   generatedAt,
         is_read:       false,
         triggered_by:  triggeredBy,
-        report_scope:  scope,
+        report_scope:  scopeLabel,
         sent_to_email: adminEmail,
       } as never)
       .select('id')
@@ -294,6 +321,7 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
 function buildTeamReportEmail(p: {
   weekLabel:      string
   weekEndLabel:   string
+  scopeLabel:     string
   scope:          'team' | 'at_risk'
   threshold:      number
   summaries:      UserSummary[]
@@ -307,7 +335,7 @@ function buildTeamReportEmail(p: {
   worstActivity:  { name: string; avgPct: number } | null
   aiAnalysis:     string
 }): string {
-  const { weekLabel, weekEndLabel, scope, threshold, summaries, atRiskCount, avgCompliance,
+  const { weekLabel, weekEndLabel, scopeLabel, scope, threshold, summaries, atRiskCount, avgCompliance,
           improvingCount, decliningCount, top3, bottom3, bestActivity, worstActivity,
           aiAnalysis } = p
 
@@ -398,7 +426,7 @@ function buildTeamReportEmail(p: {
       <span style="margin-left:10px; background:#00D9FF22; color:#00D9FF; font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; letter-spacing:0.1em; text-transform:uppercase;">Reporte de Equipo</span>
     </div>
     <p style="margin:0; font-size:13px; color:#94a3b8;">
-      ${scope === 'at_risk' ? `Solo reps en riesgo (&lt;${threshold}%)` : 'Equipo completo'} &nbsp;·&nbsp;
+      ${scopeLabel} &nbsp;·&nbsp;
       <strong style="color:#e2e8f0;">${weekLabel} – ${weekEndLabel}</strong>
     </p>
   </div>

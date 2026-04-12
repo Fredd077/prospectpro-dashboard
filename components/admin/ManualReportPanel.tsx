@@ -389,9 +389,11 @@ export function ManualReportPanel({ adminEmail, users }: ManualReportPanelProps)
                   ].join(' ')}>
                     {r.triggered_by === 'manual' ? 'Manual' : 'Auto'}
                   </span>
-                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground flex-shrink-0">
-                    {r.report_scope === 'at_risk' ? 'En riesgo' : 'Completo'}
-                  </span>
+                  {r.report_scope && (
+                    <span className="text-[10px] text-muted-foreground/70 truncate min-w-0">
+                      {r.report_scope}
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={() => !isLoading && handleResend(r.report_scope ?? 'team')}
