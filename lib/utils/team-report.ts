@@ -8,7 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 import { buildWeeklyContextForCron, type ActivityCompliance } from './coach-context'
 import { todayISO, toISODate } from './dates'
-import { startOfWeek, endOfWeek } from 'date-fns'
+import { startOfWeek } from 'date-fns'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -50,16 +50,20 @@ interface UserSummary {
 }
 
 // ─── Timezone-safe week range ─────────────────────────────────────────────────
-// Uses the same UTC-noon anchor pattern as dashboard/page.tsx to avoid
-// the UTC-to-Bogota rollback that turns Monday into Sunday.
+// date-fns startOfWeek/endOfWeek return midnight UTC.
+// toISODate converts to Bogota (UTC-5), rolling midnight back to previous day.
+// Fix: after startOfWeek, re-anchor to noon UTC before calling toISODate.
+// weekEnd = Monday + 4 days (Friday) — working week Mon–Fri.
 
 function safeWeekRange(isoWeekStart: string): { weekStart: string; weekEnd: string } {
-  // If caller already provides a weekStart, derive weekEnd from it using anchor
   const [y, m, d] = isoWeekStart.split('-').map(Number)
-  const anchor = new Date(Date.UTC(y, m - 1, d, 12, 0, 0))
+  // Re-anchor the given Monday to noon UTC so toISODate doesn't roll back
+  const mondayNoon = new Date(Date.UTC(y, m - 1, d, 12, 0, 0))
+  // Friday = Monday + 4 days, also at noon (millisecond-safe across month boundaries)
+  const fridayNoon = new Date(mondayNoon.getTime() + 4 * 24 * 60 * 60 * 1000)
   return {
-    weekStart: toISODate(startOfWeek(anchor, { weekStartsOn: 1 })),
-    weekEnd:   toISODate(endOfWeek(anchor,   { weekStartsOn: 1 })),
+    weekStart: toISODate(mondayNoon),
+    weekEnd:   toISODate(fridayNoon),
   }
 }
 
@@ -498,9 +502,19 @@ function buildTeamReportEmail(p: {
 // ─── Helper: resolve weekStart for "now" (timezone-safe) ─────────────────────
 
 export function currentWeekStart(): string {
-  // Uses today in Bogota timezone + UTC-noon anchor to avoid UTC→local rollback
+  // Step 1: today in Bogota — avoids UTC date being "tomorrow" at night
   const today = todayISO()
   const [y, m, d] = today.split('-').map(Number)
+  // Step 2: anchor to noon UTC so date-fns works on the correct calendar day
   const anchor = new Date(Date.UTC(y, m - 1, d, 12, 0, 0))
-  return toISODate(startOfWeek(anchor, { weekStartsOn: 1 }))
+  // Step 3: startOfWeek returns midnight UTC — must re-anchor to noon before toISODate
+  // otherwise toISODate subtracts 5h (Bogota) and rolls back to Sunday
+  const mondayMidnightUTC = startOfWeek(anchor, { weekStartsOn: 1 })
+  const mondayNoonUTC = new Date(Date.UTC(
+    mondayMidnightUTC.getUTCFullYear(),
+    mondayMidnightUTC.getUTCMonth(),
+    mondayMidnightUTC.getUTCDate(),
+    12, 0, 0,
+  ))
+  return toISODate(mondayNoonUTC)
 }
