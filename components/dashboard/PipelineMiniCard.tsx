@@ -70,8 +70,7 @@ export async function PipelineMiniCard() {
 
   return (
     <div className="rounded-lg border border-border bg-card p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">Funnel Real — este mes</h2>
+      <div className="flex justify-end">
         <Link
           href="/pipeline"
           className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
