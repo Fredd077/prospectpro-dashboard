@@ -1,4 +1,4 @@
-import { startOfWeek, parseISO } from 'date-fns'
+import { startOfWeek } from 'date-fns'
 import { getSupabaseServiceClient } from '@/lib/supabase/server'
 import { todayISO, toISODate } from '@/lib/utils/dates'
 import { buildWeeklyContextForCron } from '@/lib/utils/coach-context'
@@ -17,7 +17,18 @@ export async function GET(req: Request) {
   const today = todayISO()
 
   // Weekly runs Friday — analyse Mon-Fri of current week
-  const thisMonday = toISODate(startOfWeek(parseISO(today), { weekStartsOn: 1 }))
+  // startOfWeek returns local midnight; re-anchor to noon UTC so toISODate never
+  // rolls back a day on negative-UTC-offset servers (e.g. Bogota UTC-5 on Vercel)
+  const [ty, tm, td] = today.split('-').map(Number)
+  const todayNoon = new Date(Date.UTC(ty, tm - 1, td, 12, 0, 0))
+  const rawMonday = startOfWeek(todayNoon, { weekStartsOn: 1 })
+  const mondayNoon = new Date(Date.UTC(
+    rawMonday.getUTCFullYear(),
+    rawMonday.getUTCMonth(),
+    rawMonday.getUTCDate(),
+    12, 0, 0,
+  ))
+  const thisMonday = toISODate(mondayNoon)
 
   const { data: users, error } = await sb
     .from('profiles')
