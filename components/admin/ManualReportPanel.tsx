@@ -1,11 +1,21 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Send, RefreshCw, CheckCircle2, Users, AlertTriangle, Clock } from 'lucide-react'
 import { formatDistanceToNow, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-type Scope = 'team' | 'at_risk'
+interface UserProp {
+  id: string
+  full_name: string | null
+  email: string
+  company: string | null
+}
+
+export interface ManualReportPanelProps {
+  adminEmail: string
+  users: UserProp[]
+}
 
 interface ReportRecord {
   id: string
@@ -24,13 +34,51 @@ const STEPS: { state: LoadState; label: string }[] = [
   { state: 'sending',    label: 'Enviando al email...' },
 ]
 
-export function ManualReportPanel() {
-  const [scope, setScope] = useState<Scope>('team')
+export function ManualReportPanel({ adminEmail, users }: ManualReportPanelProps) {
+  const [filters, setFilters] = useState({
+    scope:     'all' as 'all' | 'at_risk',
+    company:   '' as string,
+    userIds:   [] as string[],
+    threshold: 70 as number,
+  })
   const [loadState, setLoadState] = useState<LoadState>('idle')
-  const [stepIdx, setStepIdx] = useState(0)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [reports, setReports] = useState<ReportRecord[]>([])
-  const [sentTo, setSentTo] = useState<string | null>(null)
+  const [errorMsg,  setErrorMsg]  = useState<string | null>(null)
+  const [reports,   setReports]   = useState<ReportRecord[]>([])
+  const [sentTo,    setSentTo]    = useState<string | null>(null)
+
+  // Derived: unique companies in the user list
+  const companies = useMemo(() => {
+    const set = new Set(users.map((u) => u.company).filter(Boolean) as string[])
+    return [...set].sort()
+  }, [users])
+
+  // Derived: users visible in checkbox list (filtered by selected company)
+  const visibleUsers = useMemo(() => {
+    if (!filters.company) return users
+    return users.filter((u) => (u.company ?? '').toLowerCase() === filters.company.toLowerCase())
+  }, [users, filters.company])
+
+  const allChecked   = filters.userIds.length === 0
+  const someChecked  = filters.userIds.length > 0 && filters.userIds.length < visibleUsers.length
+
+  function toggleAllUsers() {
+    setFilters((f) => ({ ...f, userIds: f.userIds.length === 0 ? [] : [] }))
+  }
+
+  function toggleUser(id: string) {
+    setFilters((f) => {
+      const next = f.userIds.includes(id)
+        ? f.userIds.filter((x) => x !== id)
+        : [...f.userIds, id]
+      // If all visible users are now selected, reset to "all" (empty array)
+      return { ...f, userIds: next.length === visibleUsers.length ? [] : next }
+    })
+  }
+
+  // When company changes, reset userIds
+  function handleCompanyChange(company: string) {
+    setFilters((f) => ({ ...f, company, userIds: [] }))
+  }
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -39,14 +87,12 @@ export function ManualReportPanel() {
         const json = await res.json()
         setReports(json.reports ?? [])
       }
-    } catch {
-      // silently ignore
-    }
+    } catch { /* silently ignore */ }
   }, [])
 
   useEffect(() => { fetchHistory() }, [fetchHistory])
 
-  // Step ticker — advances while generating
+  // Step ticker — advances every 3 s while generating
   useEffect(() => {
     if (loadState === 'idle' || loadState === 'done' || loadState === 'error') return
     const idx = STEPS.findIndex((s) => s.state === loadState)
@@ -60,15 +106,19 @@ export function ManualReportPanel() {
 
   async function handleGenerate() {
     setLoadState('collecting')
-    setStepIdx(0)
     setErrorMsg(null)
     setSentTo(null)
-
     try {
-      const res = await fetch('/api/reports/manual', {
-        method: 'POST',
+      const body = {
+        scope:     filters.scope === 'at_risk' ? 'at_risk' : 'team',
+        company:   filters.company || undefined,
+        userIds:   filters.userIds.length > 0 ? filters.userIds : undefined,
+        threshold: filters.threshold,
+      }
+      const res  = await fetch('/api/reports/manual', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scope }),
+        body:    JSON.stringify(body),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Error desconocido')
@@ -81,15 +131,15 @@ export function ManualReportPanel() {
     }
   }
 
-  async function handleResend(reportId: string, reportScope: string) {
+  async function handleResend(reportScope: string) {
     setLoadState('collecting')
     setErrorMsg(null)
     setSentTo(null)
     try {
-      const res = await fetch('/api/reports/manual', {
-        method: 'POST',
+      const res  = await fetch('/api/reports/manual', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scope: reportScope as Scope }),
+        body:    JSON.stringify({ scope: reportScope }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Error desconocido')
@@ -103,42 +153,138 @@ export function ManualReportPanel() {
   }
 
   const isLoading = loadState !== 'idle' && loadState !== 'done' && loadState !== 'error'
-  const currentStep = STEPS.find((s) => s.state === loadState)
 
   return (
     <div className="space-y-4">
 
-      {/* ── Scope pills */}
-      <div className="flex gap-2 flex-wrap">
-        {([
-          { value: 'team',    label: 'Equipo completo', Icon: Users },
-          { value: 'at_risk', label: 'Solo en riesgo',  Icon: AlertTriangle },
-        ] as { value: Scope; label: string; Icon: React.ComponentType<{ className?: string }> }[]).map(({ value, label, Icon }) => (
-          <button
-            key={value}
-            onClick={() => !isLoading && setScope(value)}
-            disabled={isLoading}
-            className={[
-              'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors',
-              scope === value
-                ? 'border-[#00D9FF]/60 bg-[#00D9FF]/10 text-[#00D9FF]'
-                : 'border-border bg-transparent text-muted-foreground hover:border-[#00D9FF]/30 hover:text-[#00D9FF]/70',
-            ].join(' ')}
-          >
-            <Icon className="h-3 w-3" />
-            {label}
-          </button>
-        ))}
+      {/* ── Filter grid ─────────────────────────────────────────────────── */}
+      <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+
+        {/* SECCIÓN A — Alcance */}
+        <div className="flex gap-2 flex-wrap">
+          {([
+            { value: 'all',     label: 'Equipo completo', Icon: Users },
+            { value: 'at_risk', label: 'Solo en riesgo',  Icon: AlertTriangle },
+          ] as { value: 'all' | 'at_risk'; label: string; Icon: React.ComponentType<{ className?: string }> }[]).map(({ value, label, Icon }) => (
+            <button
+              key={value}
+              onClick={() => !isLoading && setFilters((f) => ({ ...f, scope: value }))}
+              disabled={isLoading}
+              className={[
+                'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors',
+                filters.scope === value
+                  ? 'border-[#00D9FF]/60 bg-[#00D9FF]/10 text-[#00D9FF]'
+                  : 'border-border bg-transparent text-muted-foreground hover:border-[#00D9FF]/30 hover:text-[#00D9FF]/70',
+              ].join(' ')}
+            >
+              <Icon className="h-3 w-3" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+          {/* SECCIÓN B — Empresa (solo si hay 2+ empresas) */}
+          {companies.length >= 2 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                Empresa
+              </p>
+              <select
+                value={filters.company}
+                onChange={(e) => handleCompanyChange(e.target.value)}
+                disabled={isLoading}
+                className="w-full text-xs rounded-md border border-border bg-card text-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary/30 [&>option]:bg-card [&>option]:text-foreground disabled:opacity-50"
+              >
+                <option value="">Todas las empresas</option>
+                {companies.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* SECCIÓN D — Umbral */}
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+              Umbral de riesgo: <span className="text-[#00D9FF]">{filters.threshold}%</span>
+            </p>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={filters.threshold}
+              onChange={(e) => setFilters((f) => ({ ...f, threshold: Number(e.target.value) }))}
+              disabled={isLoading}
+              className="w-full accent-primary disabled:opacity-50"
+            />
+            <p className="text-[10px] text-muted-foreground/60">
+              Solo incluir usuarios bajo este % cuando se usa &quot;Solo en riesgo&quot;
+            </p>
+          </div>
+
+        </div>
+
+        {/* SECCIÓN C — Representantes */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            Representantes
+          </p>
+          <div className="max-h-[120px] overflow-y-auto rounded-md border border-border bg-background/40 p-2 space-y-0.5">
+            {/* "Todos" master checkbox */}
+            <label className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer py-0.5">
+              <input
+                type="checkbox"
+                checked={allChecked}
+                ref={(el) => { if (el) el.indeterminate = someChecked }}
+                onChange={() => setFilters((f) => ({ ...f, userIds: [] }))}
+                disabled={isLoading}
+                className="accent-primary rounded"
+              />
+              <span className="font-semibold">Todos</span>
+              <span className="text-[10px] text-muted-foreground/50">
+                ({visibleUsers.length} reps)
+              </span>
+            </label>
+            {visibleUsers.map((u) => (
+              <label
+                key={u.id}
+                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer py-0.5"
+              >
+                <input
+                  type="checkbox"
+                  checked={allChecked || filters.userIds.includes(u.id)}
+                  onChange={() => {
+                    // First click when "all" is selected: switch to individual mode
+                    if (allChecked) {
+                      setFilters((f) => ({ ...f, userIds: [u.id] }))
+                    } else {
+                      toggleUser(u.id)
+                    }
+                  }}
+                  disabled={isLoading}
+                  className="accent-primary rounded"
+                />
+                {u.full_name ?? u.email}
+                {u.company && (
+                  <span className="text-[10px] text-muted-foreground/50">{u.company}</span>
+                )}
+              </label>
+            ))}
+          </div>
+        </div>
+
       </div>
 
-      {/* ── Main action area */}
+      {/* ── Main action area ─────────────────────────────────────────────── */}
       <div className="rounded-lg border border-border bg-card p-5">
         {loadState === 'idle' && (
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-foreground">Generar reporte ahora</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Se envía por email con análisis de IA y barras de progreso por rep.
+                Se envía a <span className="text-foreground/70">{adminEmail}</span> con análisis de IA y barras de progreso.
               </p>
             </div>
             <button
@@ -219,7 +365,7 @@ export function ManualReportPanel() {
         )}
       </div>
 
-      {/* ── History */}
+      {/* ── History ──────────────────────────────────────────────────────── */}
       {reports.length > 0 && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="px-4 py-2.5 border-b border-border">
@@ -248,7 +394,7 @@ export function ManualReportPanel() {
                   </span>
                 </div>
                 <button
-                  onClick={() => !isLoading && handleResend(r.id, r.report_scope ?? 'team')}
+                  onClick={() => !isLoading && handleResend(r.report_scope ?? 'team')}
                   disabled={isLoading}
                   className="text-[10px] text-muted-foreground hover:text-[#00D9FF] transition-colors flex-shrink-0 disabled:opacity-40"
                 >

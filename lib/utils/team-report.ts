@@ -22,6 +22,12 @@ export interface TeamReportOptions {
   adminUserId: string
   adminEmail: string
   triggeredBy: 'auto' | 'manual'
+  /** Pre-filter: only include these user IDs (undefined = all) */
+  filterUserIds?: string[]
+  /** Pre-filter: only include users from this company (undefined = all) */
+  filterCompany?: string
+  /** at_risk threshold — users below this % are considered at risk (default 70) */
+  threshold?: number
 }
 
 export interface TeamReportResult {
@@ -47,19 +53,30 @@ export async function generateTeamReport(
   opts: TeamReportOptions,
   sb: SbClient,
 ): Promise<TeamReportResult> {
-  const { scope, weekStart, adminUserId, adminEmail, triggeredBy } = opts
+  const { scope, weekStart, adminUserId, adminEmail, triggeredBy,
+          filterUserIds, filterCompany, threshold = 70 } = opts
 
   // 1. Fetch all active + admin users
-  const { data: users, error: usersErr } = await sb
+  const { data: allUsers, error: usersErr } = await sb
     .from('profiles')
-    .select('id, full_name')
+    .select('id, full_name, company')
     .in('role', ['active', 'admin'])
 
-  if (usersErr || !users?.length) {
+  if (usersErr || !allUsers?.length) {
     throw new Error(`[team-report] Could not fetch users: ${usersErr?.message ?? 'empty'}`)
   }
 
-  // 2. Build weekly context for each user (parallel, cap at 10 concurrent)
+  // Apply pre-filters (company / explicit userIds)
+  let users = allUsers as { id: string; full_name: string | null; company: string | null }[]
+  if (filterCompany) {
+    users = users.filter((u) => (u.company ?? '').toLowerCase() === filterCompany.toLowerCase())
+  }
+  if (filterUserIds?.length) {
+    users = users.filter((u) => filterUserIds.includes(u.id))
+  }
+  if (!users.length) throw new Error('[team-report] No users match the applied filters')
+
+  // 2. Build weekly context for each user
   const summaries: UserSummary[] = []
   for (const user of users) {
     try {
@@ -80,11 +97,11 @@ export async function generateTeamReport(
 
   if (!summaries.length) throw new Error('[team-report] No user summaries generated')
 
-  // 3. Filter by scope
+  // 3. Filter by scope (at_risk uses configurable threshold)
   const filtered =
-    scope === 'at_risk' ? summaries.filter((u) => u.overallCompliance < 70) : summaries
+    scope === 'at_risk' ? summaries.filter((u) => u.overallCompliance < threshold) : summaries
 
-  const atRisk = summaries.filter((u) => u.overallCompliance < 70)
+  const atRisk = summaries.filter((u) => u.overallCompliance < threshold)
   const avgCompliance =
     filtered.length
       ? Math.round(filtered.reduce((s, u) => s + u.overallCompliance, 0) / filtered.length)

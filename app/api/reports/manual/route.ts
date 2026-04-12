@@ -22,9 +22,15 @@ export async function POST(req: Request) {
 
   // ── Parse body
   let scope: 'team' | 'at_risk' = 'team'
+  let company: string | undefined
+  let userIds: string[] | undefined
+  let threshold: number | undefined
   try {
     const body = await req.json()
     if (body?.scope === 'at_risk') scope = 'at_risk'
+    if (typeof body?.company === 'string' && body.company) company = body.company
+    if (Array.isArray(body?.userIds) && body.userIds.length > 0) userIds = body.userIds
+    if (typeof body?.threshold === 'number') threshold = body.threshold
   } catch {
     // defaults fine
   }
@@ -37,9 +43,12 @@ export async function POST(req: Request) {
       {
         scope,
         weekStart,
-        adminUserId: user.id,
-        adminEmail:  profile.email,
-        triggeredBy: 'manual',
+        adminUserId:   user.id,
+        adminEmail:    profile.email,
+        triggeredBy:   'manual',
+        filterCompany: company,
+        filterUserIds: userIds,
+        threshold,
       },
       service,
     )

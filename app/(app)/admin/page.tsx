@@ -228,7 +228,12 @@ export default async function AdminPage({ searchParams }: Props) {
         {/* ── SECCIÓN 2: Reportes del equipo */}
         <div className="space-y-3">
           <SectionHeader>Reportes del equipo</SectionHeader>
-          <ManualReportPanel />
+          <ManualReportPanel
+            adminEmail={user.email ?? ''}
+            users={users
+              .filter((u) => u.role === 'active' || u.role === 'admin')
+              .map((u) => ({ id: u.id, full_name: u.full_name, email: u.email, company: u.company }))}
+          />
         </div>
 
         {/* ── SECCIÓN 3: Tabla por empresa */}
