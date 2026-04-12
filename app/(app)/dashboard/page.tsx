@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { startOfWeek, subWeeks, parseISO, isValid, format } from 'date-fns'
+import { startOfWeek, parseISO, isValid, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Activity, BarChart2, TrendingUp, Target } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
@@ -252,17 +252,34 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     })
 
   // --- Weekly coach message (timezone-safe, week ends Friday) ---
-  // todayAnchor is already built at noon UTC above — safe to use for UTC day checks
-  const isMonday          = todayAnchor.getUTCDay() === 1
-  const thisMonday        = toISODate(startOfWeek(todayAnchor, { weekStartsOn: 1 }))
-  const lastMonday        = toISODate(subWeeks(parseISO(thisMonday), 1))
-  // On Mondays analyze last week (just ended); other days show current week
+  // todayAnchor already built at noon UTC above (line ~102) — reuse it
+  const isMonday = todayAnchor.getUTCDay() === 1
+
+  // startOfWeek returns local midnight — re-anchor to noon UTC so toISODate
+  // never rolls back a day in negative-UTC-offset servers (e.g. Bogota UTC-5)
+  const rawMonday = startOfWeek(todayAnchor, { weekStartsOn: 1 })
+  const mondayNoon = new Date(Date.UTC(
+    rawMonday.getUTCFullYear(),
+    rawMonday.getUTCMonth(),
+    rawMonday.getUTCDate(),
+    12, 0, 0,
+  ))
+  const thisMonday = toISODate(mondayNoon)
+
+  const lastMonday = toISODate(new Date(
+    mondayNoon.getTime() - 7 * 24 * 60 * 60 * 1000,
+  ))
+
   const analyzedWeekStart = isMonday ? lastMonday : thisMonday
-  // Friday = analyzed Monday + 4 days, anchored to noon UTC so toISODate never rolls back
-  const [aw_y, aw_m, aw_d] = analyzedWeekStart.split('-').map(Number)
-  const fridayOfAnalyzedWeek = new Date(Date.UTC(aw_y, aw_m - 1, aw_d, 12, 0, 0))
-  fridayOfAnalyzedWeek.setUTCDate(fridayOfAnalyzedWeek.getUTCDate() + 4)
-  const analyzedWeekEnd   = toISODate(fridayOfAnalyzedWeek)
+
+  // weekEnd = analyzed Monday + 4 days = Friday (working week)
+  const [wy, wm, wd] = analyzedWeekStart.split('-').map(Number)
+  const analyzedMondayNoon = new Date(Date.UTC(wy, wm - 1, wd, 12, 0, 0))
+  const analyzedFridayNoon = new Date(
+    analyzedMondayNoon.getTime() + 4 * 24 * 60 * 60 * 1000,
+  )
+  const analyzedWeekEnd = toISODate(analyzedFridayNoon)
+
   const weekLabel = `${format(parseISO(analyzedWeekStart), "d 'de' MMM", { locale: es })} – ${format(parseISO(analyzedWeekEnd), "d 'de' MMM yyyy", { locale: es })}`
 
   // Look up the cached message for the analyzed week (period_date = analyzed week's Monday)
