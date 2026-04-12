@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 
 interface CoachMsg {
   id: string
-  type: 'daily' | 'weekly' | 'monthly'
+  type: 'daily' | 'weekly' | 'monthly' | 'team_report'
   message: string
   context: Record<string, unknown> | null
   period_date: string
@@ -161,7 +161,7 @@ export function CoachHistoryClient({
 
           {/* Cards */}
           {items.map((msg) => {
-            const cfg = TYPE_CONFIG[msg.type] ?? TYPE_CONFIG.daily
+            const cfg = TYPE_CONFIG[msg.type as keyof typeof TYPE_CONFIG] ?? TYPE_CONFIG.daily
             const compliance = (msg.context as { overallCompliance?: number } | null)?.overallCompliance
             const pLabel = periodLabel(msg.type, msg.period_date)
 

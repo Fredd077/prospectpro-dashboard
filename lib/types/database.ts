@@ -252,28 +252,37 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          type: 'daily' | 'weekly' | 'monthly'
+          type: 'daily' | 'weekly' | 'monthly' | 'team_report'
           message: string
           context: Json | null
           period_date: string
           user_comment: string | null
           is_read: boolean
           created_at: string
+          triggered_by: string | null
+          report_scope: string | null
+          sent_to_email: string | null
         }
         Insert: {
           id?: string
           user_id?: string
-          type: 'daily' | 'weekly' | 'monthly'
+          type: 'daily' | 'weekly' | 'monthly' | 'team_report'
           message: string
           context?: Json | null
           period_date: string
           user_comment?: string | null
           is_read?: boolean
           created_at?: string
+          triggered_by?: string | null
+          report_scope?: string | null
+          sent_to_email?: string | null
         }
         Update: {
           user_comment?: string | null
           is_read?: boolean
+          triggered_by?: string | null
+          report_scope?: string | null
+          sent_to_email?: string | null
         }
         Relationships: []
       }

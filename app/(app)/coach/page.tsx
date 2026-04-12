@@ -18,10 +18,11 @@ export default async function CoachPage({ searchParams }: PageProps) {
   const { type: typeFilter = 'all', month: monthFilter } = await searchParams
   const sb = await getSupabaseServerClient()
 
-  // Build query
+  // Build query — exclude team_report (admin-only, shown in Admin Command Center)
   let query = sb
     .from('coach_messages')
     .select('id,type,message,context,period_date,user_comment,is_read,created_at')
+    .neq('type', 'team_report')
     .order('period_date', { ascending: false })
     .order('created_at', { ascending: false })
 

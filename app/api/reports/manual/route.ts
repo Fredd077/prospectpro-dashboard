@@ -1,0 +1,81 @@
+import { NextResponse } from 'next/server'
+import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
+import { generateTeamReport, currentWeekStart } from '@/lib/utils/team-report'
+
+export const maxDuration = 120
+
+export async function POST(req: Request) {
+  // ── Auth: only admins
+  const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: profile } = await sb
+    .from('profiles')
+    .select('role, email')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // ── Parse body
+  let scope: 'team' | 'at_risk' = 'team'
+  try {
+    const body = await req.json()
+    if (body?.scope === 'at_risk') scope = 'at_risk'
+  } catch {
+    // defaults fine
+  }
+
+  const weekStart = currentWeekStart()
+  const service   = getSupabaseServiceClient()
+
+  try {
+    const result = await generateTeamReport(
+      {
+        scope,
+        weekStart,
+        adminUserId: user.id,
+        adminEmail:  profile.email,
+        triggeredBy: 'manual',
+      },
+      service,
+    )
+    return NextResponse.json(result)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[api/reports/manual] Error:', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+
+export async function GET(req: Request) {
+  // ── Auth: only admins — returns last 10 team reports for history panel
+  const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: profile } = await sb
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const service = getSupabaseServiceClient()
+  const { data, error } = await service
+    .from('coach_messages')
+    .select('id, period_date, report_scope, triggered_by, sent_to_email, created_at')
+    .eq('user_id', user.id)
+    .eq('type', 'team_report')
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ reports: data ?? [] })
+}

@@ -53,6 +53,7 @@ export function RegisterForm({ errorParam }: RegisterFormProps) {
     })
 
     if (authError) {
+      console.error('[register] signUp error:', authError.message, authError.status)
       setError(
         authError.message.includes('already registered')
           ? 'Este email ya está registrado. Intenta iniciar sesión.'

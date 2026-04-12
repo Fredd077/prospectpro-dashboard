@@ -3,6 +3,7 @@ import { getSupabaseServiceClient } from '@/lib/supabase/server'
 import { todayISO, toISODate } from '@/lib/utils/dates'
 import { buildWeeklyContextForCron } from '@/lib/utils/coach-context'
 import { generateAndSaveCoachMessage } from '@/lib/utils/coach-generator'
+import { generateTeamReport } from '@/lib/utils/team-report'
 
 export const maxDuration = 300
 
@@ -73,5 +74,32 @@ export async function GET(req: Request) {
 
   const summary = { date: today, weekStart: thisMonday, generated, skipped, errors: errors.length ? errors : undefined }
   console.log('[cron/weekly-coach]', JSON.stringify(summary))
+
+  // ── Team report: fire after all individual messages, fail silently ──────────
+  try {
+    const { data: admin } = await sb
+      .from('profiles')
+      .select('id, email')
+      .eq('role', 'admin')
+      .limit(1)
+      .single()
+
+    if (admin?.email) {
+      await generateTeamReport(
+        {
+          scope:        'team',
+          weekStart:    thisMonday,
+          adminUserId:  admin.id,
+          adminEmail:   admin.email,
+          triggeredBy:  'auto',
+        },
+        sb,
+      )
+      console.log('[cron/weekly-coach] Team report sent to', admin.email)
+    }
+  } catch (err) {
+    console.error('[cron/weekly-coach] Team report failed (non-blocking):', err)
+  }
+
   return Response.json(summary)
 }

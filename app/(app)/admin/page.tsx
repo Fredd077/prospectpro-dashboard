@@ -10,6 +10,7 @@ import { es } from 'date-fns/locale'
 import { TopBar } from '@/components/layout/TopBar'
 import { UsersTable } from '@/components/admin/UsersTable'
 import { AdminFilters } from '@/components/admin/AdminFilters'
+import { ManualReportPanel } from '@/components/admin/ManualReportPanel'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { todayISO } from '@/lib/utils/dates'
 import type { Profile } from '@/lib/types/database'
@@ -224,7 +225,13 @@ export default async function AdminPage({ searchParams }: Props) {
           </div>
         </div>
 
-        {/* ── SECCIÓN 2: Tabla por empresa */}
+        {/* ── SECCIÓN 2: Reportes del equipo */}
+        <div className="space-y-3">
+          <SectionHeader>Reportes del equipo</SectionHeader>
+          <ManualReportPanel />
+        </div>
+
+        {/* ── SECCIÓN 3: Tabla por empresa */}
         <div className="space-y-3">
           <SectionHeader>Empresas en la plataforma</SectionHeader>
           <div className="rounded-lg border border-border bg-card overflow-hidden">
