@@ -1,3 +1,7 @@
+'use client'
+
+import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { calcCompliance } from '@/lib/calculations/compliance'
 
@@ -157,6 +161,8 @@ function Section({ label, rows }: { label: string; rows: ActivityBreakdownRow[] 
 }
 
 export function ActivityBreakdownTable({ rows }: ActivityBreakdownTableProps) {
+  const [collapsed, setCollapsed] = useState(false)
+
   const outbound = rows.filter((r) => r.type === 'OUTBOUND')
   const inbound = rows.filter((r) => r.type === 'INBOUND')
 
@@ -167,6 +173,19 @@ export function ActivityBreakdownTable({ rows }: ActivityBreakdownTableProps) {
   if (rows.length === 0) return null
 
   return (
+    <div>
+      {/* Section header with collapse */}
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-foreground">Desglose por actividad</h2>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', collapsed && 'rotate-180')} />
+        </button>
+      </div>
+
+    {!collapsed && (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
       {/* Table header */}
       <div className="flex items-center gap-4 px-4 py-3 border-b border-border bg-muted/20">
@@ -209,6 +228,8 @@ export function ActivityBreakdownTable({ rows }: ActivityBreakdownTableProps) {
           </span>
         </div>
       </div>
+    </div>
+    )}
     </div>
   )
 }

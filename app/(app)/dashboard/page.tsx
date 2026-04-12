@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { startOfWeek, endOfWeek, subWeeks, parseISO, isValid, format } from 'date-fns'
+import { startOfWeek, subWeeks, parseISO, isValid, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Activity, BarChart2, TrendingUp, Target } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
@@ -18,6 +18,7 @@ import { TodayWidget } from '@/components/dashboard/TodayWidget'
 import { RecipeValidationCard } from '@/components/dashboard/RecipeValidationCard'
 import { WeeklyCoachMessage } from '@/components/dashboard/WeeklyCoachMessage'
 import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
+import { FunnelSection } from '@/components/dashboard/FunnelSection'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
 import { calcCompliance } from '@/lib/calculations/compliance'
@@ -250,15 +251,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       }
     })
 
-  // --- Weekly coach message ---
-  const todayDate         = parseISO(today)
-  const isMonday          = todayDate.getDay() === 1
-  const thisMonday        = toISODate(startOfWeek(todayDate, { weekStartsOn: 1 }))
+  // --- Weekly coach message (timezone-safe, week ends Friday) ---
+  // todayAnchor is already built at noon UTC above — safe to use for UTC day checks
+  const isMonday          = todayAnchor.getUTCDay() === 1
+  const thisMonday        = toISODate(startOfWeek(todayAnchor, { weekStartsOn: 1 }))
   const lastMonday        = toISODate(subWeeks(parseISO(thisMonday), 1))
-  // The week being analyzed: on Mondays show last week (just ended); other days show current week
+  // On Mondays analyze last week (just ended); other days show current week
   const analyzedWeekStart = isMonday ? lastMonday : thisMonday
-  const analyzedWeekEnd   = toISODate(endOfWeek(parseISO(analyzedWeekStart), { weekStartsOn: 1 }))
-  const weekLabel = `${format(parseISO(analyzedWeekStart), 'd MMM', { locale: es })} – ${format(parseISO(analyzedWeekEnd), 'd MMM yyyy', { locale: es })}`
+  // Friday = analyzed Monday + 4 days, anchored to noon UTC so toISODate never rolls back
+  const [aw_y, aw_m, aw_d] = analyzedWeekStart.split('-').map(Number)
+  const fridayOfAnalyzedWeek = new Date(Date.UTC(aw_y, aw_m - 1, aw_d, 12, 0, 0))
+  fridayOfAnalyzedWeek.setUTCDate(fridayOfAnalyzedWeek.getUTCDate() + 4)
+  const analyzedWeekEnd   = toISODate(fridayOfAnalyzedWeek)
+  const weekLabel = `${format(parseISO(analyzedWeekStart), "d 'de' MMM", { locale: es })} – ${format(parseISO(analyzedWeekEnd), "d 'de' MMM yyyy", { locale: es })}`
 
   // Look up the cached message for the analyzed week (period_date = analyzed week's Monday)
   const { data: weeklyCoach } = await sb
@@ -412,14 +417,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           )}
 
           {/* Funnel Real — pipeline mini card (fetches its own data) */}
-          <PipelineMiniCard />
+          <FunnelSection>
+            <PipelineMiniCard />
+          </FunnelSection>
 
           {/* Per-activity breakdown table */}
           {breakdownRows.length > 0 && (
-            <div>
-              <h2 className="mb-3 text-sm font-semibold text-foreground">Desglose por actividad</h2>
-              <ActivityBreakdownTable rows={breakdownRows} />
-            </div>
+            <ActivityBreakdownTable rows={breakdownRows} />
           )}
 
           {/* Charts */}
