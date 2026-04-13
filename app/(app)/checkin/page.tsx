@@ -13,6 +13,8 @@ export const metadata: Metadata = {
 export default async function CheckinPage() {
   const date = todayISO()
   const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  const userId = user?.id ?? ''
 
   // Week bounds (Mon–Sun) for the given date
   const dateObj = parseISO(date)
@@ -29,10 +31,12 @@ export default async function CheckinPage() {
     sb
       .from('vw_daily_compliance')
       .select('*')
+      .eq('user_id', userId)
       .eq('log_date', date),
     sb
       .from('activity_logs')
       .select('activity_id,real_executed')
+      .eq('user_id', userId)
       .gte('log_date', weekStart)
       .lte('log_date', weekEnd),
     sb

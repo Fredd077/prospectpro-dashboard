@@ -108,6 +108,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   let query = sb
     .from('vw_daily_compliance')
     .select('*')
+    .eq('user_id', user.id)
     .gte('log_date', start)
     .lte('log_date', end)
 
@@ -118,6 +119,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const todayLogsQuery = sb
     .from('vw_daily_compliance')
     .select('real_executed,day_goal')
+    .eq('user_id', user.id)
     .eq('log_date', today)
 
   const [
@@ -289,6 +291,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const { data: monthlyCoachLogs } = await sb
     .from('activity_logs')
     .select('real_executed')
+    .eq('user_id', user.id)
     .gte('log_date', monthStart2)
     .lte('log_date', today)
   const monthlyRealForCoach = (monthlyCoachLogs ?? []).reduce((s, l) => s + l.real_executed, 0)

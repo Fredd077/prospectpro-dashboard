@@ -456,6 +456,7 @@ export interface Database {
       vw_daily_compliance: {
         Row: {
           id: string
+          user_id: string
           log_date: string
           type: 'OUTBOUND' | 'INBOUND'
           channel: string
