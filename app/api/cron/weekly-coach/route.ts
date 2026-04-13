@@ -86,7 +86,7 @@ export async function GET(req: Request) {
   const summary = { date: today, weekStart: thisMonday, generated, skipped, errors: errors.length ? errors : undefined }
   console.log('[cron/weekly-coach]', JSON.stringify(summary))
 
-  // ── Team report: fire after all individual messages, fail silently ──────────
+  // ── Admin team report: fire after all individual messages, fail silently ────
   try {
     const { data: admin } = await sb
       .from('profiles')
@@ -106,10 +106,56 @@ export async function GET(req: Request) {
         },
         sb,
       )
-      console.log('[cron/weekly-coach] Team report sent to', admin.email)
+      console.log('[cron/weekly-coach] Admin team report sent to', admin.email)
     }
   } catch (err) {
-    console.error('[cron/weekly-coach] Team report failed (non-blocking):', err)
+    console.error('[cron/weekly-coach] Admin team report failed (non-blocking):', err)
+  }
+
+  // ── Manager team reports: one per manager, scoped to their company ────────
+  try {
+    const { data: managers } = await sb
+      .from('profiles')
+      .select('id, email, company')
+      .eq('org_role', 'manager')
+      .in('role', ['active', 'admin'])
+      .not('email', 'is', null)
+      .not('company', 'is', null)
+
+    for (const mgr of managers ?? []) {
+      try {
+        // Skip if already generated for this Monday
+        const { data: existing } = await sb
+          .from('coach_messages')
+          .select('id')
+          .eq('user_id', mgr.id)
+          .eq('type', 'team_report')
+          .eq('period_date', thisMonday)
+          .maybeSingle()
+
+        if (existing) {
+          console.log(`[cron/weekly-coach] Manager report already exists for ${mgr.id}`)
+          continue
+        }
+
+        await generateTeamReport(
+          {
+            scope:         'team',
+            weekStart:     thisMonday,
+            adminUserId:   mgr.id,
+            adminEmail:    mgr.email!,
+            triggeredBy:   'auto',
+            filterCompany: mgr.company!,
+          },
+          sb,
+        )
+        console.log(`[cron/weekly-coach] Manager report sent to ${mgr.email} (${mgr.company})`)
+      } catch (mgrErr) {
+        console.error(`[cron/weekly-coach] Manager report failed for ${mgr.id}:`, mgrErr)
+      }
+    }
+  } catch (err) {
+    console.error('[cron/weekly-coach] Manager reports loop failed (non-blocking):', err)
   }
 
   return Response.json(summary)

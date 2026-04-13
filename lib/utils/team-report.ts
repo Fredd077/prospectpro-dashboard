@@ -28,6 +28,8 @@ export interface TeamReportOptions {
   filterCompany?: string
   /** at_risk threshold — users below this % are considered at risk (default 70) */
   threshold?: number
+  /** Override the email recipient (default: adminEmail) */
+  recipientEmail?: string
 }
 
 export interface TeamReportResult {
@@ -97,7 +99,10 @@ export async function generateTeamReport(
   sb: SbClient,
 ): Promise<TeamReportResult> {
   const { scope, adminUserId, adminEmail, triggeredBy,
-          filterUserIds, filterCompany, threshold = 70 } = opts
+          filterUserIds, filterCompany, threshold = 70,
+          recipientEmail } = opts
+  // Actual email to send to — falls back to adminEmail if not overridden
+  const toEmail = recipientEmail ?? adminEmail
 
   // ── Problem 1 fix: recompute weekStart/weekEnd with timezone-safe anchor ──
   const { weekStart, weekEnd } = safeWeekRange(opts.weekStart)
@@ -279,7 +284,7 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
     },
     body: JSON.stringify({
       from: 'ProspectPro Reports <onboarding@resend.dev>',
-      to: adminEmail,
+      to: toEmail,
       subject: `ProspectPro · Reporte de equipo — ${scopeLabel} · ${weekLabel}–${weekEndLabel}`,
       html,
     }),
@@ -290,7 +295,7 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
     throw new Error(`[team-report] Resend failed: ${errText}`)
   }
 
-  // 9. Save to coach_messages under admin user
+  // 9. Save to coach_messages under admin/manager user
   const generatedAt = new Date().toISOString()
   let savedId: string | null = null
   try {
@@ -300,11 +305,11 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
         user_id:       adminUserId,
         type:          'team_report',
         message:       aiAnalysis,
-        period_date:   generatedAt,
+        period_date:   weekStart,   // week being analyzed, not generation timestamp
         is_read:       false,
         triggered_by:  triggeredBy,
         report_scope:  scopeLabel,
-        sent_to_email: adminEmail,
+        sent_to_email: toEmail,
       } as never)
       .select('id')
       .single()

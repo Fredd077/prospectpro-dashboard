@@ -5,18 +5,20 @@ import { generateTeamReport, currentWeekStart } from '@/lib/utils/team-report'
 export const maxDuration = 120
 
 export async function POST(req: Request) {
-  // ── Auth: only admins
+  // ── Auth: admins and org managers
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await sb
     .from('profiles')
-    .select('role, email')
+    .select('role, org_role, company, email')
     .eq('id', user.id)
     .single()
 
-  if (profile?.role !== 'admin') {
+  const isAdmin   = profile?.role === 'admin'
+  const isManager = profile?.org_role === 'manager'
+  if (!isAdmin && !isManager) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -35,6 +37,11 @@ export async function POST(req: Request) {
     // defaults fine
   }
 
+  // Managers can only report their own company — enforce server-side
+  if (isManager && !isAdmin) {
+    company = profile!.company ?? undefined
+  }
+
   const weekStart = currentWeekStart()
   const service   = getSupabaseServiceClient()
 
@@ -44,7 +51,7 @@ export async function POST(req: Request) {
         scope,
         weekStart,
         adminUserId:   user.id,
-        adminEmail:    profile.email,
+        adminEmail:    profile!.email,
         triggeredBy:   'manual',
         filterCompany: company,
         filterUserIds: userIds,
@@ -61,18 +68,20 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  // ── Auth: only admins — returns last 10 team reports for history panel
+  // ── Auth: admins and org managers — returns last 10 team reports for history panel
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await sb
     .from('profiles')
-    .select('role')
+    .select('role, org_role')
     .eq('id', user.id)
     .single()
 
-  if (profile?.role !== 'admin') {
+  const isAdmin   = profile?.role === 'admin'
+  const isManager = profile?.org_role === 'manager'
+  if (!isAdmin && !isManager) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
