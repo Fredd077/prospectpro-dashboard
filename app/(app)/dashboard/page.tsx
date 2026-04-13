@@ -266,11 +266,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   ))
   const thisMonday = toISODate(mondayNoon)
 
-  const lastMonday = toISODate(new Date(
-    mondayNoon.getTime() - 7 * 24 * 60 * 60 * 1000,
-  ))
-
-  const analyzedWeekStart = isMonday ? lastMonday : thisMonday
+  // Always analyze the current week — on Monday with no cached message,
+  // WeeklyCoachMessage auto-generates a new one via /api/ai-coach
+  const analyzedWeekStart = thisMonday
 
   // weekEnd = analyzed Monday + 4 days = Friday (working week)
   const [wy, wm, wd] = analyzedWeekStart.split('-').map(Number)
@@ -297,8 +295,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const monthlyGoalForCoach = allActivities.reduce((s, a) => s + a.monthly_goal, 0)
   const monthlyPctForCoach  = monthlyGoalForCoach > 0 ? Math.round((monthlyRealForCoach / monthlyGoalForCoach) * 100) : 0
 
-  const shownCoach    = weeklyCoach ?? null
-  const isLastWeekMsg = isMonday  // On Mondays we always analyze last week
+  const shownCoach = weeklyCoach ?? null
 
   // --- Plan vs Recipe validation ---
   const recipeValidation = activeScenario && allActivities.length > 0
@@ -391,7 +388,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               monthlyPct={monthlyPctForCoach}
               cachedMessage={shownCoach?.message}
               cachedId={shownCoach?.id}
-              isLastWeek={isLastWeekMsg}
+              isLastWeek={false}
             />
           )}
 
