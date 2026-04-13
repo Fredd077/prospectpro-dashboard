@@ -101,11 +101,8 @@ export async function generateTeamReport(
   const { scope, adminUserId, adminEmail, triggeredBy,
           filterUserIds, filterCompany, threshold = 70,
           recipientEmail } = opts
-  // TEMP: Resend free plan only allows sending to freddy.g84@gmail.com.
-  // Always deliver there; track the original intended recipient separately.
-  const RESEND_OVERRIDE = 'freddy.g84@gmail.com'
   const intendedEmail = recipientEmail ?? adminEmail
-  const toEmail = RESEND_OVERRIDE
+  const toEmail = intendedEmail
 
   // ── Problem 1 fix: recompute weekStart/weekEnd with timezone-safe anchor ──
   const { weekStart, weekEnd } = safeWeekRange(opts.weekStart)
@@ -276,8 +273,6 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
     bestActivity,
     worstActivity,
     aiAnalysis,
-    intendedEmail,
-    resendOverride: RESEND_OVERRIDE,
   })
 
   // 8. Send via Resend
@@ -288,9 +283,9 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'ProspectPro Reports <onboarding@resend.dev>',
+      from: 'ProspectPro Reports <reportes@prospectpro.cloud>',
       to: toEmail,
-      subject: `${intendedEmail !== RESEND_OVERRIDE ? `[Para: ${intendedEmail}] ` : ''}ProspectPro · Reporte de equipo — ${scopeLabel} · ${weekLabel}–${weekEndLabel}`,
+      subject: `ProspectPro · Reporte de equipo — ${scopeLabel} · ${weekLabel}–${weekEndLabel}`,
       html,
     }),
   })
@@ -344,13 +339,10 @@ function buildTeamReportEmail(p: {
   bestActivity:   { name: string; avgPct: number } | null
   worstActivity:  { name: string; avgPct: number } | null
   aiAnalysis:     string
-  intendedEmail:  string
-  resendOverride: string
 }): string {
   const { weekLabel, weekEndLabel, scopeLabel, scope, threshold, summaries, atRiskCount, avgCompliance,
           improvingCount, decliningCount, top3, bottom3, bestActivity, worstActivity,
           aiAnalysis } = p
-  // intendedEmail / resendOverride accessed via p.* in the template below
 
   const trendIcon  = (t: string) => (t === 'improving' ? '↑' : t === 'declining' ? '↓' : '→')
   const trendColor = (t: string) =>
@@ -442,9 +434,6 @@ function buildTeamReportEmail(p: {
       ${scopeLabel} &nbsp;·&nbsp;
       <strong style="color:#e2e8f0;">${weekLabel} – ${weekEndLabel}</strong>
     </p>
-    ${p.intendedEmail && p.intendedEmail !== p.resendOverride
-      ? `<p style="margin:6px 0 0 0; font-size:11px; color:#475569;">Enviado en nombre de: <span style="color:#64748b;">${p.intendedEmail}</span></p>`
-      : ''}
   </div>
 
   <!-- KPI bar -->
