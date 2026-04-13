@@ -30,23 +30,31 @@ export function todayISO(): string {
 
 /** Get the date range for a given period type anchored at refDate */
 export function getPeriodRange(period: PeriodType, refDate: Date): DateRange {
+  // date-fns start* functions return local midnight. On UTC servers,
+  // local midnight = UTC midnight, which toISODate() shifts back one day
+  // in Bogota (UTC-5). Re-anchor to noon UTC after each start* call so
+  // toISODate() always lands on the correct calendar date.
+  function reanchorNoon(d: Date): Date {
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0))
+  }
+
   switch (period) {
     case 'daily':
       return { start: toISODate(refDate), end: toISODate(refDate) }
     case 'weekly':
       return {
-        start: toISODate(startOfWeek(refDate, { weekStartsOn: 1 })),
-        end: toISODate(endOfWeek(refDate, { weekStartsOn: 1 })),
+        start: toISODate(reanchorNoon(startOfWeek(refDate, { weekStartsOn: 1 }))),
+        end:   toISODate(endOfWeek(refDate, { weekStartsOn: 1 })),
       }
     case 'monthly':
       return {
-        start: toISODate(startOfMonth(refDate)),
-        end: toISODate(endOfMonth(refDate)),
+        start: toISODate(reanchorNoon(startOfMonth(refDate))),
+        end:   toISODate(endOfMonth(refDate)),
       }
     case 'quarterly':
       return {
-        start: toISODate(startOfQuarter(refDate)),
-        end: toISODate(endOfQuarter(refDate)),
+        start: toISODate(reanchorNoon(startOfQuarter(refDate))),
+        end:   toISODate(endOfQuarter(refDate)),
       }
   }
 }
