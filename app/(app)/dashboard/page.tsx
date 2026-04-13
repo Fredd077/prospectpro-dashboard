@@ -16,7 +16,7 @@ import { ActivityBreakdownTable } from '@/components/dashboard/ActivityBreakdown
 import type { ActivityBreakdownRow } from '@/components/dashboard/ActivityBreakdownTable'
 import { TodayWidget } from '@/components/dashboard/TodayWidget'
 import { RecipeValidationCard } from '@/components/dashboard/RecipeValidationCard'
-import { WeeklyCoachMessage } from '@/components/dashboard/WeeklyCoachMessage'
+import { CoachProCard } from '@/components/dashboard/CoachProCard'
 import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
 import { FunnelSection } from '@/components/dashboard/FunnelSection'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -253,12 +253,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       }
     })
 
-  // --- Weekly coach message (timezone-safe, week ends Friday) ---
-  // todayAnchor already built at noon UTC above (line ~102) — reuse it
-  const isMonday = todayAnchor.getUTCDay() === 1
-
-  // startOfWeek returns local midnight — re-anchor to noon UTC so toISODate
-  // never rolls back a day in negative-UTC-offset servers (e.g. Bogota UTC-5)
+  // --- Weekly coach card (link to /coach) ---
+  // todayAnchor already built at noon UTC above — reuse it
   const rawMonday = startOfWeek(todayAnchor, { weekStartsOn: 1 })
   const mondayNoon = new Date(Date.UTC(
     rawMonday.getUTCFullYear(),
@@ -268,37 +264,21 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   ))
   const thisMonday = toISODate(mondayNoon)
 
-  // Always analyze the current week — on Monday with no cached message,
-  // WeeklyCoachMessage auto-generates a new one via /api/ai-coach
-  const analyzedWeekStart = thisMonday
+  // Friday = Monday + 4 days
+  const [wy, wm, wd] = thisMonday.split('-').map(Number)
+  const thisMondayNoon = new Date(Date.UTC(wy, wm - 1, wd, 12, 0, 0))
+  const thisFridayNoon = new Date(thisMondayNoon.getTime() + 4 * 24 * 60 * 60 * 1000)
+  const thisFriday = toISODate(thisFridayNoon)
 
-  // weekEnd = analyzed Monday + 4 days = Friday (working week)
-  const [wy, wm, wd] = analyzedWeekStart.split('-').map(Number)
-  const analyzedMondayNoon = new Date(Date.UTC(wy, wm - 1, wd, 12, 0, 0))
-  const analyzedFridayNoon = new Date(
-    analyzedMondayNoon.getTime() + 4 * 24 * 60 * 60 * 1000,
-  )
-  const analyzedWeekEnd = toISODate(analyzedFridayNoon)
+  const weekLabel = `Semana ${format(parseISO(thisMonday), 'd')} - ${format(parseISO(thisFriday), "d 'de' MMM yyyy", { locale: es })}`
 
-  const weekLabel = `${format(parseISO(analyzedWeekStart), "d 'de' MMM", { locale: es })} – ${format(parseISO(analyzedWeekEnd), "d 'de' MMM yyyy", { locale: es })}`
-
-  // Look up the cached message for the analyzed week (period_date = analyzed week's Monday)
+  // Check if a weekly coach message already exists for this week
   const { data: weeklyCoach } = await sb
-    .from('coach_messages').select('id,message').eq('type', 'weekly').eq('period_date', analyzedWeekStart).maybeSingle()
-
-  // Monthly progress for the weekly coach footer
-  const monthStart2 = today.slice(0, 8) + '01'
-  const { data: monthlyCoachLogs } = await sb
-    .from('activity_logs')
-    .select('real_executed')
-    .eq('user_id', user.id)
-    .gte('log_date', monthStart2)
-    .lte('log_date', today)
-  const monthlyRealForCoach = (monthlyCoachLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
-  const monthlyGoalForCoach = allActivities.reduce((s, a) => s + a.monthly_goal, 0)
-  const monthlyPctForCoach  = monthlyGoalForCoach > 0 ? Math.round((monthlyRealForCoach / monthlyGoalForCoach) * 100) : 0
-
-  const shownCoach = weeklyCoach ?? null
+    .from('coach_messages')
+    .select('id')
+    .eq('type', 'weekly')
+    .eq('period_date', thisMonday)
+    .maybeSingle()
 
   // --- Plan vs Recipe validation ---
   const recipeValidation = activeScenario && allActivities.length > 0
@@ -383,17 +363,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             hasActivities={(activities?.length ?? 0) > 0}
           />
 
-          {/* Weekly AI coach — shown when cached message exists or today is Monday */}
-          {(shownCoach || isMonday) && (
-            <WeeklyCoachMessage
-              isMonday={isMonday}
-              weekLabel={weekLabel}
-              monthlyPct={monthlyPctForCoach}
-              cachedMessage={shownCoach?.message}
-              cachedId={shownCoach?.id}
-              isLastWeek={false}
-            />
-          )}
+          {/* Coach Pro — invitation card linking to /coach */}
+          <CoachProCard
+            weekLabel={weekLabel}
+            hasMessage={!!weeklyCoach}
+            compliancePct={compliance.pct}
+          />
 
           {/* KPI Grid */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
