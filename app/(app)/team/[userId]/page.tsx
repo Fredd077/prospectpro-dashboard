@@ -1,273 +1,370 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, Building2, Mail, Clock } from 'lucide-react'
+import { ArrowLeft, Building2, Mail, Clock, Sparkles } from 'lucide-react'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
-import { TeamUserTabs } from '@/components/team/TeamUserTabs'
 import { TeamUserGoalEditor } from '@/components/team/TeamUserGoalEditor'
-import { PipelineFunnelSummary } from '@/components/pipeline/PipelineFunnelSummary'
-import { PipelineEntriesTable } from '@/components/pipeline/PipelineEntriesTable'
-import { todayISO, toISODate } from '@/lib/utils/dates'
-import { startOfWeek, endOfWeek, parseISO, format, formatDistanceToNow } from 'date-fns'
+import { ActivityBreakdownTable } from '@/components/dashboard/ActivityBreakdownTable'
+import type { ActivityBreakdownRow } from '@/components/dashboard/ActivityBreakdownTable'
+import { todayISO, toISODate, getPeriodRange, addDaysToISO } from '@/lib/utils/dates'
+import { calcPipelineValue, fmtUSD } from '@/lib/calculations/pipeline'
+import { DEFAULT_FUNNEL_STAGES } from '@/lib/calculations/recipe'
+import type { PeriodType } from '@/lib/types/common'
+import { parseISO, format, formatDistanceToNow, addDays, getISOWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { cn } from '@/lib/utils'
-import {
-  calcRealConversions,
-  calcPipelineValue,
-  scalePlanToperiod,
-} from '@/lib/calculations/pipeline'
-import {
-  calcRecipe,
-  DEFAULT_FUNNEL_STAGES,
-  DEFAULT_OUTBOUND_RATES,
-  DEFAULT_INBOUND_RATES,
-} from '@/lib/calculations/recipe'
-import type { PipelineEntry } from '@/lib/types/database'
-import type { ConversionResult } from '@/lib/calculations/pipeline'
 
 export const metadata: Metadata = { title: 'Perfil de usuario — ProspectPro' }
 
-type Tab = 'dashboard' | 'activities' | 'pipeline' | 'coach'
+type PeriodKey = 'week' | 'lastweek' | 'month'
 
 interface Props {
   params:       Promise<{ userId: string }>
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ period?: string; tab?: string }>
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Avatar({ name, email, avatarUrl }: { name: string | null; email: string; avatarUrl: string | null }) {
   const str    = name ?? email
   const parts  = str.split(/[\s@]/).filter(Boolean)
-  const initials = parts.length >= 2
-    ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
-    : str.slice(0, 2).toUpperCase()
-
+  const initials = parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}`.toUpperCase() : str.slice(0, 2).toUpperCase()
   return avatarUrl ? (
-    <img src={avatarUrl} alt={name ?? email} className="h-14 w-14 rounded-full object-cover ring-2 ring-border shrink-0" />
+    <img src={avatarUrl} alt={name ?? email} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.12)', flexShrink: 0 }} />
   ) : (
-    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/20 text-base font-bold text-primary ring-2 ring-border">
+    <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(0,217,255,0.1)', color: '#00D9FF', fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(0,217,255,0.2)', flexShrink: 0 }}>
       {initials}
     </div>
   )
 }
 
-function complianceColor(pct: number) {
-  if (pct >= 70) return 'text-emerald-400'
-  if (pct >= 40) return 'text-amber-400'
-  return 'text-red-400'
+function statusBadge(pct: number) {
+  if (pct >= 70) return { label: 'En racha',          color: '#1D9E75', bg: 'rgba(29,158,117,0.1)',  border: 'rgba(29,158,117,0.3)' }
+  if (pct >= 40) return { label: 'Necesita atención', color: '#BA7517', bg: 'rgba(186,117,23,0.1)',  border: 'rgba(186,117,23,0.3)' }
+  return               { label: 'En riesgo',          color: '#E24B4A', bg: 'rgba(226,75,74,0.1)',   border: 'rgba(226,75,74,0.3)' }
 }
 
-export default async function TeamUserPage({ params, searchParams }: Props) {
-  const { userId }  = await params
-  const { tab = 'dashboard' } = await searchParams
-  const activeTab   = (['dashboard', 'activities', 'pipeline', 'coach'] as Tab[]).includes(tab as Tab)
-    ? (tab as Tab)
-    : 'dashboard'
+function semColor(pct: number) {
+  if (pct >= 100) return '#1D9E75'
+  if (pct >= 70)  return '#BA7517'
+  return '#E24B4A'
+}
 
-  // Auth check
+// ── Inline SVG trend chart ────────────────────────────────────────────────────
+
+function TrendChart({ weeks }: { weeks: { label: string; pct: number }[] }) {
+  if (weeks.length < 2) return null
+  const W = 560, H = 90
+  const pad = { top: 24, bottom: 20, left: 6, right: 6 }
+  const iW  = W - pad.left - pad.right
+  const iH  = H - pad.top - pad.bottom
+  const n   = weeks.length
+
+  const pts = weeks.map((w, i) => ({
+    x: pad.left + (i / (n - 1)) * iW,
+    y: pad.top  + (1 - Math.min(w.pct, 120) / 120) * iH,
+    ...w,
+  }))
+
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+  const area = `${line} L${pts[n - 1].x},${pad.top + iH} L${pts[0].x},${pad.top + iH} Z`
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible', display: 'block' }}>
+      <defs>
+        <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#00D9FF" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#00D9FF" stopOpacity="0"    />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#tg)" />
+      <path d={line} fill="none" stroke="#00D9FF" strokeWidth="1.5" strokeLinejoin="round" />
+      {pts.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r={3} fill="#00D9FF" />
+          <text x={p.x} y={p.y - 7} textAnchor="middle" fontSize={9} fill="rgba(255,255,255,0.5)">
+            {p.pct}%
+          </text>
+          <text x={p.x} y={H - 2} textAnchor="middle" fontSize={9} fill="rgba(255,255,255,0.28)">
+            {p.label}
+          </text>
+        </g>
+      ))}
+    </svg>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default async function TeamUserPage({ params, searchParams }: Props) {
+  const { userId }                  = await params
+  const { period: periodParam, tab } = await searchParams
+
+  const period: PeriodKey = (['week', 'lastweek', 'month'] as PeriodKey[]).includes(periodParam as PeriodKey)
+    ? (periodParam as PeriodKey)
+    : 'week'
+
+  // ── Auth + role check ────────────────────────────────────────────────────
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) redirect('/login')
 
-  // Use service client to bypass RLS — same pattern as team/page.tsx
   const service = getSupabaseServiceClient()
-  const { data: myProfile } = await service.from('profiles').select('role, org_role, company').eq('id', user.id).single()
-
+  const { data: myProfile } = await service.from('profiles').select('role,org_role,company').eq('id', user.id).single()
   const isAdmin   = myProfile?.role === 'admin'
   const isManager = myProfile?.org_role === 'manager'
   if (!isAdmin && !isManager) redirect('/dashboard')
 
-  // Fetch target user profile
-  const { data: profile } = await service
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single()
-
+  const { data: profile } = await service.from('profiles').select('*').eq('id', userId).single()
   if (!profile) notFound()
+  if (isManager && !isAdmin && (!profile.company || profile.company !== myProfile?.company)) redirect('/team')
 
-  // Managers can only view profiles from their own company
-  if (isManager && !isAdmin) {
-    if (!profile.company || profile.company !== myProfile?.company) {
-      redirect('/team')
-    }
+  // ── Period bounds ────────────────────────────────────────────────────────
+  const today      = todayISO()
+  const periodType: PeriodType = period === 'month' ? 'monthly' : 'weekly'
+  const anchor     = period === 'lastweek' ? addDays(parseISO(today), -7) : parseISO(today)
+
+  const { start: periodStart, end: periodEnd } = getPeriodRange(periodType, anchor)
+  const { start: prevStart,   end: prevEnd   } = getPeriodRange(periodType, addDays(parseISO(periodStart), -1))
+
+  // Trend: last 6 calendar weeks ending today
+  const trendWeeks: { start: string; end: string; label: string }[] = []
+  for (let i = 5; i >= 0; i--) {
+    const a         = addDays(parseISO(today), -i * 7)
+    const { start, end } = getPeriodRange('weekly', a)
+    trendWeeks.push({ start, end, label: `S${getISOWeek(parseISO(start))}` })
+  }
+  const trendRangeStart = trendWeeks[0].start
+  const past30Start     = addDaysToISO(today, -29)
+
+  // ── Fetch all data ───────────────────────────────────────────────────────
+  const [
+    activitiesRes,
+    periodLogsRes,
+    prevLogsRes,
+    trendLogsRes,
+    streakLogsRes,
+    scenarioRes,
+    pipelineRes,
+    coachRes,
+    activitiesForEditRes,
+  ] = await Promise.all([
+    service.from('activities')
+      .select('id,name,type,channel,weekly_goal,monthly_goal')
+      .eq('user_id', userId).eq('status', 'active')
+      .order('sort_order').order('name'),
+
+    service.from('activity_logs')
+      .select('activity_id,real_executed,day_goal')
+      .eq('user_id', userId).gte('log_date', periodStart).lte('log_date', periodEnd),
+
+    service.from('activity_logs')
+      .select('activity_id,real_executed,day_goal')
+      .eq('user_id', userId).gte('log_date', prevStart).lte('log_date', prevEnd),
+
+    service.from('activity_logs')
+      .select('log_date,real_executed,day_goal')
+      .eq('user_id', userId).gte('log_date', trendRangeStart).lte('log_date', today),
+
+    service.from('activity_logs')
+      .select('log_date')
+      .eq('user_id', userId).gte('log_date', past30Start).lte('log_date', today),
+
+    service.from('recipe_scenarios')
+      .select('funnel_stages,monthly_revenue_goal')
+      .eq('user_id', userId).eq('is_active', true)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+
+    service.from('pipeline_entries')
+      .select('stage,quantity,amount_usd')
+      .eq('user_id', userId)
+      .gte('entry_date', today.slice(0, 8) + '01').lte('entry_date', today),
+
+    service.from('coach_messages')
+      .select('id,type,message,period_date,created_at')
+      .eq('user_id', userId).eq('type', 'weekly')
+      .order('period_date', { ascending: false }).limit(1).maybeSingle(),
+
+    tab === 'activities'
+      ? service.from('activities')
+          .select('id,name,channel,type,monthly_goal,weekly_goal,daily_goal,status')
+          .eq('user_id', userId).order('status').order('sort_order').order('name')
+      : Promise.resolve({ data: null }),
+  ])
+
+  const activities = activitiesRes.data ?? []
+  const periodLogs = periodLogsRes.data ?? []
+  const prevLogs   = prevLogsRes.data ?? []
+  const trendLogs  = trendLogsRes.data ?? []
+  const stages     = scenarioRes.data?.funnel_stages ?? DEFAULT_FUNNEL_STAGES
+  const monthlyGoal = scenarioRes.data?.monthly_revenue_goal ?? 0
+  const pipeline   = pipelineRes.data ?? []
+  const lastCoach  = coachRes.data
+
+  // ── Compliance ───────────────────────────────────────────────────────────
+  const periodReal = periodLogs.reduce((s, l) => s + l.real_executed, 0)
+  const periodGoal = periodLogs.reduce((s, l) => s + l.day_goal, 0)
+  const periodPct  = periodGoal > 0 ? Math.round((periodReal / periodGoal) * 100) : 0
+
+  const prevReal   = prevLogs.reduce((s, l) => s + l.real_executed, 0)
+  const prevGoal   = prevLogs.reduce((s, l) => s + l.day_goal, 0)
+  const prevPct    = prevGoal > 0 ? Math.round((prevReal / prevGoal) * 100) : 0
+  const delta      = periodPct - prevPct
+
+  // ── Activity breakdown rows ──────────────────────────────────────────────
+  const realByAct: Record<string, number> = {}
+  const goalByAct: Record<string, number> = {}
+  for (const l of periodLogs) {
+    realByAct[l.activity_id] = (realByAct[l.activity_id] ?? 0) + l.real_executed
+    goalByAct[l.activity_id] = (goalByAct[l.activity_id] ?? 0) + l.day_goal
+  }
+  const breakdownRows: ActivityBreakdownRow[] = activities.map((a) => ({
+    id:      a.id,
+    name:    a.name,
+    type:    a.type as 'OUTBOUND' | 'INBOUND',
+    channel: a.channel,
+    goal:    goalByAct[a.id] ?? (period === 'month' ? a.monthly_goal : a.weekly_goal),
+    real:    realByAct[a.id] ?? 0,
+  }))
+
+  // ── Streak ───────────────────────────────────────────────────────────────
+  const streakDays = new Set((streakLogsRes.data ?? []).map((l) => l.log_date)).size
+
+  // ── Trend data ───────────────────────────────────────────────────────────
+  const trendData = trendWeeks.map(({ start, end, label }) => {
+    const wLogs = trendLogs.filter((l) => l.log_date >= start && l.log_date <= end)
+    const r     = wLogs.reduce((s, l) => s + l.real_executed, 0)
+    const g     = wLogs.reduce((s, l) => s + l.day_goal, 0)
+    return { label, pct: g > 0 ? Math.round((r / g) * 100) : 0 }
+  })
+
+  // ── Pipeline ─────────────────────────────────────────────────────────────
+  const { open: pipeOpen, closed: pipeClosed } = calcPipelineValue(pipeline, stages)
+  const countByStage: Record<string, number>   = {}
+  for (const e of pipeline) countByStage[e.stage] = (countByStage[e.stage] ?? 0) + e.quantity
+
+  // ── Labels ───────────────────────────────────────────────────────────────
+  const PERIOD_LABELS: Record<PeriodKey, string> = {
+    week:     'Esta semana',
+    lastweek: 'Semana pasada',
+    month:    'Este mes',
+  }
+  const periodDisplayLabel = period === 'month'
+    ? format(parseISO(periodStart), 'MMMM yyyy', { locale: es })
+    : `${format(parseISO(periodStart), 'd MMM', { locale: es })} – ${format(parseISO(periodEnd), 'd MMM yyyy', { locale: es })}`
+
+  const status = statusBadge(periodPct)
+
+  // ── Coach week label ─────────────────────────────────────────────────────
+  let coachWeekLabel = ''
+  if (lastCoach) {
+    try {
+      const d = parseISO(lastCoach.period_date)
+      coachWeekLabel = `${format(d, 'd MMM', { locale: es })} – ${format(addDays(d, 6), 'd MMM yyyy', { locale: es })}`
+    } catch { coachWeekLabel = lastCoach.period_date }
   }
 
-  const today     = todayISO()
-  const todayDate = parseISO(today)
-  const weekStart = toISODate(startOfWeek(todayDate, { weekStartsOn: 1 }))
-  const weekEnd   = toISODate(endOfWeek(todayDate,   { weekStartsOn: 1 }))
-
-  // ── Tab: Dashboard ───────────────────────────────────────────
-  let dashData: {
-    weeklyReal: number; weeklyGoal: number; weeklyCompliance: number
-    totalActivities: number; streak: number
-    activityRows: { name: string; channel: string; real: number; goal: number; pct: number }[]
-  } | null = null
-
-  if (activeTab === 'dashboard') {
-    const [logsRes, activitiesRes] = await Promise.all([
-      service.from('activity_logs').select('activity_id,real_executed,day_goal')
-        .eq('user_id', userId).gte('log_date', weekStart).lte('log_date', weekEnd),
-      service.from('activities').select('id,name,channel,weekly_goal')
-        .eq('user_id', userId).eq('status', 'active'),
-    ])
-
-    const logs       = logsRes.data ?? []
-    const activities = activitiesRes.data ?? []
-
-    const realByActivity: Record<string, number> = {}
-    for (const log of logs) {
-      realByActivity[log.activity_id] = (realByActivity[log.activity_id] ?? 0) + log.real_executed
-    }
-
-    const weeklyReal = logs.reduce((s, l) => s + l.real_executed, 0)
-    const weeklyGoal = activities.reduce((s, a) => s + a.weekly_goal, 0)
-    const weeklyCompliance = weeklyGoal > 0 ? Math.round((weeklyReal / weeklyGoal) * 100) : 0
-
-    // Streak: count distinct log_dates in last 14 days
-    const past14 = toISODate(new Date(parseISO(today).getTime() - 14 * 24 * 60 * 60 * 1000))
-    const { data: streakLogs } = await service
-      .from('activity_logs').select('log_date')
-      .eq('user_id', userId).gte('log_date', past14)
-    const uniqueDates = new Set(streakLogs?.map((l) => l.log_date) ?? [])
-    const streak = uniqueDates.size
-
-    const activityRows = activities.map((a) => {
-      const real = realByActivity[a.id] ?? 0
-      const goal = a.weekly_goal
-      return { name: a.name, channel: a.channel, real, goal, pct: goal > 0 ? Math.round((real / goal) * 100) : 0 }
-    }).sort((a, b) => b.pct - a.pct)
-
-    dashData = { weeklyReal, weeklyGoal, weeklyCompliance, totalActivities: activities.length, streak, activityRows }
+  // ── Activities tab — admin escape hatch ──────────────────────────────────
+  if (tab === 'activities') {
+    const activitiesForEdit = ((activitiesForEditRes?.data ?? []) as {
+      id: string; name: string; channel: string; type: 'OUTBOUND' | 'INBOUND'
+      monthly_goal: number; weekly_goal: number; daily_goal: number; status: 'active' | 'inactive'
+    }[])
+    return (
+      <div className="flex flex-col h-full">
+        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: '#0d0d0d', padding: '20px 32px 16px', flexShrink: 0 }}>
+          <div style={{ marginBottom: 12 }}>
+            <Link href={`/team/${userId}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}
+              className="hover:text-white transition-colors">
+              <ArrowLeft style={{ width: 14, height: 14 }} /> Volver al perfil
+            </Link>
+          </div>
+          <h1 style={{ fontSize: 16, fontWeight: 600, color: '#ffffff', marginBottom: 4 }}>
+            Editar actividades — {profile.full_name ?? profile.email}
+          </h1>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+            Edita metas mensuales. Los valores semanales y diarios se recalculan automáticamente.
+          </p>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
+          <div style={{ maxWidth: 720 }}>
+            {activitiesForEdit.length === 0
+              ? <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>Sin actividades configuradas.</p>
+              : <TeamUserGoalEditor activities={activitiesForEdit} userId={userId} />
+            }
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  // ── Tab: Activities ──────────────────────────────────────────
-  let activitiesForEdit: {
-    id: string; name: string; channel: string; type: 'OUTBOUND' | 'INBOUND'
-    monthly_goal: number; weekly_goal: number; daily_goal: number
-    status: 'active' | 'inactive'
-  }[] = []
-
-  if (activeTab === 'activities') {
-    const { data } = await service
-      .from('activities').select('id,name,channel,type,monthly_goal,weekly_goal,daily_goal,status')
-      .eq('user_id', userId).order('status').order('sort_order').order('name')
-    activitiesForEdit = (data ?? []) as typeof activitiesForEdit
-  }
-
-  // ── Tab: Pipeline ────────────────────────────────────────────
-  let pipelineTabData: {
-    stages: string[]
-    stageStats: { stage: string; real: number; planned: number }[]
-    conversions: ConversionResult[]
-    openAmount: number
-    closedAmount: number
-    monthlyGoal: number
-    entries: PipelineEntry[]
-  } | null = null
-
-  if (activeTab === 'pipeline') {
-    const monthStart = today.slice(0, 8) + '01'
-    const [scenarioRes, entriesRes, actLogsRes] = await Promise.all([
-      service.from('recipe_scenarios').select('*').eq('user_id', userId).eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      service.from('pipeline_entries').select('*').eq('user_id', userId).gte('entry_date', monthStart).lte('entry_date', today).order('entry_date', { ascending: false }),
-      service.from('activity_logs').select('real_executed').eq('user_id', userId).gte('log_date', monthStart).lte('log_date', today),
-    ])
-
-    const sc            = scenarioRes.data
-    const stages        = sc?.funnel_stages  ?? DEFAULT_FUNNEL_STAGES
-    const outRates      = sc?.outbound_rates ?? DEFAULT_OUTBOUND_RATES
-    const inRates       = sc?.inbound_rates  ?? DEFAULT_INBOUND_RATES
-    const workingDays   = sc?.working_days_per_month ?? 20
-    const actTotal      = (actLogsRes.data ?? []).reduce((s, l) => s + l.real_executed, 0)
-    const outboundPct   = (sc?.outbound_pct ?? 80) / 100
-    const combinedRates = outRates.map((r, i) => Math.round(r * outboundPct + (inRates[i] ?? r) * (1 - outboundPct)))
-
-    const conversions   = calcRealConversions(actTotal, entriesRes.data ?? [], stages, combinedRates)
-    const pipelineVal   = calcPipelineValue(entriesRes.data ?? [], stages)
-
-    const recipeResult = sc ? calcRecipe({
-      monthly_revenue_goal:   sc.monthly_revenue_goal,
-      average_ticket:         sc.average_ticket,
-      outbound_pct:           sc.outbound_pct,
-      working_days_per_month: workingDays,
-      funnel_stages: stages, outbound_rates: outRates, inbound_rates: inRates,
-    }) : null
-
-    const countMap: Record<string, number> = {}
-    for (const e of entriesRes.data ?? []) countMap[e.stage] = (countMap[e.stage] ?? 0) + e.quantity
-
-    const stageStats = stages.map((stage, i) => {
-      const realCount   = i === 0 ? actTotal : (countMap[stage] ?? 0)
-      const monthlyPlan = recipeResult
-        ? Math.ceil((recipeResult.outbound.stage_values[i] ?? 0) + (recipeResult.inbound.stage_values[i] ?? 0))
-        : 0
-      return { stage, real: realCount, planned: scalePlanToperiod(monthlyPlan, 'monthly', workingDays) }
-    })
-
-    pipelineTabData = {
-      stages, stageStats, conversions,
-      openAmount:  pipelineVal.open,
-      closedAmount: pipelineVal.closed,
-      monthlyGoal: sc?.monthly_revenue_goal ?? 0,
-      entries: (entriesRes.data ?? []),
-    }
-  }
-
-  // ── Tab: Coach ───────────────────────────────────────────────
-  let coachMessages: {
-    id: string; type: string; message: string; period_date: string
-    context: Record<string, unknown> | null; user_comment: string | null; created_at: string
-  }[] = []
-
-  if (activeTab === 'coach') {
-    const { data } = await service
-      .from('coach_messages').select('id,type,message,period_date,context,user_comment,created_at')
-      .eq('user_id', userId).order('period_date', { ascending: false }).order('created_at', { ascending: false })
-      .limit(50)
-    coachMessages = (data ?? []).map((m) => ({ ...m, context: m.context as Record<string, unknown> | null }))
-  }
-
-  const weekLabel = `${format(parseISO(weekStart), 'd MMM', { locale: es })} – ${format(parseISO(weekEnd), 'd MMM yyyy', { locale: es })}`
-
+  // ── Main profile view ────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
-      {/* Sticky header */}
-      <div className="border-b border-border bg-card/80 backdrop-blur-sm px-8 pt-5 pb-0 space-y-4 shrink-0">
+
+      {/* ── Sticky header ──────────────────────────────────────────────────── */}
+      <div style={{
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        background: 'rgba(10,10,10,0.96)',
+        backdropFilter: 'blur(8px)',
+        padding: '18px 32px 14px',
+        flexShrink: 0,
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+      }}>
+
         {/* Back + admin banner */}
-        <div className="flex items-center justify-between gap-4">
-          <Link href="/team" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-3.5 w-3.5" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <Link href="/team" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}
+            className="hover:text-white transition-colors">
+            <ArrowLeft style={{ width: 13, height: 13 }} />
             Mi Equipo
           </Link>
-          <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-1.5">
-            <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">
-              {isAdmin ? 'Viendo como admin' : 'Viendo como manager'} — datos de {profile.full_name ?? profile.email}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{
+              fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: '#BA7517', background: 'rgba(186,117,23,0.08)',
+              border: '1px solid rgba(186,117,23,0.2)', borderRadius: 4, padding: '3px 10px',
+            }}>
+              {isAdmin ? 'Admin' : 'Manager'} — {profile.full_name ?? profile.email}
             </span>
+            {isAdmin && (
+              <Link href={`/team/${userId}?tab=activities`} style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}
+                className="hover:text-white transition-colors">
+                Editar actividades →
+              </Link>
+            )}
           </div>
         </div>
 
-        {/* User info */}
-        <div className="flex items-start gap-4">
+        {/* Avatar + info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
           <Avatar name={profile.full_name} email={profile.email} avatarUrl={profile.avatar_url} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-lg font-bold text-foreground">{profile.full_name ?? profile.email}</h1>
-              <span className={cn(
-                'text-[10px] font-semibold px-1.5 py-0.5 rounded border',
-                profile.role === 'active' || profile.role === 'admin'
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                  : 'bg-muted text-muted-foreground border-border'
-              )}>
-                {profile.role === 'admin' ? 'Admin' : profile.role === 'active' ? 'Activo' : 'Inactivo'}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 5 }}>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: '#ffffff', margin: 0, lineHeight: 1.2 }}>
+                {profile.full_name ?? profile.email}
+              </h1>
+              <span style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                color: status.color, background: status.bg, border: `1px solid ${status.border}`,
+                borderRadius: 999, padding: '2px 10px',
+              }}>
+                {status.label}
               </span>
             </div>
-            <div className="flex items-center gap-4 mt-1 flex-wrap text-[11px] text-muted-foreground">
-              <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{profile.email}</span>
-              {profile.company && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{profile.company}</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                <Mail style={{ width: 11, height: 11 }} />{profile.email}
+              </span>
+              {profile.company && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                  <Building2 style={{ width: 11, height: 11 }} />{profile.company}
+                </span>
+              )}
               {profile.last_seen_at && (
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                  <Clock style={{ width: 11, height: 11 }} />
                   Último acceso: {formatDistanceToNow(new Date(profile.last_seen_at), { addSuffix: true, locale: es })}
                 </span>
               )}
@@ -275,162 +372,176 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
           </div>
         </div>
 
-        {/* Tabs */}
-        <TeamUserTabs activeTab={activeTab} userId={userId} />
+        {/* Period selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          {(['week', 'lastweek', 'month'] as PeriodKey[]).map((p) => (
+            <Link
+              key={p}
+              href={`/team/${userId}?period=${p}`}
+              style={{
+                fontSize: 12, fontWeight: 500, padding: '5px 14px', borderRadius: 6, textDecoration: 'none',
+                background: period === p ? 'rgba(0,217,255,0.1)'       : 'transparent',
+                color:      period === p ? '#00D9FF'                    : 'rgba(255,255,255,0.4)',
+                border:     period === p ? '1px solid rgba(0,217,255,0.3)' : '1px solid transparent',
+                transition: 'all 0.15s',
+              }}
+            >
+              {PERIOD_LABELS[p]}
+            </Link>
+          ))}
+          <span style={{ marginLeft: 10, fontSize: 11, color: 'rgba(255,255,255,0.22)' }}>
+            {periodDisplayLabel}
+          </span>
+        </div>
       </div>
 
-      {/* Tab content */}
-      <div className="flex-1 overflow-y-auto p-8">
+      {/* ── Main content ───────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 28 }}>
 
-        {/* ── DASHBOARD TAB ───────────────────────────────── */}
-        {activeTab === 'dashboard' && dashData && (
-          <div className="space-y-6 max-w-3xl">
-            <p className="text-xs text-muted-foreground">Semana: <span className="text-foreground font-medium">{weekLabel}</span></p>
+          {/* ── KPI cards ──────────────────────────────────────────────────── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
 
-            {/* KPI cards */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {[
-                { label: 'Cumplimiento',   value: `${dashData.weeklyCompliance}%`, sub: 'esta semana', highlight: complianceColor(dashData.weeklyCompliance) },
-                { label: 'Actividades',    value: `${dashData.weeklyReal}`,        sub: `/ ${dashData.weeklyGoal} meta` },
-                { label: 'Check-ins (14d)',value: `${dashData.streak}`,            sub: 'días con actividad' },
-                { label: 'Actividades',    value: `${dashData.totalActivities}`,   sub: 'configuradas' },
-              ].map(({ label, value, sub, highlight }) => (
-                <div key={label} className="rounded-lg border border-border bg-card p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-                  <p className={cn('mt-1.5 text-2xl font-bold font-data', highlight ?? 'text-foreground')}>{value}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>
-                </div>
-              ))}
+            {/* Compliance */}
+            <div style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', background: '#0d0d0d', padding: '18px 20px' }}>
+              <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', margin: '0 0 10px' }}>
+                Cumplimiento
+              </p>
+              <p style={{ fontSize: 30, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: semColor(periodPct), lineHeight: 1, margin: '0 0 5px' }}>
+                {periodPct}%
+              </p>
+              <p style={{ fontSize: 11, fontVariantNumeric: 'tabular-nums', color: delta === 0 ? 'rgba(255,255,255,0.3)' : delta > 0 ? '#1D9E75' : '#E24B4A', margin: 0 }}>
+                {delta === 0 ? '—' : delta > 0 ? `▲ ${delta}pp` : `▼ ${Math.abs(delta)}pp`} vs anterior
+              </p>
             </div>
 
-            {/* Activity breakdown */}
-            {dashData.activityRows.length > 0 && (
-              <div className="rounded-lg border border-border bg-card overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actividad</th>
-                      <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Real</th>
-                      <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Meta sem.</th>
-                      <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">%</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {dashData.activityRows.map((row) => (
-                      <tr key={row.name} className="hover:bg-muted/20 transition-colors">
-                        <td className="px-4 py-2.5">
-                          <p className="text-xs font-medium text-foreground">{row.name}</p>
-                          <p className="text-[10px] text-muted-foreground">{row.channel}</p>
-                        </td>
-                        <td className="px-4 py-2.5 text-right text-xs font-data font-semibold text-foreground">{row.real}</td>
-                        <td className="px-4 py-2.5 text-right text-xs font-data text-muted-foreground">{row.goal}</td>
-                        <td className="px-4 py-2.5 text-right">
-                          <span className={cn('text-xs font-data font-bold', complianceColor(row.pct))}>
-                            {row.pct}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* Actividades */}
+            <div style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', background: '#0d0d0d', padding: '18px 20px' }}>
+              <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', margin: '0 0 10px' }}>
+                Actividades
+              </p>
+              <p style={{ fontSize: 30, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#ffffff', lineHeight: 1, margin: '0 0 5px' }}>
+                {periodReal}
+              </p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: 0 }}>
+                / {periodGoal} meta del período
+              </p>
+            </div>
+
+            {/* Pipeline abierto */}
+            <div style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', background: '#0d0d0d', padding: '18px 20px' }}>
+              <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', margin: '0 0 10px' }}>
+                Pipeline abierto
+              </p>
+              <p style={{ fontSize: 26, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#ffffff', lineHeight: 1, margin: '0 0 5px' }}>
+                {fmtUSD(pipeOpen)}
+              </p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: 0 }}>
+                {fmtUSD(pipeClosed)} cerrado este mes
+              </p>
+            </div>
+
+            {/* Racha */}
+            <div style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', background: '#0d0d0d', padding: '18px 20px' }}>
+              <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', margin: '0 0 10px' }}>
+                Check-ins
+              </p>
+              <p style={{ fontSize: 30, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#ffffff', lineHeight: 1, margin: '0 0 5px' }}>
+                {streakDays}
+              </p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: 0 }}>
+                días activos (últimos 30)
+              </p>
+            </div>
+          </div>
+
+          {/* ── Trend chart ────────────────────────────────────────────────── */}
+          <div style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', background: '#0d0d0d', padding: '20px 24px' }}>
+            <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', margin: '0 0 16px' }}>
+              Tendencia — últimas 6 semanas
+            </p>
+            <TrendChart weeks={trendData} />
+          </div>
+
+          {/* ── Activity breakdown ─────────────────────────────────────────── */}
+          {breakdownRows.length > 0 && (
+            <ActivityBreakdownTable rows={breakdownRows} />
+          )}
+
+          {/* ── Pipeline ───────────────────────────────────────────────────── */}
+          <div style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', background: '#0d0d0d', overflow: 'hidden' }}>
+            <div style={{
+              padding: '14px 20px',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
+            }}>
+              <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', margin: 0 }}>
+                Pipeline — este mes
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
+                  Abierto: <strong style={{ color: '#ffffff', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(pipeOpen)}</strong>
+                </span>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
+                  Cerrado: <strong style={{ color: '#1D9E75', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(pipeClosed)}</strong>
+                </span>
+                {monthlyGoal > 0 && (
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
+                    Meta: <strong style={{ color: 'rgba(255,255,255,0.65)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(monthlyGoal)}</strong>
+                  </span>
+                )}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* ── ACTIVITIES TAB ──────────────────────────────── */}
-        {activeTab === 'activities' && (
-          <div className="max-w-3xl">
-            <p className="text-sm text-muted-foreground mb-6">
-              Edita las metas mensuales de cada actividad. Los valores semanales y diarios se recalculan automáticamente.
-            </p>
-            {activitiesForEdit.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Este usuario aún no tiene actividades configuradas.</p>
-            ) : (
-              <TeamUserGoalEditor activities={activitiesForEdit} userId={userId} />
-            )}
-          </div>
-        )}
-
-        {/* ── PIPELINE TAB ────────────────────────────────── */}
-        {activeTab === 'pipeline' && (
-          <div className="space-y-6 max-w-3xl">
-            <p className="text-xs text-muted-foreground">
-              Pipeline de <span className="font-medium text-foreground">{profile.full_name ?? profile.email}</span>
-              {' '}— este mes (solo lectura)
-            </p>
-            {!pipelineTabData ? (
-              <p className="text-sm text-muted-foreground">No se pudieron cargar los datos del pipeline.</p>
-            ) : (
-              <>
-                <PipelineFunnelSummary
-                  stages={pipelineTabData.stages}
-                  stageStats={pipelineTabData.stageStats}
-                  conversions={pipelineTabData.conversions}
-                  openAmount={pipelineTabData.openAmount}
-                  closedAmount={pipelineTabData.closedAmount}
-                  monthlyGoal={pipelineTabData.monthlyGoal}
-                  periodLabel="este mes"
-                />
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Registros del mes</h3>
-                  <PipelineEntriesTable
-                    entries={pipelineTabData.entries}
-                    stages={pipelineTabData.stages}
-                    scenarioId={null}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── COACH TAB ───────────────────────────────────── */}
-        {activeTab === 'coach' && (
-          <div className="max-w-3xl space-y-4">
-            {coachMessages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay reportes Coach IA para este usuario.</p>
-            ) : (
-              coachMessages.map((msg) => {
-                const TYPE_LABELS: Record<string, { label: string; cls: string }> = {
-                  daily:   { label: 'DIARIO',   cls: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-                  weekly:  { label: 'SEMANAL',  cls: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
-                  monthly: { label: 'MENSUAL',  cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-                }
-                const badge = TYPE_LABELS[msg.type] ?? TYPE_LABELS.daily
-                let periodLabel = msg.period_date
-                try {
-                  const d = parseISO(msg.period_date)
-                  if (msg.type === 'daily')   periodLabel = format(d, "EEEE d 'de' MMMM yyyy", { locale: es })
-                  if (msg.type === 'weekly') {
-                    const end = new Date(d); end.setDate(d.getDate() + 6)
-                    periodLabel = `Semana del ${format(d, 'd', { locale: es })} al ${format(end, "d 'de' MMMM yyyy", { locale: es })}`
-                  }
-                  if (msg.type === 'monthly') periodLabel = format(d, "MMMM yyyy", { locale: es })
-                } catch { /* keep raw */ }
-
-                return (
-                  <div key={msg.id} className="rounded-lg border border-border bg-card p-5 space-y-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded border', badge.cls)}>{badge.label}</span>
-                      <span className="text-[11px] text-muted-foreground">📅 <span className="capitalize">{periodLabel}</span></span>
+            </div>
+            {stages.slice(1).some((s) => (countByStage[s] ?? 0) > 0) ? (
+              <div>
+                {stages.slice(1).map((stage) => {
+                  const count = countByStage[stage] ?? 0
+                  if (count === 0) return null
+                  return (
+                    <div key={stage} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '10px 20px', borderBottom: '0.5px solid rgba(255,255,255,0.04)',
+                    }}>
+                      <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>{stage}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: '#ffffff' }}>
+                        {count}
+                      </span>
                     </div>
-                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{msg.message}</p>
-                    {msg.user_comment && (
-                      <div className="rounded border border-border/50 bg-muted/20 px-3 py-2">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Comentario del usuario</p>
-                        <p className="text-xs text-foreground">{msg.user_comment}</p>
-                      </div>
-                    )}
-                    <p className="text-[10px] text-muted-foreground">
-                      Generado el {format(new Date(msg.created_at), "d 'de' MMMM yyyy 'a las' HH:mm", { locale: es })}
-                    </p>
-                  </div>
-                )
-              })
+                  )
+                })}
+              </div>
+            ) : (
+              <p style={{ padding: '24px 20px', fontSize: 13, color: 'rgba(255,255,255,0.25)', textAlign: 'center', margin: 0 }}>
+                Sin registros en el pipeline este mes
+              </p>
             )}
           </div>
-        )}
+
+          {/* ── Coach Pro — último análisis ────────────────────────────────── */}
+          <div style={{ borderRadius: 10, border: '1px solid #00D9FF', background: '#0a0a0a', padding: '24px 28px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: lastCoach ? 16 : 0 }}>
+              <Sparkles style={{ width: 18, height: 18, color: '#00D9FF', flexShrink: 0 }} strokeWidth={1.5} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#ffffff', margin: 0, flex: 1 }}>
+                Último Análisis Coach Pro
+              </p>
+              {lastCoach && (
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                  {coachWeekLabel}
+                </span>
+              )}
+            </div>
+            {lastCoach ? (
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.72)', lineHeight: 1.75, whiteSpace: 'pre-line', margin: 0 }}>
+                {lastCoach.message}
+              </p>
+            ) : (
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.28)', margin: '12px 0 0' }}>
+                Sin análisis semanal generado para este usuario.
+              </p>
+            )}
+          </div>
+
+        </div>
       </div>
     </div>
   )
