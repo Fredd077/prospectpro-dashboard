@@ -27,12 +27,18 @@ export async function POST(req: Request) {
   let company: string | undefined
   let userIds: string[] | undefined
   let threshold: number | undefined
+  let periodType: string | undefined
+  let periodDate: string | undefined
   try {
     const body = await req.json()
     if (body?.scope === 'at_risk') scope = 'at_risk'
     if (typeof body?.company === 'string' && body.company) company = body.company
     if (Array.isArray(body?.userIds) && body.userIds.length > 0) userIds = body.userIds
     if (typeof body?.threshold === 'number') threshold = body.threshold
+    if (typeof body?.period_type === 'string') periodType = body.period_type
+    if (typeof body?.period_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.period_date)) {
+      periodDate = body.period_date
+    }
   } catch {
     // defaults fine
   }
@@ -42,7 +48,8 @@ export async function POST(req: Request) {
     company = profile!.company ?? undefined
   }
 
-  const weekStart = currentWeekStart()
+  // Use the period_date supplied by the client (if any), otherwise default to current week
+  const weekStart = periodDate ?? currentWeekStart()
   const service   = getSupabaseServiceClient()
 
   try {

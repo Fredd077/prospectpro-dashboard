@@ -6,7 +6,7 @@ import { Users, TrendingUp, CheckSquare, Target, Flame, ArrowRight } from 'lucid
 import { TopBar } from '@/components/layout/TopBar'
 import { TeamFilters } from '@/components/team/TeamFilters'
 import { TeamMemberFilter } from '@/components/team/TeamMemberFilter'
-import { ManagerReportPanel } from '@/components/team/ManagerReportPanel'
+import { ReportModal } from '@/components/team/ReportModal'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { todayISO, toISODate } from '@/lib/utils/dates'
 import { startOfWeek, endOfWeek, parseISO, format, formatDistanceToNow } from 'date-fns'
@@ -224,15 +224,7 @@ export default async function TeamPage({ searchParams }: Props) {
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
               Reportes del equipo
             </p>
-            <ManagerReportPanel
-              managerEmail={myProfile.email}
-              users={teamUsers.map((u) => ({
-                id:        u.id,
-                full_name: u.full_name,
-                email:     u.email,
-                company:   u.company,
-              }))}
-            />
+            <ReportModal managerEmail={myProfile.email} />
           </div>
         )}
 

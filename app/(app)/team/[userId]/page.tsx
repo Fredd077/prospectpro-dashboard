@@ -1,25 +1,27 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
+import { Suspense } from 'react'
 import { ArrowLeft, Building2, Mail, Clock, Sparkles } from 'lucide-react'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { TeamUserGoalEditor } from '@/components/team/TeamUserGoalEditor'
 import { ActivityBreakdownTable } from '@/components/dashboard/ActivityBreakdownTable'
 import type { ActivityBreakdownRow } from '@/components/dashboard/ActivityBreakdownTable'
+import { PeriodSelector } from '@/components/team/PeriodSelector'
 import { todayISO, toISODate, getPeriodRange, addDaysToISO } from '@/lib/utils/dates'
 import { calcPipelineValue, fmtUSD } from '@/lib/calculations/pipeline'
 import { DEFAULT_FUNNEL_STAGES } from '@/lib/calculations/recipe'
 import type { PeriodType } from '@/lib/types/common'
-import { parseISO, format, formatDistanceToNow, addDays, getISOWeek } from 'date-fns'
+import { parseISO, format, formatDistanceToNow, addDays, getISOWeek, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 export const metadata: Metadata = { title: 'Perfil de usuario — ProspectPro' }
 
-type PeriodKey = 'week' | 'lastweek' | 'month'
+type PeriodOption = 'week' | 'last_week' | 'month' | 'last_month' | 'quarter' | 'custom'
 
 interface Props {
   params:       Promise<{ userId: string }>
-  searchParams: Promise<{ period?: string; tab?: string }>
+  searchParams: Promise<{ period?: string; tab?: string; from?: string; to?: string }>
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -96,11 +98,12 @@ function TrendChart({ weeks }: { weeks: { label: string; pct: number }[] }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function TeamUserPage({ params, searchParams }: Props) {
-  const { userId }                  = await params
-  const { period: periodParam, tab } = await searchParams
+  const { userId }                              = await params
+  const { period: periodParam, tab, from: fromParam = '', to: toParam = '' } = await searchParams
 
-  const period: PeriodKey = (['week', 'lastweek', 'month'] as PeriodKey[]).includes(periodParam as PeriodKey)
-    ? (periodParam as PeriodKey)
+  const VALID_PERIODS: PeriodOption[] = ['week', 'last_week', 'month', 'last_month', 'quarter', 'custom']
+  const period: PeriodOption = VALID_PERIODS.includes(periodParam as PeriodOption)
+    ? (periodParam as PeriodOption)
     : 'week'
 
   // ── Auth + role check ────────────────────────────────────────────────────
@@ -119,12 +122,44 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   if (isManager && !isAdmin && (!profile.company || profile.company !== myProfile?.company)) redirect('/team')
 
   // ── Period bounds ────────────────────────────────────────────────────────
-  const today      = todayISO()
-  const periodType: PeriodType = period === 'month' ? 'monthly' : 'weekly'
-  const anchor     = period === 'lastweek' ? addDays(parseISO(today), -7) : parseISO(today)
+  const today = todayISO()
 
-  const { start: periodStart, end: periodEnd } = getPeriodRange(periodType, anchor)
-  const { start: prevStart,   end: prevEnd   } = getPeriodRange(periodType, addDays(parseISO(periodStart), -1))
+  let periodStart: string, periodEnd: string
+  switch (period) {
+    case 'last_week':
+      ({ start: periodStart, end: periodEnd } = getPeriodRange('weekly',    addDays(parseISO(today), -7)))
+      break
+    case 'month':
+      ({ start: periodStart, end: periodEnd } = getPeriodRange('monthly',   parseISO(today)))
+      break
+    case 'last_month':
+      ({ start: periodStart, end: periodEnd } = getPeriodRange('monthly',   addDays(parseISO(today), -32)))
+      break
+    case 'quarter':
+      ({ start: periodStart, end: periodEnd } = getPeriodRange('quarterly', parseISO(today)))
+      break
+    case 'custom':
+      periodStart = /^\d{4}-\d{2}-\d{2}$/.test(fromParam) ? fromParam : today
+      periodEnd   = /^\d{4}-\d{2}-\d{2}$/.test(toParam)   ? toParam   : today
+      break
+    default: // week
+      ({ start: periodStart, end: periodEnd } = getPeriodRange('weekly',    parseISO(today)))
+  }
+
+  // Prev period for compliance delta
+  let prevStart: string, prevEnd: string
+  if (period === 'custom') {
+    const days = differenceInDays(parseISO(periodEnd), parseISO(periodStart)) + 1
+    const pEnd = addDaysToISO(periodStart, -1)
+    prevStart  = addDaysToISO(pEnd, -(days - 1))
+    prevEnd    = pEnd
+  } else {
+    const prevPType: PeriodType =
+      period === 'month' || period === 'last_month' ? 'monthly'
+      : period === 'quarter' ? 'quarterly'
+      : 'weekly'
+    ;({ start: prevStart, end: prevEnd } = getPeriodRange(prevPType, addDays(parseISO(periodStart), -1)))
+  }
 
   // Trend: last 6 calendar weeks ending today
   const trendWeeks: { start: string; end: string; label: string }[] = []
@@ -222,7 +257,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     name:    a.name,
     type:    a.type as 'OUTBOUND' | 'INBOUND',
     channel: a.channel,
-    goal:    goalByAct[a.id] ?? (period === 'month' ? a.monthly_goal : a.weekly_goal),
+    goal:    goalByAct[a.id] ?? (period === 'month' || period === 'last_month' || period === 'quarter' ? a.monthly_goal : a.weekly_goal),
     real:    realByAct[a.id] ?? 0,
   }))
 
@@ -243,14 +278,16 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   for (const e of pipeline) countByStage[e.stage] = (countByStage[e.stage] ?? 0) + e.quantity
 
   // ── Labels ───────────────────────────────────────────────────────────────
-  const PERIOD_LABELS: Record<PeriodKey, string> = {
-    week:     'Esta semana',
-    lastweek: 'Semana pasada',
-    month:    'Este mes',
+  let periodDisplayLabel: string
+  if (period === 'month' || period === 'last_month') {
+    periodDisplayLabel = format(parseISO(periodStart), 'MMMM yyyy', { locale: es })
+  } else if (period === 'quarter') {
+    periodDisplayLabel = `Q${Math.ceil((parseISO(periodStart).getMonth() + 1) / 3)} ${parseISO(periodStart).getFullYear()}`
+  } else if (period === 'custom' && fromParam && toParam) {
+    periodDisplayLabel = `${format(parseISO(fromParam), 'd MMM', { locale: es })} – ${format(parseISO(toParam), 'd MMM yyyy', { locale: es })}`
+  } else {
+    periodDisplayLabel = `${format(parseISO(periodStart), 'd MMM', { locale: es })} – ${format(parseISO(periodEnd), 'd MMM yyyy', { locale: es })}`
   }
-  const periodDisplayLabel = period === 'month'
-    ? format(parseISO(periodStart), 'MMMM yyyy', { locale: es })
-    : `${format(parseISO(periodStart), 'd MMM', { locale: es })} – ${format(parseISO(periodEnd), 'd MMM yyyy', { locale: es })}`
 
   const status = statusBadge(periodPct)
 
@@ -373,23 +410,11 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
         </div>
 
         {/* Period selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          {(['week', 'lastweek', 'month'] as PeriodKey[]).map((p) => (
-            <Link
-              key={p}
-              href={`/team/${userId}?period=${p}`}
-              style={{
-                fontSize: 12, fontWeight: 500, padding: '5px 14px', borderRadius: 6, textDecoration: 'none',
-                background: period === p ? 'rgba(0,217,255,0.1)'       : 'transparent',
-                color:      period === p ? '#00D9FF'                    : 'rgba(255,255,255,0.4)',
-                border:     period === p ? '1px solid rgba(0,217,255,0.3)' : '1px solid transparent',
-                transition: 'all 0.15s',
-              }}
-            >
-              {PERIOD_LABELS[p]}
-            </Link>
-          ))}
-          <span style={{ marginLeft: 10, fontSize: 11, color: 'rgba(255,255,255,0.22)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <Suspense fallback={<div style={{ height: 30, width: 320, borderRadius: 6, background: 'rgba(255,255,255,0.04)' }} />}>
+            <PeriodSelector />
+          </Suspense>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.22)' }}>
             {periodDisplayLabel}
           </span>
         </div>
