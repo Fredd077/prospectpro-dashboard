@@ -241,7 +241,7 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
                         <SelectTrigger className="w-full bg-black border-cyan-500/30 text-white text-sm">
                           <SelectValue placeholder="Todas las empresas" />
                         </SelectTrigger>
-                        <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
+                        <SelectContent side="top" className="bg-[#0a0a0a] border-cyan-500/30 max-h-48 overflow-y-auto">
                           <SelectItem value="" className="text-white/50 focus:bg-cyan-500/10 focus:text-white">
                             Todas las empresas
                           </SelectItem>
@@ -321,7 +321,7 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
                           <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
                             <SelectValue placeholder="Mes" />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
+                          <SelectContent side="top" className="bg-[#0a0a0a] border-cyan-500/30 max-h-48 overflow-y-auto">
                             {MESES.map((m) => (
                               <SelectItem key={m} value={m} className="text-white focus:bg-cyan-500/10 focus:text-white">
                                 {m}
@@ -333,7 +333,7 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
                           <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
                             <SelectValue placeholder="Año" />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
+                          <SelectContent side="top" className="bg-[#0a0a0a] border-cyan-500/30 max-h-48 overflow-y-auto">
                             {YEARS.map((y) => (
                               <SelectItem key={y} value={String(y)} className="text-white focus:bg-cyan-500/10 focus:text-white">
                                 {y}
@@ -350,7 +350,7 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
                           <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
                             <SelectValue placeholder="Trimestre" />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
+                          <SelectContent side="top" className="bg-[#0a0a0a] border-cyan-500/30 max-h-48 overflow-y-auto">
                             {QUARTER_LABELS.map((q) => (
                               <SelectItem key={q} value={q} className="text-white focus:bg-cyan-500/10 focus:text-white">
                                 {q}
@@ -362,7 +362,7 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
                           <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
                             <SelectValue placeholder="Año" />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
+                          <SelectContent side="top" className="bg-[#0a0a0a] border-cyan-500/30 max-h-48 overflow-y-auto">
                             {YEARS.map((y) => (
                               <SelectItem key={y} value={String(y)} className="text-white focus:bg-cyan-500/10 focus:text-white">
                                 {y}
