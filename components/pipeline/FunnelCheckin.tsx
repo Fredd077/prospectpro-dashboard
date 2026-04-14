@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Plus, Minus, ChevronDown, ChevronUp, X, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { DatePickerInput } from '@/components/ui/DatePickerInput'
 import { saveQuickFunnelCheckin } from '@/lib/actions/pipeline'
 import type { FunnelCheckinStageData } from '@/lib/actions/pipeline'
 import { todayISO } from '@/lib/utils/dates'
@@ -144,12 +145,10 @@ export function FunnelCheckin({
       <div className="flex items-center gap-3 flex-wrap">
         {/* Date */}
         {allowDateEdit ? (
-          <input
-            type="date"
+          <DatePickerInput
             value={date}
+            onChange={(d) => setDate(d)}
             max={today}
-            onChange={(e) => setDate(e.target.value)}
-            className="rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
         ) : (
           <span className="text-xs text-muted-foreground">{date}</span>

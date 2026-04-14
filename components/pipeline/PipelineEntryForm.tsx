@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { DatePickerInput } from '@/components/ui/DatePickerInput'
 import { savePipelineEntry, updatePipelineEntry, getCompanyNames } from '@/lib/actions/pipeline'
 import type { PipelineEntryData } from '@/lib/actions/pipeline'
 import type { PipelineEntry } from '@/lib/types/database'
@@ -95,13 +96,10 @@ export function PipelineEntryForm({ stages, scenarioId, editEntry, onSaved, onCa
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelCls}>Fecha</label>
-          <input
-            type="date"
+          <DatePickerInput
             value={entryDate}
+            onChange={(d) => setEntryDate(d)}
             max={today}
-            onChange={(e) => setEntryDate(e.target.value)}
-            className={inputCls}
-            required
           />
         </div>
         <div>
