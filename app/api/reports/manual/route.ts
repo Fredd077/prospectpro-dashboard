@@ -29,6 +29,8 @@ export async function POST(req: Request) {
   let threshold: number | undefined
   let periodType: string | undefined
   let periodDate: string | undefined
+  let memberId: string | undefined
+  let memberName: string | undefined
   try {
     const body = await req.json()
     if (body?.scope === 'at_risk') scope = 'at_risk'
@@ -39,6 +41,8 @@ export async function POST(req: Request) {
     if (typeof body?.period_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.period_date)) {
       periodDate = body.period_date
     }
+    if (typeof body?.memberId === 'string' && body.memberId) memberId = body.memberId
+    if (typeof body?.memberName === 'string' && body.memberName) memberName = body.memberName
   } catch {
     // defaults fine
   }
@@ -61,8 +65,9 @@ export async function POST(req: Request) {
         adminEmail:    profile!.email,
         triggeredBy:   'manual',
         filterCompany: company,
-        filterUserIds: userIds,
+        filterUserIds: memberId ? [memberId] : userIds,
         threshold,
+        memberName,
       },
       service,
     )

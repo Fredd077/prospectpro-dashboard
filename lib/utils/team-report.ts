@@ -30,6 +30,8 @@ export interface TeamReportOptions {
   threshold?: number
   /** Override the email recipient (default: adminEmail) */
   recipientEmail?: string
+  /** When filtering by a specific member, their display name for subject/header */
+  memberName?: string
 }
 
 export interface TeamReportResult {
@@ -100,7 +102,7 @@ export async function generateTeamReport(
 ): Promise<TeamReportResult> {
   const { scope, adminUserId, adminEmail, triggeredBy,
           filterUserIds, filterCompany, threshold = 70,
-          recipientEmail } = opts
+          recipientEmail, memberName } = opts
   const intendedEmail = recipientEmail ?? adminEmail
   const toEmail = intendedEmail
 
@@ -274,6 +276,7 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
     bestActivity,
     worstActivity,
     aiAnalysis,
+    memberName,
   })
 
   // 8. Send via Resend
@@ -286,7 +289,9 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
     body: JSON.stringify({
       from: 'ProspectPro Reports <reportes@prospectpro.cloud>',
       to: toEmail,
-      subject: `ProspectPro · Reporte de equipo — ${scopeLabel} · ${weekLabel}–${weekEndLabel}`,
+      subject: memberName
+        ? `ProspectPro · Reporte de equipo — ${scopeLabel} · ${memberName} · ${weekLabel}–${weekEndLabel}`
+        : `ProspectPro · Reporte de equipo — ${scopeLabel} · ${weekLabel}–${weekEndLabel}`,
       html,
     }),
   })
@@ -341,10 +346,11 @@ function buildTeamReportEmail(p: {
   bestActivity:   { name: string; avgPct: number } | null
   worstActivity:  { name: string; avgPct: number } | null
   aiAnalysis:     string
+  memberName?:    string
 }): string {
   const { weekStart, weekLabel, weekEndLabel, scopeLabel, threshold, summaries,
           atRiskCount, avgCompliance, improvingCount, decliningCount,
-          bestActivity, worstActivity, aiAnalysis } = p
+          bestActivity, worstActivity, aiAnalysis, memberName } = p
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const trendIcon  = (t: string) => t === 'improving' ? '&#8593;' : t === 'declining' ? '&#8595;' : '&#8594;'
@@ -519,6 +525,9 @@ function buildTeamReportEmail(p: {
         <table style="border-collapse:collapse;"><tr>
           <td style="padding:0; padding-right:8px;">
             <span style="background:#00D9FF12; color:#00D9FF; font-size:10px; font-weight:600; padding:3px 10px; border-radius:999px; border:1px solid #00D9FF30;">${companyName}</span>
+          </td>
+          <td style="padding:0; padding-right:8px;">
+            <span style="background:#a78bfa15; color:#a78bfa; font-size:10px; font-weight:600; padding:3px 10px; border-radius:999px; border:1px solid #a78bfa40;">${memberName ?? 'Equipo completo'}</span>
           </td>
           ${atRiskCount > 0 ? `<td style="padding:0;">
             <span style="background:#f8717115; color:#f87171; font-size:10px; font-weight:600; padding:3px 10px; border-radius:999px; border:1px solid #f8717140;">${atRiskCount} en riesgo</span>

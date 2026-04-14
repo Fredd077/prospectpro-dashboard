@@ -146,7 +146,7 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
           period_type: periodType,
           period_date: periodDate,
           ...(showCompanyFilter && selectedCompany ? { company: selectedCompany } : {}),
-          ...(memberObj ? { memberName: memberObj.name, memberEmail: memberObj.email } : {}),
+          ...(memberObj ? { memberId: memberObj.id, memberName: memberObj.name, memberEmail: memberObj.email } : {}),
         }),
       })
       const json = await res.json()
