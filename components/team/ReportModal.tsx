@@ -420,7 +420,11 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
                       </p>
                       <Select value={selectedMember} onValueChange={(v) => setSelectedMember(v ?? 'all')}>
                         <SelectTrigger className="w-full bg-black border-cyan-500/30 text-white text-sm">
-                          <SelectValue placeholder="Equipo completo" />
+                          <SelectValue>
+                            {selectedMember === 'all'
+                              ? 'Equipo completo'
+                              : (filteredMembers.find((m) => m.id === selectedMember)?.name ?? 'Equipo completo')}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent sideOffset={4} alignItemWithTrigger={false} className="bg-[#0a0a0a] border-cyan-500/30 z-[9999] max-h-[200px] overflow-y-auto">
                           <SelectItem value="all" className="text-white/50 focus:bg-cyan-500/10 focus:text-white">
