@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Send, RefreshCw, CheckCircle2, AlertTriangle, Users, Clock, X } from 'lucide-react'
 import { Calendar } from '@/components/ui/calendar'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { format, startOfWeek, endOfWeek, parseISO, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -133,12 +134,6 @@ export function ReportModal({ managerEmail }: ReportModalProps) {
   const isLoading  = loadState !== 'idle' && loadState !== 'done' && loadState !== 'error'
   const weekFrom   = startOfWeek(selectedDate, { weekStartsOn: 1 })
   const weekTo     = endOfWeek(selectedDate,   { weekStartsOn: 1 })
-
-  const selectStyle: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.8)',
-    border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6,
-    padding: '7px 10px', fontSize: 13, cursor: 'pointer', flex: 1,
-  }
 
   function pill(active: boolean): React.CSSProperties {
     return {
@@ -289,23 +284,59 @@ export function ReportModal({ managerEmail }: ReportModalProps) {
 
                     {periodType === 'monthly' && (
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <select value={month} onChange={(e) => setMonth(Number(e.target.value))} style={selectStyle}>
-                          {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                        </select>
-                        <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={selectStyle}>
-                          {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-                        </select>
+                        <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                          <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
+                            <SelectValue placeholder="Mes" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
+                            {MONTHS.map((m, i) => (
+                              <SelectItem key={i} value={String(i)} className="text-white focus:bg-cyan-500/10 focus:text-white">
+                                {m}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                          <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
+                            <SelectValue placeholder="Año" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
+                            {YEARS.map((y) => (
+                              <SelectItem key={y} value={String(y)} className="text-white focus:bg-cyan-500/10 focus:text-white">
+                                {y}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     )}
 
                     {periodType === 'quarterly' && (
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <select value={quarter} onChange={(e) => setQuarter(Number(e.target.value))} style={selectStyle}>
-                          {QUARTER_LABELS.map((q, i) => <option key={i} value={i}>{q}</option>)}
-                        </select>
-                        <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={selectStyle}>
-                          {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-                        </select>
+                        <Select value={String(quarter)} onValueChange={(v) => setQuarter(Number(v))}>
+                          <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
+                            <SelectValue placeholder="Trimestre" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
+                            {QUARTER_LABELS.map((q, i) => (
+                              <SelectItem key={i} value={String(i)} className="text-white focus:bg-cyan-500/10 focus:text-white">
+                                {q}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                          <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
+                            <SelectValue placeholder="Año" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
+                            {YEARS.map((y) => (
+                              <SelectItem key={y} value={String(y)} className="text-white focus:bg-cyan-500/10 focus:text-white">
+                                {y}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     )}
                   </div>
