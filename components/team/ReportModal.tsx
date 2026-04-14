@@ -26,20 +26,20 @@ const STEPS: { state: LoadState; label: string }[] = [
   { state: 'sending',    label: 'Enviando al email...'            },
 ]
 
-const MONTHS = [
+const MESES = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
 ]
-const QUARTER_STARTS = ['01-01','04-01','07-01','10-01']
-const QUARTER_LABELS = ['Q1 (Ene–Mar)','Q2 (Abr–Jun)','Q3 (Jul–Sep)','Q4 (Oct–Dic)']
-const YEARS          = [2024, 2025, 2026, 2027]
+const QUARTER_STARTS  = ['01-01','04-01','07-01','10-01']
+const QUARTER_LABELS  = ['Q1 (Ene–Mar)','Q2 (Abr–Jun)','Q3 (Jul–Sep)','Q4 (Oct–Dic)']
+const YEARS           = [2024, 2025, 2026, 2027]
 
 function getPeriodDate(
   periodType: PeriodType,
   selectedDate: Date,
-  month: number,
+  selectedMonth: string,
   year: number,
-  quarter: number,
+  selectedQuarter: string,
 ): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   if (periodType === 'daily') {
@@ -49,8 +49,13 @@ function getPeriodDate(
     const mon = startOfWeek(selectedDate, { weekStartsOn: 1 })
     return `${mon.getFullYear()}-${pad(mon.getMonth()+1)}-${pad(mon.getDate())}`
   }
-  if (periodType === 'monthly')   return `${year}-${pad(month)}-01`
-  /* quarterly */                  return `${year}-${QUARTER_STARTS[quarter]}`
+  if (periodType === 'monthly') {
+    const monthNum = MESES.indexOf(selectedMonth) + 1
+    return `${year}-${pad(monthNum)}-01`
+  }
+  /* quarterly */
+  const qIdx = QUARTER_LABELS.indexOf(selectedQuarter)
+  return `${year}-${QUARTER_STARTS[qIdx >= 0 ? qIdx : 0]}`
 }
 
 export interface ReportModalProps {
@@ -65,9 +70,9 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
   // Form
   const [periodType,       setPeriodType]       = useState<PeriodType>('weekly')
   const [selectedDate,     setSelectedDate]     = useState<Date>(new Date())
-  const [month,            setMonth]            = useState(new Date().getMonth() + 1)
+  const [selectedMonth,    setSelectedMonth]    = useState(MESES[new Date().getMonth()])
   const [year,             setYear]             = useState(new Date().getFullYear())
-  const [quarter,          setQuarter]          = useState(Math.floor(new Date().getMonth() / 3))
+  const [selectedQuarter,  setSelectedQuarter]  = useState(QUARTER_LABELS[Math.floor(new Date().getMonth() / 3)])
   const [scope,            setScope]            = useState<Scope>('team')
   const [selectedCompany,  setSelectedCompany]  = useState<string>('')
 
@@ -109,7 +114,7 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
   }
 
   async function handleGenerate() {
-    const periodDate = getPeriodDate(periodType, selectedDate, month, year, quarter)
+    const periodDate = getPeriodDate(periodType, selectedDate, selectedMonth, year, selectedQuarter)
     setLoadState('collecting')
     setErrorMsg(null)
     setSentTo(null)
@@ -232,7 +237,7 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
                       <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', margin: '0 0 10px' }}>
                         Empresa
                       </p>
-                      <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+                      <Select value={selectedCompany} onValueChange={(v) => setSelectedCompany(v ?? '')}>
                         <SelectTrigger className="w-full bg-black border-cyan-500/30 text-white text-sm">
                           <SelectValue placeholder="Todas las empresas" />
                         </SelectTrigger>
@@ -312,19 +317,19 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
 
                     {periodType === 'monthly' && (
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                        <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v ?? MESES[0])}>
                           <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
                             <SelectValue placeholder="Mes" />
                           </SelectTrigger>
                           <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
-                            {MONTHS.map((m, i) => (
-                              <SelectItem key={i} value={String(i + 1)} className="text-white focus:bg-cyan-500/10 focus:text-white">
+                            {MESES.map((m) => (
+                              <SelectItem key={m} value={m} className="text-white focus:bg-cyan-500/10 focus:text-white">
                                 {m}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                        <Select value={String(year)} onValueChange={(v) => v && setYear(Number(v))}>
                           <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
                             <SelectValue placeholder="Año" />
                           </SelectTrigger>
@@ -341,19 +346,19 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
 
                     {periodType === 'quarterly' && (
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <Select value={String(quarter)} onValueChange={(v) => setQuarter(Number(v))}>
+                        <Select value={selectedQuarter} onValueChange={(v) => setSelectedQuarter(v ?? QUARTER_LABELS[0])}>
                           <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
                             <SelectValue placeholder="Trimestre" />
                           </SelectTrigger>
                           <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
-                            {QUARTER_LABELS.map((q, i) => (
-                              <SelectItem key={i} value={String(i)} className="text-white focus:bg-cyan-500/10 focus:text-white">
+                            {QUARTER_LABELS.map((q) => (
+                              <SelectItem key={q} value={q} className="text-white focus:bg-cyan-500/10 focus:text-white">
                                 {q}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                        <Select value={String(year)} onValueChange={(v) => v && setYear(Number(v))}>
                           <SelectTrigger className="flex-1 bg-black border-cyan-500/30 text-white text-sm">
                             <SelectValue placeholder="Año" />
                           </SelectTrigger>
