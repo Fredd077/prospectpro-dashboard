@@ -19,15 +19,7 @@ export function PlayerCoachToggle({ initialValue }: { initialValue: boolean }) {
   }
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border bg-card/50 px-4 py-3">
-      <div>
-        <p className="text-xs font-medium text-foreground">
-          Incluir mis métricas en los reportes del equipo
-        </p>
-        <p className="text-[11px] text-muted-foreground mt-0.5">
-          Actívalo si también tienes actividades de venta asignadas
-        </p>
-      </div>
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-5 py-3 w-fit">
       <button
         type="button"
         role="switch"
@@ -44,6 +36,14 @@ export function PlayerCoachToggle({ initialValue }: { initialValue: boolean }) {
           }`}
         />
       </button>
+      <div>
+        <p className="text-sm font-semibold text-foreground">
+          Incluir mis métricas en los reportes del equipo
+        </p>
+        <p className="text-xs font-semibold" style={{ color: '#39FF14' }}>
+          Actívalo si también tienes actividades de venta asignadas
+        </p>
+      </div>
     </div>
   )
 }
