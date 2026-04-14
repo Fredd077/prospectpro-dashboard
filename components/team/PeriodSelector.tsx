@@ -97,14 +97,27 @@ export function PeriodSelector() {
               className="!w-auto"
               style={{ background: '#0a0a0a', border: '1px solid rgba(0,217,255,0.2)', padding: 16, zIndex: 60 }}
             >
-              <Calendar
-                mode="range"
-                selected={range}
-                onSelect={setRange}
-                locale={es}
-                numberOfMonths={1}
-                className="bg-transparent"
-              />
+              <div style={{
+                '--background':         '#0a0a0a',
+                '--foreground':         '#ffffff',
+                '--primary':            '#00D9FF',
+                '--primary-foreground': '#0a0a0a',
+                '--muted':              'rgba(0,217,255,0.08)',
+                '--muted-foreground':   'rgba(255,255,255,0.4)',
+                '--accent':             'rgba(0,217,255,0.1)',
+                '--accent-foreground':  '#ffffff',
+                '--ring':               'rgba(0,217,255,0.4)',
+                '--popover':            '#0a0a0a',
+                '--popover-foreground': '#ffffff',
+              } as React.CSSProperties}>
+                <Calendar
+                  mode="range"
+                  selected={range}
+                  onSelect={setRange}
+                  locale={es}
+                  numberOfMonths={1}
+                />
+              </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
                 <button
                   onClick={() => setPopOpen(false)}

@@ -252,13 +252,30 @@ export function ReportModal({ managerEmail }: ReportModalProps) {
 
                     {(periodType === 'daily' || periodType === 'weekly') && (
                       <div>
-                        <Calendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={(d) => d && setSelectedDate(d)}
-                          locale={es}
-                          className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#111] p-2 w-fit"
-                        />
+                        <div style={{
+                          '--background':           '#0a0a0a',
+                          '--foreground':           '#ffffff',
+                          '--primary':              '#00D9FF',
+                          '--primary-foreground':   '#0a0a0a',
+                          '--muted':                'rgba(0,217,255,0.08)',
+                          '--muted-foreground':     'rgba(255,255,255,0.4)',
+                          '--accent':               'rgba(0,217,255,0.1)',
+                          '--accent-foreground':    '#ffffff',
+                          '--ring':                 'rgba(0,217,255,0.4)',
+                          '--popover':              '#0a0a0a',
+                          '--popover-foreground':   '#ffffff',
+                          borderRadius: 8,
+                          border: '1px solid rgba(0,217,255,0.15)',
+                          overflow: 'hidden',
+                          width: 'fit-content',
+                        } as React.CSSProperties}>
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(d) => d && setSelectedDate(d)}
+                            locale={es}
+                          />
+                        </div>
                         {periodType === 'weekly' && (
                           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 8 }}>
                             Semana:{' '}
