@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Send, RefreshCw, CheckCircle2, AlertTriangle, Users, Clock, X } from 'lucide-react'
 import { Calendar } from '@/components/ui/calendar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -58,13 +58,21 @@ function getPeriodDate(
   return `${year}-${QUARTER_STARTS[qIdx >= 0 ? qIdx : 0]}`
 }
 
+export interface ReportMember {
+  id:      string
+  name:    string
+  email:   string
+  company: string
+}
+
 export interface ReportModalProps {
   managerEmail:      string
   showCompanyFilter?: boolean
   companies?:        string[]
+  members?:          ReportMember[]
 }
 
-export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }: ReportModalProps) {
+export function ReportModal({ managerEmail, showCompanyFilter, companies = [], members = [] }: ReportModalProps) {
   const [open, setOpen] = useState(false)
 
   // Form
@@ -75,6 +83,16 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
   const [selectedQuarter,  setSelectedQuarter]  = useState(QUARTER_LABELS[Math.floor(new Date().getMonth() / 3)])
   const [scope,            setScope]            = useState<Scope>('team')
   const [selectedCompany,  setSelectedCompany]  = useState<string>('')
+  const [selectedMember,   setSelectedMember]   = useState<string>('all')
+
+  // Reset member when company changes
+  useEffect(() => { setSelectedMember('all') }, [selectedCompany])
+
+  // Members filtered by currently selected company
+  const filteredMembers = useMemo(() =>
+    members.filter((m) => !showCompanyFilter || !selectedCompany || m.company === selectedCompany),
+    [members, showCompanyFilter, selectedCompany]
+  )
 
   // Loading
   const [loadState, setLoadState] = useState<LoadState>('idle')
@@ -114,7 +132,8 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
   }
 
   async function handleGenerate() {
-    const periodDate = getPeriodDate(periodType, selectedDate, selectedMonth, year, selectedQuarter)
+    const periodDate    = getPeriodDate(periodType, selectedDate, selectedMonth, year, selectedQuarter)
+    const memberObj     = selectedMember !== 'all' ? members.find((m) => m.id === selectedMember) : null
     setLoadState('collecting')
     setErrorMsg(null)
     setSentTo(null)
@@ -127,6 +146,7 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
           period_type: periodType,
           period_date: periodDate,
           ...(showCompanyFilter && selectedCompany ? { company: selectedCompany } : {}),
+          ...(memberObj ? { memberName: memberObj.name, memberEmail: memberObj.email } : {}),
         }),
       })
       const json = await res.json()
@@ -391,6 +411,30 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }:
                       ))}
                     </div>
                   </div>
+
+                  {/* Miembro */}
+                  {filteredMembers.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', margin: '0 0 10px' }}>
+                        Miembro
+                      </p>
+                      <Select value={selectedMember} onValueChange={(v) => setSelectedMember(v ?? 'all')}>
+                        <SelectTrigger className="w-full bg-black border-cyan-500/30 text-white text-sm">
+                          <SelectValue placeholder="Equipo completo" />
+                        </SelectTrigger>
+                        <SelectContent sideOffset={4} alignItemWithTrigger={false} className="bg-[#0a0a0a] border-cyan-500/30 z-[9999] max-h-[200px] overflow-y-auto">
+                          <SelectItem value="all" className="text-white/50 focus:bg-cyan-500/10 focus:text-white">
+                            Equipo completo
+                          </SelectItem>
+                          {filteredMembers.map((m) => (
+                            <SelectItem key={m.id} value={m.id} className="text-white focus:bg-cyan-500/10 focus:text-white">
+                              {m.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </>
               )}
 

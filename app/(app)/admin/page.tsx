@@ -232,6 +232,14 @@ export default async function AdminPage({ searchParams }: Props) {
             managerEmail={user.email ?? ''}
             showCompanyFilter
             companies={companyList.filter((c) => c !== 'all')}
+            members={users
+              .filter((u) => u.role === 'active' || u.role === 'admin')
+              .map((u) => ({
+                id:      u.id,
+                name:    u.full_name ?? u.email,
+                email:   u.email,
+                company: u.company ?? '',
+              }))}
           />
         </div>
 

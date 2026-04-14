@@ -224,7 +224,15 @@ export default async function TeamPage({ searchParams }: Props) {
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
               Reportes del equipo
             </p>
-            <ReportModal managerEmail={myProfile.email} />
+            <ReportModal
+              managerEmail={myProfile.email}
+              members={allUsers.map((u) => ({
+                id:      u.id,
+                name:    u.full_name ?? u.email,
+                email:   u.email,
+                company: u.company ?? '',
+              }))}
+            />
           </div>
         )}
 
