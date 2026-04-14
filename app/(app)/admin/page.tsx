@@ -10,7 +10,7 @@ import { es } from 'date-fns/locale'
 import { TopBar } from '@/components/layout/TopBar'
 import { UsersTable } from '@/components/admin/UsersTable'
 import { AdminFilters } from '@/components/admin/AdminFilters'
-import { ManualReportPanel } from '@/components/admin/ManualReportPanel'
+import { ReportModal } from '@/components/team/ReportModal'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { todayISO } from '@/lib/utils/dates'
 import type { Profile } from '@/lib/types/database'
@@ -228,11 +228,10 @@ export default async function AdminPage({ searchParams }: Props) {
         {/* ── SECCIÓN 2: Reportes del equipo */}
         <div className="space-y-3">
           <SectionHeader>Reportes del equipo</SectionHeader>
-          <ManualReportPanel
-            adminEmail={user.email ?? ''}
-            users={users
-              .filter((u) => u.role === 'active' || u.role === 'admin')
-              .map((u) => ({ id: u.id, full_name: u.full_name, email: u.email, company: u.company }))}
+          <ReportModal
+            managerEmail={user.email ?? ''}
+            showCompanyFilter
+            companies={companyList.filter((c) => c !== 'all')}
           />
         </div>
 

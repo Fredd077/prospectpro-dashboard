@@ -49,24 +49,27 @@ function getPeriodDate(
     const mon = startOfWeek(selectedDate, { weekStartsOn: 1 })
     return `${mon.getFullYear()}-${pad(mon.getMonth()+1)}-${pad(mon.getDate())}`
   }
-  if (periodType === 'monthly')   return `${year}-${pad(month+1)}-01`
+  if (periodType === 'monthly')   return `${year}-${pad(month)}-01`
   /* quarterly */                  return `${year}-${QUARTER_STARTS[quarter]}`
 }
 
 export interface ReportModalProps {
-  managerEmail: string
+  managerEmail:      string
+  showCompanyFilter?: boolean
+  companies?:        string[]
 }
 
-export function ReportModal({ managerEmail }: ReportModalProps) {
+export function ReportModal({ managerEmail, showCompanyFilter, companies = [] }: ReportModalProps) {
   const [open, setOpen] = useState(false)
 
   // Form
-  const [periodType,    setPeriodType]    = useState<PeriodType>('weekly')
-  const [selectedDate,  setSelectedDate]  = useState<Date>(new Date())
-  const [month,         setMonth]         = useState(new Date().getMonth())
-  const [year,          setYear]          = useState(new Date().getFullYear())
-  const [quarter,       setQuarter]       = useState(Math.floor(new Date().getMonth() / 3))
-  const [scope,         setScope]         = useState<Scope>('team')
+  const [periodType,       setPeriodType]       = useState<PeriodType>('weekly')
+  const [selectedDate,     setSelectedDate]     = useState<Date>(new Date())
+  const [month,            setMonth]            = useState(new Date().getMonth() + 1)
+  const [year,             setYear]             = useState(new Date().getFullYear())
+  const [quarter,          setQuarter]          = useState(Math.floor(new Date().getMonth() / 3))
+  const [scope,            setScope]            = useState<Scope>('team')
+  const [selectedCompany,  setSelectedCompany]  = useState<string>('')
 
   // Loading
   const [loadState, setLoadState] = useState<LoadState>('idle')
@@ -118,6 +121,7 @@ export function ReportModal({ managerEmail }: ReportModalProps) {
           scope:       scope === 'at_risk' ? 'at_risk' : 'team',
           period_type: periodType,
           period_date: periodDate,
+          ...(showCompanyFilter && selectedCompany ? { company: selectedCompany } : {}),
         }),
       })
       const json = await res.json()
@@ -222,6 +226,30 @@ export function ReportModal({ managerEmail }: ReportModalProps) {
               {/* ── Idle: form ───────────────────────────────────────────── */}
               {loadState === 'idle' && (
                 <>
+                  {/* Empresa (solo admin) */}
+                  {showCompanyFilter && companies.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', margin: '0 0 10px' }}>
+                        Empresa
+                      </p>
+                      <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+                        <SelectTrigger className="w-full bg-black border-cyan-500/30 text-white text-sm">
+                          <SelectValue placeholder="Todas las empresas" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
+                          <SelectItem value="" className="text-white/50 focus:bg-cyan-500/10 focus:text-white">
+                            Todas las empresas
+                          </SelectItem>
+                          {companies.map((c) => (
+                            <SelectItem key={c} value={c} className="text-white focus:bg-cyan-500/10 focus:text-white">
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   {/* Período */}
                   <div>
                     <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', margin: '0 0 10px' }}>
@@ -290,7 +318,7 @@ export function ReportModal({ managerEmail }: ReportModalProps) {
                           </SelectTrigger>
                           <SelectContent className="bg-[#0a0a0a] border-cyan-500/30">
                             {MONTHS.map((m, i) => (
-                              <SelectItem key={i} value={String(i)} className="text-white focus:bg-cyan-500/10 focus:text-white">
+                              <SelectItem key={i} value={String(i + 1)} className="text-white focus:bg-cyan-500/10 focus:text-white">
                                 {m}
                               </SelectItem>
                             ))}
