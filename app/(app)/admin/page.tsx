@@ -111,6 +111,7 @@ export default async function AdminPage({ searchParams }: Props) {
     activated_by: null,
     org_role: (u.org_role ?? null) as Profile['org_role'],
     manager_id: u.manager_id ?? null,
+    is_player_coach: null,
   }))
 
   // ── Index sets

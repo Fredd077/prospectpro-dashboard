@@ -7,6 +7,7 @@ import { TopBar } from '@/components/layout/TopBar'
 import { TeamFilters } from '@/components/team/TeamFilters'
 import { TeamMemberFilter } from '@/components/team/TeamMemberFilter'
 import { ReportModal } from '@/components/team/ReportModal'
+import { PlayerCoachToggle } from '@/components/team/PlayerCoachToggle'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { todayISO, toISODate } from '@/lib/utils/dates'
 import { startOfWeek, endOfWeek, parseISO, format, formatDistanceToNow } from 'date-fns'
@@ -63,7 +64,7 @@ export default async function TeamPage({ searchParams }: Props) {
 
   const { data: myProfile } = await service
     .from('profiles')
-    .select('role, org_role, company, email')
+    .select('id, role, org_role, company, email, full_name, avatar_url, last_seen_at, is_player_coach')
     .eq('id', user.id)
     .single()
 
@@ -107,7 +108,28 @@ export default async function TeamPage({ searchParams }: Props) {
 
   const { data: profiles } = await profilesQuery
 
-  const allUsers = profiles ?? []
+  type UserRow = NonNullable<typeof profiles>[number]
+  let allUsers: UserRow[] = profiles ?? []
+
+  // If player_coach, include the manager themselves in the team list + metrics
+  if (isManager && myProfile?.is_player_coach === true) {
+    const alreadyIn = allUsers.some((u) => u.id === user.id)
+    if (!alreadyIn) {
+      allUsers = [
+        {
+          id:           user.id,
+          full_name:    myProfile.full_name ?? null,
+          email:        myProfile.email,
+          avatar_url:   myProfile.avatar_url ?? null,
+          company:      myProfile.company ?? null,
+          last_seen_at: myProfile.last_seen_at ?? null,
+          role:         myProfile.role,
+        } as UserRow,
+        ...allUsers,
+      ]
+    }
+  }
+
   const userIds  = allUsers.map((u) => u.id)
 
   let weekLogs: { user_id: string; real_executed: number }[] = []
@@ -216,6 +238,11 @@ export default async function TeamPage({ searchParams }: Props) {
             {' · '}
             <span className="font-semibold">{totalActive} {totalActive === 1 ? 'miembro' : 'miembros'}</span>
           </div>
+        )}
+
+        {/* Player-coach toggle */}
+        {isManager && (
+          <PlayerCoachToggle initialValue={myProfile?.is_player_coach ?? false} />
         )}
 
         {/* Manager report panel */}

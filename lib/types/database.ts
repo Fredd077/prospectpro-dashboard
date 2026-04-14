@@ -18,6 +18,7 @@ export interface Database {
           activated_by: string | null
           org_role: 'member' | 'manager' | null
           manager_id: string | null
+          is_player_coach: boolean | null
         }
         Insert: {
           id: string
@@ -33,6 +34,7 @@ export interface Database {
           activated_by?: string | null
           org_role?: 'member' | 'manager' | null
           manager_id?: string | null
+          is_player_coach?: boolean | null
         }
         Update: {
           email?: string
@@ -46,6 +48,7 @@ export interface Database {
           activated_by?: string | null
           org_role?: 'member' | 'manager' | null
           manager_id?: string | null
+          is_player_coach?: boolean | null
         }
         Relationships: []
       }

@@ -12,7 +12,7 @@ export async function POST(req: Request) {
 
   const { data: profile } = await sb
     .from('profiles')
-    .select('role, org_role, company, email')
+    .select('role, org_role, company, email, is_player_coach')
     .eq('id', user.id)
     .single()
 
@@ -56,6 +56,14 @@ export async function POST(req: Request) {
   const weekStart = periodDate ?? currentWeekStart()
   const service   = getSupabaseServiceClient()
 
+  // If player_coach and no specific member selected, ensure manager's own data is included
+  let effectiveFilterUserIds = memberId ? [memberId] : userIds
+  if (!memberId && isManager && !isAdmin && profile?.is_player_coach === true) {
+    if (effectiveFilterUserIds !== undefined && !effectiveFilterUserIds.includes(user.id)) {
+      effectiveFilterUserIds = [...effectiveFilterUserIds, user.id]
+    }
+  }
+
   try {
     const result = await generateTeamReport(
       {
@@ -65,7 +73,7 @@ export async function POST(req: Request) {
         adminEmail:    profile!.email,
         triggeredBy:   'manual',
         filterCompany: company,
-        filterUserIds: memberId ? [memberId] : userIds,
+        filterUserIds: effectiveFilterUserIds,
         threshold,
         memberName,
       },

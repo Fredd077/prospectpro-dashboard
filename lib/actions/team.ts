@@ -3,6 +3,22 @@
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 
+export async function togglePlayerCoach(currentValue: boolean) {
+  const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const service = getSupabaseServiceClient()
+  const { error } = await service
+    .from('profiles')
+    .update({ is_player_coach: !currentValue })
+    .eq('id', user.id)
+
+  if (error) throw error
+
+  revalidatePath('/team')
+}
+
 // Admin-only: update a user's activity monthly goal
 export async function updateUserActivityGoal(
   userId: string,
