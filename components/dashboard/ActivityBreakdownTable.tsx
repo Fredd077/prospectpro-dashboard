@@ -32,149 +32,218 @@ const CHANNEL_LABELS: Record<string, string> = {
   other: 'Otro',
 }
 
-function semaphoreAccent(sem: string): string {
-  if (sem === 'green')  return '#00FF9D'
-  if (sem === 'yellow') return '#F59E0B'
-  return '#FF3B5C'
+function semColor(pct: number): string {
+  if (pct >= 100) return '#1D9E75'
+  if (pct >= 70)  return '#BA7517'
+  return '#E24B4A'
 }
 
-function semaphoreTextClass(sem: string) {
-  if (sem === 'green')  return 'text-emerald-400'
-  if (sem === 'yellow') return 'text-amber-400'
-  return 'text-red-400'
+function semBg(pct: number): string {
+  if (pct >= 100) return 'rgba(29,158,117,0.1)'
+  if (pct >= 70)  return 'rgba(186,117,23,0.1)'
+  return 'rgba(226,75,74,0.1)'
 }
 
-function semaphoreBgClass(sem: string) {
-  if (sem === 'green')  return 'bg-emerald-400/10 text-emerald-400'
-  if (sem === 'yellow') return 'bg-amber-400/10 text-amber-400'
-  return 'bg-red-400/10 text-red-400'
+// ─── Column layout helpers ───────────────────────────────────────────────────
+const COL = {
+  activity: { flex: 1, minWidth: 200 } as React.CSSProperties,
+  meta:     { width: 70,  textAlign: 'center'  as const, flexShrink: 0 },
+  real:     { width: 70,  textAlign: 'center'  as const, flexShrink: 0 },
+  gap:      { width: 70,  textAlign: 'center'  as const, flexShrink: 0 },
+  cumpl:    { width: 90,  textAlign: 'right'   as const, flexShrink: 0 },
 }
 
-function Section({ label, rows }: { label: string; rows: ActivityBreakdownRow[] }) {
-  if (rows.length === 0) return null
+const HDR: React.CSSProperties = {
+  fontSize: 11,
+  letterSpacing: '0.08em',
+  color: 'rgba(255,255,255,0.4)',
+  textTransform: 'uppercase',
+  fontWeight: 500,
+}
 
-  const totalGoal = rows.reduce((s, r) => s + r.goal, 0)
-  const totalReal = rows.reduce((s, r) => s + r.real, 0)
-  const totalCompliance = calcCompliance(totalReal, totalGoal)
+const ROW_BORDER: React.CSSProperties = {
+  borderBottom: '0.5px solid rgba(255,255,255,0.06)',
+}
+
+// ─── Section separator ───────────────────────────────────────────────────────
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px 6px' }}>
+      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+      <span style={{
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: '0.12em',
+        color: '#00D9FF',
+        background: 'rgba(0,217,255,0.08)',
+        border: '1px solid rgba(0,217,255,0.2)',
+        borderRadius: 4,
+        padding: '2px 8px',
+        textTransform: 'uppercase',
+      }}>
+        {label}
+      </span>
+      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+    </div>
+  )
+}
+
+// ─── Activity row ────────────────────────────────────────────────────────────
+function ActivityRow({ row }: { row: ActivityBreakdownRow }) {
+  const { pct, deviation } = calcCompliance(row.real, row.goal)
+  const color = semColor(pct)
+  const bg    = semBg(pct)
 
   return (
-    <div>
-      {/* Section header */}
-      <div className="flex items-center gap-2 px-4 py-2 bg-muted/30 border-b border-border">
-        <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/60">
-          {label}
+    <div
+      className="abt-row"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        padding: '10px 16px',
+        ...ROW_BORDER,
+        transition: 'background 0.15s',
+      }}
+    >
+      {/* Activity name + channel */}
+      <div style={COL.activity}>
+        <span style={{ fontSize: 13, fontWeight: 400, color: 'rgba(255,255,255,0.88)', display: 'block' }}>
+          {row.name}
         </span>
-        <span className={cn('ml-auto font-data text-xs font-semibold tabular-nums', semaphoreTextClass(totalCompliance.semaphore))}>
-          {totalCompliance.pct.toFixed(1)}%
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display: 'block', marginTop: 1 }}>
+          {CHANNEL_LABELS[row.channel] ?? row.channel}
         </span>
       </div>
 
-      {/* Activity rows — alternating bg */}
-      {rows.map((row, idx) => {
-        const { pct, semaphore, deviation } = calcCompliance(row.real, row.goal)
-        return (
-          <div
-            key={row.id}
-            className={cn(
-              'flex items-center gap-4 px-4 py-3 border-b border-border/40 border-l-[3px] last:border-b-0 transition-colors hover:bg-muted/20',
-              idx % 2 === 0 ? 'bg-transparent' : 'bg-muted/10',
-            )}
-            style={{ borderLeftColor: semaphoreAccent(semaphore) }}
-          >
-            {/* Name + channel */}
-            <div className="flex-1 min-w-0">
-              <span className="text-sm font-medium truncate block">{row.name}</span>
-              <span className="text-[11px] text-muted-foreground/60">
-                {CHANNEL_LABELS[row.channel] ?? row.channel}
-              </span>
-            </div>
+      {/* META */}
+      <div style={COL.meta}>
+        <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.6)' }}>
+          {row.goal}
+        </span>
+      </div>
 
-            {/* Meta */}
-            <div className="w-16 text-right shrink-0">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/50 block">Meta</span>
-              <span className="font-data text-sm tabular-nums font-medium">{row.goal}</span>
-            </div>
+      {/* REAL */}
+      <div style={COL.real}>
+        <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color }}>
+          {row.real}
+        </span>
+      </div>
 
-            {/* Real */}
-            <div className="w-16 text-right shrink-0">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/50 block">Real</span>
-              <span className={cn('font-data text-sm tabular-nums font-semibold', semaphoreTextClass(semaphore))}>
-                {row.real}
-              </span>
-            </div>
+      {/* GAP — hidden on mobile */}
+      <div style={COL.gap} className="abt-gap">
+        <span style={{
+          fontSize: 13,
+          fontWeight: 500,
+          fontVariantNumeric: 'tabular-nums',
+          color: deviation >= 0 ? '#1D9E75' : '#E24B4A',
+        }}>
+          {deviation >= 0 ? '+' : ''}{deviation}
+        </span>
+      </div>
 
-            {/* Desviación */}
-            <div className="w-20 text-right shrink-0">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/50 block">Gap</span>
-              <span
-                className={cn(
-                  'font-data text-sm tabular-nums font-semibold',
-                  deviation >= 0 ? 'text-emerald-400' : 'text-red-400'
-                )}
-              >
-                {deviation >= 0 ? '+' : ''}{deviation}
-              </span>
-            </div>
-
-            {/* % Cumplimiento */}
-            <div className="w-20 text-right shrink-0">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/50 block">Cumpl.</span>
-              <span className={cn('font-data text-xs font-bold tabular-nums rounded px-1.5 py-0.5', semaphoreBgClass(semaphore))}>
-                {pct.toFixed(1)}%
-              </span>
-            </div>
-          </div>
-        )
-      })}
-
-      {/* Section totals */}
-      <div className="flex items-center gap-4 px-4 py-2.5 bg-muted/20 border-b border-border">
-        <div className="flex-1 min-w-0">
-          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60">Total {label}</span>
-        </div>
-        <div className="w-16 text-right shrink-0">
-          <span className="font-data text-sm tabular-nums font-semibold">{totalGoal}</span>
-        </div>
-        <div className="w-16 text-right shrink-0">
-          <span className={cn('font-data text-sm tabular-nums font-semibold', semaphoreTextClass(totalCompliance.semaphore))}>
-            {totalReal}
-          </span>
-        </div>
-        <div className="w-20 text-right shrink-0">
-          <span
-            className={cn(
-              'font-data text-sm tabular-nums font-semibold',
-              totalCompliance.deviation >= 0 ? 'text-emerald-400' : 'text-red-400'
-            )}
-          >
-            {totalCompliance.deviation >= 0 ? '+' : ''}{totalCompliance.deviation}
-          </span>
-        </div>
-        <div className="w-20 text-right shrink-0">
-          <span className={cn('font-data text-xs font-bold tabular-nums rounded px-1.5 py-0.5', semaphoreBgClass(totalCompliance.semaphore))}>
-            {totalCompliance.pct.toFixed(1)}%
-          </span>
-        </div>
+      {/* CUMPL */}
+      <div style={COL.cumpl}>
+        <span style={{
+          display: 'inline-block',
+          fontSize: 12,
+          fontWeight: 600,
+          fontVariantNumeric: 'tabular-nums',
+          color,
+          background: bg,
+          borderRadius: 4,
+          padding: '2px 7px',
+        }}>
+          {pct.toFixed(1)}%
+        </span>
       </div>
     </div>
   )
 }
 
+// ─── Total row ───────────────────────────────────────────────────────────────
+function TotalRow({ label, goal, real, isGrand = false }: {
+  label: string
+  goal: number
+  real: number
+  isGrand?: boolean
+}) {
+  const { pct, deviation } = calcCompliance(real, goal)
+  const color = semColor(pct)
+  const bg    = semBg(pct)
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      padding: '10px 16px',
+      background: isGrand ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)',
+      ...(!isGrand ? ROW_BORDER : {}),
+    }}>
+      <div style={COL.activity}>
+        <span style={{
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          color: isGrand ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)',
+        }}>
+          {label}
+        </span>
+      </div>
+      <div style={COL.meta}>
+        <span style={{ fontSize: 13, fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.6)' }}>
+          {goal}
+        </span>
+      </div>
+      <div style={COL.real}>
+        <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color }}>
+          {real}
+        </span>
+      </div>
+      <div style={COL.gap} className="abt-gap">
+        <span style={{
+          fontSize: 13,
+          fontWeight: 500,
+          fontVariantNumeric: 'tabular-nums',
+          color: deviation >= 0 ? '#1D9E75' : '#E24B4A',
+        }}>
+          {deviation >= 0 ? '+' : ''}{deviation}
+        </span>
+      </div>
+      <div style={COL.cumpl}>
+        <span style={{
+          display: 'inline-block',
+          fontSize: 12,
+          fontWeight: 700,
+          fontVariantNumeric: 'tabular-nums',
+          color,
+          background: bg,
+          borderRadius: 4,
+          padding: '2px 7px',
+        }}>
+          {pct.toFixed(1)}%
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
 export function ActivityBreakdownTable({ rows }: ActivityBreakdownTableProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   const outbound = rows.filter((r) => r.type === 'OUTBOUND')
-  const inbound = rows.filter((r) => r.type === 'INBOUND')
+  const inbound  = rows.filter((r) => r.type === 'INBOUND')
 
   const totalGoal = rows.reduce((s, r) => s + r.goal, 0)
   const totalReal = rows.reduce((s, r) => s + r.real, 0)
-  const totalCompliance = calcCompliance(totalReal, totalGoal)
 
   if (rows.length === 0) return null
 
   return (
-    <div>
-      {/* Section header with collapse */}
+    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+
+      {/* ── Collapse toggle ──────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-foreground">Desglose por actividad</h2>
         <button
@@ -185,51 +254,74 @@ export function ActivityBreakdownTable({ rows }: ActivityBreakdownTableProps) {
         </button>
       </div>
 
-    {!collapsed && (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      {/* Table header */}
-      <div className="flex items-center gap-4 px-4 py-3 border-b border-border bg-muted/20">
-        <span className="flex-1 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/70">Actividad</span>
-        <span className="w-16 text-right text-[10px] font-bold uppercase tracking-wide text-muted-foreground/50 shrink-0">Meta</span>
-        <span className="w-16 text-right text-[10px] font-bold uppercase tracking-wide text-muted-foreground/50 shrink-0">Real</span>
-        <span className="w-20 text-right text-[10px] font-bold uppercase tracking-wide text-muted-foreground/50 shrink-0">Gap</span>
-        <span className="w-20 text-right text-[10px] font-bold uppercase tracking-wide text-muted-foreground/50 shrink-0">Cumpl.</span>
-      </div>
+      {!collapsed && (
+        <div style={{
+          borderRadius: 10,
+          border: '1px solid rgba(255,255,255,0.08)',
+          background: '#0d0d0d',
+          overflow: 'hidden',
+        }}>
 
-      <Section label="OUTBOUND" rows={outbound} />
-      <Section label="INBOUND" rows={inbound} />
+          {/* ── Column headers ─────────────────────────────────────────── */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '8px 16px',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.02)',
+          }}>
+            <div style={{ ...COL.activity, ...HDR }}>Actividad</div>
+            <div style={{ ...COL.meta,     ...HDR }}>Meta</div>
+            <div style={{ ...COL.real,     ...HDR }}>Real</div>
+            <div style={{ ...COL.gap,      ...HDR }} className="abt-gap">Gap</div>
+            <div style={{ ...COL.cumpl,    ...HDR }}>Cumpl.</div>
+          </div>
 
-      {/* Grand total */}
-      <div className="flex items-center gap-4 px-4 py-3 bg-muted/30 border-t border-border">
-        <div className="flex-1 min-w-0">
-          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-foreground/80">Total general</span>
+          {/* ── OUTBOUND section ───────────────────────────────────────── */}
+          {outbound.length > 0 && (
+            <>
+              <SectionDivider label="Outbound" />
+              {outbound.map((row) => <ActivityRow key={row.id} row={row} />)}
+              {outbound.length > 1 && (
+                <TotalRow
+                  label="Total Outbound"
+                  goal={outbound.reduce((s, r) => s + r.goal, 0)}
+                  real={outbound.reduce((s, r) => s + r.real, 0)}
+                />
+              )}
+            </>
+          )}
+
+          {/* ── INBOUND section ────────────────────────────────────────── */}
+          {inbound.length > 0 && (
+            <>
+              <SectionDivider label="Inbound" />
+              {inbound.map((row) => <ActivityRow key={row.id} row={row} />)}
+              {inbound.length > 1 && (
+                <TotalRow
+                  label="Total Inbound"
+                  goal={inbound.reduce((s, r) => s + r.goal, 0)}
+                  real={inbound.reduce((s, r) => s + r.real, 0)}
+                />
+              )}
+            </>
+          )}
+
+          {/* ── Grand total ────────────────────────────────────────────── */}
+          <TotalRow
+            label="Total General"
+            goal={totalGoal}
+            real={totalReal}
+            isGrand
+          />
         </div>
-        <div className="w-16 text-right shrink-0">
-          <span className="font-data text-sm tabular-nums font-bold">{totalGoal}</span>
-        </div>
-        <div className="w-16 text-right shrink-0">
-          <span className={cn('font-data text-sm tabular-nums font-bold', semaphoreTextClass(totalCompliance.semaphore))}>
-            {totalReal}
-          </span>
-        </div>
-        <div className="w-20 text-right shrink-0">
-          <span
-            className={cn(
-              'font-data text-sm tabular-nums font-bold',
-              totalCompliance.deviation >= 0 ? 'text-emerald-400' : 'text-red-400'
-            )}
-          >
-            {totalCompliance.deviation >= 0 ? '+' : ''}{totalCompliance.deviation}
-          </span>
-        </div>
-        <div className="w-20 text-right shrink-0">
-          <span className={cn('font-data text-xs font-bold tabular-nums rounded px-1.5 py-0.5', semaphoreBgClass(totalCompliance.semaphore))}>
-            {totalCompliance.pct.toFixed(1)}%
-          </span>
-        </div>
-      </div>
-    </div>
-    )}
+      )}
+
+      {/* ── Mobile: hide GAP column ────────────────────────────────────── */}
+      <style>{`
+        @media (max-width: 767px) { .abt-gap { display: none !important; } }
+        .abt-row:hover { background: rgba(255,255,255,0.03) !important; }
+      `}</style>
     </div>
   )
 }
