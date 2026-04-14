@@ -258,6 +258,7 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
 
   // 7. Build HTML email
   const html = buildTeamReportEmail({
+    weekStart,
     weekLabel,
     weekEndLabel,
     scopeLabel,
@@ -324,6 +325,7 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
 // ─── Email builder ────────────────────────────────────────────────────────────
 
 function buildTeamReportEmail(p: {
+  weekStart:      string
   weekLabel:      string
   weekEndLabel:   string
   scopeLabel:     string
@@ -340,193 +342,315 @@ function buildTeamReportEmail(p: {
   worstActivity:  { name: string; avgPct: number } | null
   aiAnalysis:     string
 }): string {
-  const { weekLabel, weekEndLabel, scopeLabel, scope, threshold, summaries, atRiskCount, avgCompliance,
-          improvingCount, decliningCount, top3, bottom3, bestActivity, worstActivity,
-          aiAnalysis } = p
+  const { weekStart, weekLabel, weekEndLabel, scopeLabel, threshold, summaries,
+          atRiskCount, avgCompliance, improvingCount, decliningCount,
+          bestActivity, worstActivity, aiAnalysis } = p
 
-  const trendIcon  = (t: string) => (t === 'improving' ? '↑' : t === 'declining' ? '↓' : '→')
-  const trendColor = (t: string) =>
-    t === 'improving' ? '#34d399' : t === 'declining' ? '#f87171' : '#94a3b8'
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const trendIcon  = (t: string) => t === 'improving' ? '&#8593;' : t === 'declining' ? '&#8595;' : '&#8594;'
+  const trendColor = (t: string) => t === 'improving' ? '#34d399' : t === 'declining' ? '#f87171' : '#94a3b8'
+  const semColor   = (pct: number) => pct >= 70 ? '#34d399' : pct >= 40 ? '#fbbf24' : '#f87171'
+  const semBg      = (pct: number) => pct >= 70 ? '#34d39915' : pct >= 40 ? '#fbbf2415' : '#f8717115'
+  const semBorder  = (pct: number) => pct >= 70 ? '#34d39940' : pct >= 40 ? '#fbbf2440' : '#f8717140'
+  const initials   = (name: string) => name.split(' ').slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase()
 
-  // Main ranking table rows
-  const sorted = [...summaries].sort((a, b) => b.overallCompliance - a.overallCompliance)
-  const repRows = sorted
-    .map((u, i) => {
-      const barW     = Math.min(100, Math.max(0, u.overallCompliance))
-      const barColor = u.overallCompliance >= 80 ? '#34d399' : u.overallCompliance >= 60 ? '#fbbf24' : '#f87171'
-      const isRisk   = u.overallCompliance < threshold
+  // ── Pre-computed aggregates ────────────────────────────────────────────────
+  const allActs   = summaries.flatMap((u) => u.activities)
+  const totalReal = allActs.reduce((s, a) => s + a.real, 0)
+  const totalGoal = allActs.reduce((s, a) => s + a.goal, 0)
+  const streakReps = summaries.filter((u) => u.daysActive >= 4).length
+  const criticalReps = summaries.filter((u) => u.overallCompliance < 40)
+  const weekNum   = format(parseISO(weekStart), 'w')
+  const generatedAt = format(new Date(), "d 'de' MMMM yyyy 'a las' HH:mm", { locale: es })
+  const sorted    = [...summaries].sort((a, b) => b.overallCompliance - a.overallCompliance)
 
-      // Per-user activity mini bars
-      const actBars = u.activities
-        .filter((a) => a.goal > 0)
-        .map((a) => {
-          const w  = Math.min(100, Math.max(0, a.pct))
-          const bc = a.pct >= 80 ? '#34d399' : a.pct >= 60 ? '#fbbf24' : '#f87171'
-          return `<div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
-            <span style="font-size:10px; color:#64748b; min-width:80px;">${a.name}</span>
-            <div style="background:#1a1a1a; border-radius:2px; overflow:hidden; width:70px; height:5px; flex-shrink:0;">
-              <div style="width:${w}%; background:${bc}; height:5px;"></div>
-            </div>
-            <span style="font-size:10px; color:${bc};">${a.pct}%</span>
-          </div>`
-        })
-        .join('')
+  // ── Company badge from scopeLabel ─────────────────────────────────────────
+  const companyName = scopeLabel.split('·')[0].trim()
 
-      return `
-      <tr style="border-bottom:1px solid #1e1e1e; ${isRisk ? 'background:#1a0a0a;' : ''}">
-        <td style="padding:10px 12px; font-size:13px; color:#e2e8f0; white-space:nowrap;">
-          <span style="color:#475569; font-size:11px; margin-right:6px;">${i + 1}.</span>
-          ${u.userName}
-          ${isRisk ? '<span style="margin-left:6px; background:#f87171/15; color:#f87171; font-size:9px; font-weight:700; padding:1px 5px; border-radius:999px; border:1px solid #f8717140;">RIESGO</span>' : ''}
-        </td>
-        <td style="padding:10px 12px; vertical-align:top;">
-          <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
-            <div style="background:#1a1a1a; border-radius:4px; overflow:hidden; width:100px; height:8px;">
-              <div style="width:${barW}%; background:${barColor}; height:8px; border-radius:4px;"></div>
-            </div>
-            <span style="font-size:12px; color:${barColor}; font-weight:700;">${u.overallCompliance}%</span>
-          </div>
-          ${actBars}
-        </td>
-        <td style="padding:10px 12px; font-size:13px; color:${trendColor(u.trend)}; text-align:center; vertical-align:top;">${trendIcon(u.trend)}</td>
-        <td style="padding:10px 12px; font-size:12px; color:#94a3b8; text-align:center; vertical-align:top;">${u.daysActive}/5</td>
-      </tr>`
-    })
-    .join('')
-
-  // Top/Bottom spotlight rows
-  const spotlightRow = (u: UserSummary, rank: string, color: string) => `
-    <tr style="border-bottom:1px solid #1e1e1e;">
-      <td style="padding:8px 12px; font-size:11px; color:${color}; font-weight:700; white-space:nowrap;">${rank}</td>
-      <td style="padding:8px 12px; font-size:13px; color:#e2e8f0;">${u.userName}</td>
-      <td style="padding:8px 12px; font-size:12px; color:${u.overallCompliance >= 80 ? '#34d399' : u.overallCompliance >= 60 ? '#fbbf24' : '#f87171'}; font-weight:700;">${u.overallCompliance}%</td>
-      <td style="padding:8px 12px; font-size:12px; color:${trendColor(u.trend)};">${trendIcon(u.trend)}</td>
-    </tr>`
-
-  const top3Rows    = top3.map((u, i)    => spotlightRow(u, `#${i + 1}`, '#34d399')).join('')
-  const bottom3Rows = bottom3.map((u, i) => spotlightRow(u, `⚠ ${i + 1}`, '#f87171')).join('')
-
-  // AI analysis — detect section headers (all-caps lines ending in colon)
+  // ── AI analysis paragraphs ─────────────────────────────────────────────────
   const aiParagraphs = aiAnalysis
     .split('\n')
     .filter((l) => l.trim())
     .map((l) => {
-      const isHeader = l.trimEnd().endsWith(':') && l === l.toUpperCase()
+      const isHeader = /^[A-ZÁÉÍÓÚÑ\s]+:$/.test(l.trim())
       return isHeader
-        ? `<p style="margin:16px 0 6px 0; font-size:11px; font-weight:700; color:#00D9FF; text-transform:uppercase; letter-spacing:0.08em;">${l}</p>`
-        : `<p style="margin:0 0 8px 0; font-size:13px; color:#cbd5e1; line-height:1.6;">${l}</p>`
+        ? `<p style="margin:18px 0 6px; font-size:10px; font-weight:700; color:#00D9FF; text-transform:uppercase; letter-spacing:0.1em; border-bottom:1px solid #00D9FF22; padding-bottom:4px;">${l}</p>`
+        : `<p style="margin:0 0 10px; font-size:13px; color:#cbd5e1; line-height:1.65;">${l}</p>`
     })
     .join('')
 
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0; padding:0; background:#0a0a0a; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:660px; margin:0 auto; padding:24px 16px;">
+  // ── Horizontal bar chart rows ──────────────────────────────────────────────
+  const barRows = sorted.map((u) => {
+    const w   = Math.min(100, Math.max(0, u.overallCompliance))
+    const col = semColor(u.overallCompliance)
+    const ini = initials(u.userName)
+    return `
+    <tr>
+      <td style="padding:6px 12px 6px 16px; white-space:nowrap; vertical-align:middle; width:1%;">
+        <div style="width:28px; height:28px; border-radius:50%; background:${semBg(u.overallCompliance)}; border:1px solid ${semBorder(u.overallCompliance)}; display:inline-block; text-align:center; line-height:28px; font-size:10px; font-weight:700; color:${col};">${ini}</div>
+      </td>
+      <td style="padding:6px 8px; white-space:nowrap; vertical-align:middle; font-size:12px; color:#e2e8f0; width:130px;">${u.userName}</td>
+      <td style="padding:6px 8px; vertical-align:middle;">
+        <table style="width:100%; border-collapse:collapse;">
+          <tr>
+            <td style="padding:0;">
+              <div style="background:#1a1a1a; border-radius:3px; height:10px; overflow:hidden;">
+                <div style="width:${w}%; background:${col}; height:10px; border-radius:3px;"></div>
+              </div>
+            </td>
+            <td style="padding:0 0 0 8px; white-space:nowrap; font-size:12px; font-weight:700; color:${col}; width:36px;">${u.overallCompliance}%</td>
+          </tr>
+        </table>
+      </td>
+      <td style="padding:6px 8px; text-align:center; vertical-align:middle; font-size:13px; color:${trendColor(u.trend)}; width:24px;">${trendIcon(u.trend)}</td>
+    </tr>`
+  }).join('')
 
-  <!-- Header -->
-  <div style="background:#0f0f0f; border:1px solid #1e1e1e; border-top:3px solid #00D9FF; border-radius:8px; padding:24px; margin-bottom:20px;">
-    <div style="margin-bottom:8px;">
-      <span style="font-size:18px; font-weight:800; color:#00D9FF; letter-spacing:0.05em;">PROSPECTPRO</span>
-      <span style="margin-left:10px; background:#00D9FF22; color:#00D9FF; font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; letter-spacing:0.1em; text-transform:uppercase;">Reporte de Equipo</span>
-    </div>
-    <p style="margin:0; font-size:13px; color:#94a3b8;">
-      ${scopeLabel} &nbsp;·&nbsp;
-      <strong style="color:#e2e8f0;">${weekLabel} – ${weekEndLabel}</strong>
+  // ── Full detail table rows ─────────────────────────────────────────────────
+  const detailRows = sorted.map((u, i) => {
+    const ini = initials(u.userName)
+    const col = semColor(u.overallCompliance)
+    const actBreakdown = u.activities
+      .filter((a) => a.goal > 0)
+      .map((a) => {
+        const ac = semColor(a.pct)
+        const aw = Math.min(100, Math.max(0, a.pct))
+        return `<table style="width:100%; border-collapse:collapse; margin-bottom:3px;"><tr>
+          <td style="font-size:10px; color:#64748b; white-space:nowrap; padding-right:6px; width:90px;">${a.name}</td>
+          <td style="padding:0;"><div style="background:#1a1a1a; border-radius:2px; height:5px; overflow:hidden;"><div style="width:${aw}%; background:${ac}; height:5px;"></div></div></td>
+          <td style="font-size:10px; color:${ac}; white-space:nowrap; padding-left:5px; width:32px;">${a.pct}%</td>
+        </tr></table>`
+      }).join('')
+
+    return `
+    <tr style="border-bottom:1px solid #1a1a1a; ${u.overallCompliance < threshold ? 'background:#140a0a;' : i % 2 === 1 ? 'background:#0d0d0d;' : ''}">
+      <td style="padding:10px 8px 10px 16px; vertical-align:top; white-space:nowrap;">
+        <table style="border-collapse:collapse;"><tr>
+          <td style="padding:0; padding-right:8px; vertical-align:middle;">
+            <div style="width:30px; height:30px; border-radius:50%; background:${semBg(u.overallCompliance)}; border:1px solid ${semBorder(u.overallCompliance)}; text-align:center; line-height:30px; font-size:10px; font-weight:700; color:${col};">${ini}</div>
+          </td>
+          <td style="padding:0; vertical-align:middle;">
+            <div style="font-size:12px; color:#e2e8f0; font-weight:500;">${u.userName}</div>
+            <div style="font-size:10px; color:#475569; margin-top:1px;">${u.daysActive}/5 días activos</div>
+          </td>
+        </tr></table>
+      </td>
+      <td style="padding:10px 8px; vertical-align:top;">
+        <table style="border-collapse:collapse; margin-bottom:4px;"><tr>
+          <td style="padding:0; padding-right:6px;">
+            <div style="background:${semBg(u.overallCompliance)}; border:1px solid ${semBorder(u.overallCompliance)}; border-radius:999px; padding:2px 8px; font-size:11px; font-weight:700; color:${col}; white-space:nowrap;">${u.overallCompliance}%</div>
+          </td>
+          <td style="padding:0; font-size:11px; color:${trendColor(u.trend)};">${trendIcon(u.trend)} ${u.trend === 'improving' ? 'Mejorando' : u.trend === 'declining' ? 'Bajando' : 'Estable'}</td>
+        </tr></table>
+        ${actBreakdown}
+      </td>
+    </tr>`
+  }).join('')
+
+  // ── Alert rows for critical reps (<40%) ───────────────────────────────────
+  const criticalAlerts = criticalReps.length > 0 ? `
+  <div style="background:#140606; border:1px solid #f8717140; border-left:3px solid #f87171; border-radius:8px; padding:16px 20px; margin-bottom:20px;">
+    <table style="border-collapse:collapse; width:100%; margin-bottom:10px;"><tr>
+      <td style="padding:0; vertical-align:middle;">
+        <span style="font-size:10px; font-weight:700; color:#f87171; text-transform:uppercase; letter-spacing:0.1em;">&#9888; Alerta — Reps con cumplimiento critico (&lt;40%)</span>
+      </td>
+    </tr></table>
+    ${criticalReps.map((u) => `
+    <table style="border-collapse:collapse; width:100%; margin-top:8px;"><tr>
+      <td style="padding:0; width:30px; vertical-align:middle; padding-right:10px;">
+        <div style="width:28px; height:28px; border-radius:50%; background:#f8717115; border:1px solid #f8717140; text-align:center; line-height:28px; font-size:10px; font-weight:700; color:#f87171;">${initials(u.userName)}</div>
+      </td>
+      <td style="padding:0; vertical-align:middle;">
+        <span style="font-size:12px; color:#f87171; font-weight:600;">${u.userName}</span>
+        <span style="font-size:11px; color:#f8717180; margin-left:8px;">${u.overallCompliance}% &nbsp;·&nbsp; ${u.weakest ? `Canal debil: ${u.weakest}` : 'Sin canal debil identificado'}</span>
+      </td>
+    </tr></table>`).join('')}
+  </div>` : ''
+
+  // ── Declining trend alert ──────────────────────────────────────────────────
+  const decliningAlert = decliningCount > 0 ? `
+  <div style="background:#110e00; border:1px solid #fbbf2440; border-left:3px solid #fbbf24; border-radius:8px; padding:14px 20px; margin-bottom:20px;">
+    <span style="font-size:10px; font-weight:700; color:#fbbf24; text-transform:uppercase; letter-spacing:0.1em;">&#9660; Tendencia descendente — ${decliningCount} rep${decliningCount > 1 ? 's' : ''} bajando esta semana</span>
+    <p style="margin:6px 0 0; font-size:12px; color:#fbbf2480; line-height:1.5;">
+      ${summaries.filter((u) => u.trend === 'declining').map((u) => u.userName).join(', ')}
     </p>
-  </div>
+  </div>` : ''
 
-  <!-- KPI bar -->
-  <table style="width:100%; border-collapse:separate; border-spacing:10px; margin-bottom:20px;">
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Reporte Semanal ProspectPro</title>
+</head>
+<body style="margin:0; padding:0; background:#0a0a0a; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;">
+<div style="background:#0a0a0a; padding:32px 16px;">
+<div style="max-width:660px; margin:0 auto;">
+
+  <!-- ── HEADER ───────────────────────────────────────────────────────────── -->
+  <table style="width:100%; border-collapse:collapse; margin-bottom:6px;">
     <tr>
-      <td style="background:#0f0f0f; border:1px solid #1e1e1e; border-top:2px solid #00D9FF; border-radius:8px; padding:14px 12px; text-align:center;">
-        <div style="font-size:26px; font-weight:800; color:#00D9FF;">${avgCompliance}%</div>
-        <div style="font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-top:3px;">Cumpl. promedio</div>
-      </td>
-      <td style="background:#0f0f0f; border:1px solid #1e1e1e; border-top:2px solid #34d399; border-radius:8px; padding:14px 12px; text-align:center;">
-        <div style="font-size:26px; font-weight:800; color:#34d399;">${summaries.length}</div>
-        <div style="font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-top:3px;">Reps analizados</div>
-      </td>
-      <td style="background:#0f0f0f; border:1px solid #1e1e1e; border-top:2px solid #f87171; border-radius:8px; padding:14px 12px; text-align:center;">
-        <div style="font-size:26px; font-weight:800; color:${atRiskCount > 0 ? '#f87171' : '#34d399'};">${atRiskCount}</div>
-        <div style="font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-top:3px;">En riesgo</div>
-      </td>
-      <td style="background:#0f0f0f; border:1px solid #1e1e1e; border-top:2px solid #fbbf24; border-radius:8px; padding:14px 12px; text-align:center;">
-        <div style="font-size:26px; font-weight:800; color:#fbbf24;">${decliningCount}</div>
-        <div style="font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-top:3px;">Tendencia ↓</div>
-      </td>
-      <td style="background:#0f0f0f; border:1px solid #1e1e1e; border-top:2px solid #34d399; border-radius:8px; padding:14px 12px; text-align:center;">
-        <div style="font-size:26px; font-weight:800; color:#34d399;">${improvingCount}</div>
-        <div style="font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-top:3px;">Tendencia ↑</div>
+      <td style="padding:28px 32px 24px; background:#0f0f0f; border:1px solid #1e1e1e; border-top:3px solid #00D9FF; border-radius:10px 10px 0 0;">
+        <!-- Logo row -->
+        <table style="border-collapse:collapse; margin-bottom:16px; width:100%;"><tr>
+          <td style="padding:0; vertical-align:middle;">
+            <table style="border-collapse:collapse;"><tr>
+              <td style="padding:0; padding-right:8px; vertical-align:middle;">
+                <div style="width:8px; height:8px; border-radius:50%; background:#00D9FF; display:inline-block;"></div>
+              </td>
+              <td style="padding:0; vertical-align:middle;">
+                <span style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:0.08em; text-transform:uppercase;">ProspectPro</span>
+              </td>
+            </tr></table>
+          </td>
+          <td style="padding:0; text-align:right; vertical-align:middle;">
+            <span style="background:#00D9FF18; color:#00D9FF; font-size:9px; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid #00D9FF35; letter-spacing:0.12em; text-transform:uppercase;">Reporte Semanal</span>
+          </td>
+        </tr></table>
+        <!-- Title -->
+        <h1 style="margin:0 0 8px; font-size:26px; font-weight:800; color:#ffffff; line-height:1.15; letter-spacing:-0.02em;">Reporte del Equipo</h1>
+        <p style="margin:0 0 14px; font-size:14px; color:#64748b;">
+          Semana <strong style="color:#00D9FF;">${weekNum}</strong>
+          &nbsp;&#183;&nbsp;
+          <strong style="color:#e2e8f0;">${weekLabel} – ${weekEndLabel}</strong>
+        </p>
+        <!-- Badges row -->
+        <table style="border-collapse:collapse;"><tr>
+          <td style="padding:0; padding-right:8px;">
+            <span style="background:#00D9FF12; color:#00D9FF; font-size:10px; font-weight:600; padding:3px 10px; border-radius:999px; border:1px solid #00D9FF30;">${companyName}</span>
+          </td>
+          ${atRiskCount > 0 ? `<td style="padding:0;">
+            <span style="background:#f8717115; color:#f87171; font-size:10px; font-weight:600; padding:3px 10px; border-radius:999px; border:1px solid #f8717140;">${atRiskCount} en riesgo</span>
+          </td>` : ''}
+        </tr></table>
       </td>
     </tr>
   </table>
 
-  <!-- Best/Worst activity pills -->
+  <!-- ── KPI CARDS (4) ────────────────────────────────────────────────────── -->
+  <table style="width:100%; border-collapse:separate; border-spacing:0; margin-bottom:20px;">
+    <tr>
+      <td style="padding:1px;">
+        <table style="width:100%; border-collapse:collapse;">
+          <tr>
+            <!-- Cumplimiento promedio -->
+            <td style="padding:0; width:25%;">
+              <div style="background:#0f0f0f; border:1px solid #1e1e1e; border-top:2px solid #00D9FF; padding:16px 14px; text-align:center; border-radius:0 0 0 8px; margin-right:1px;">
+                <div style="font-size:28px; font-weight:800; color:#00D9FF; line-height:1;">${avgCompliance}%</div>
+                <div style="font-size:9px; color:#475569; text-transform:uppercase; letter-spacing:0.1em; margin-top:5px;">Cumpl. promedio</div>
+              </div>
+            </td>
+            <!-- Actividades realizadas -->
+            <td style="padding:0; width:25%;">
+              <div style="background:#0f0f0f; border:1px solid #1e1e1e; border-top:2px solid #34d399; padding:16px 14px; text-align:center; margin-right:1px;">
+                <div style="font-size:28px; font-weight:800; color:#34d399; line-height:1;">${totalReal}</div>
+                <div style="font-size:9px; color:#475569; text-transform:uppercase; letter-spacing:0.1em; margin-top:5px;">/ ${totalGoal} actividades</div>
+              </div>
+            </td>
+            <!-- En racha -->
+            <td style="padding:0; width:25%;">
+              <div style="background:#0f0f0f; border:1px solid #1e1e1e; border-top:2px solid #a78bfa; padding:16px 14px; text-align:center; margin-right:1px;">
+                <div style="font-size:28px; font-weight:800; color:#a78bfa; line-height:1;">${streakReps}</div>
+                <div style="font-size:9px; color:#475569; text-transform:uppercase; letter-spacing:0.1em; margin-top:5px;">En racha (4-5d)</div>
+              </div>
+            </td>
+            <!-- En riesgo -->
+            <td style="padding:0; width:25%;">
+              <div style="background:#0f0f0f; border:1px solid #1e1e1e; border-top:2px solid #f87171; padding:16px 14px; text-align:center; border-radius:0 0 8px 0;">
+                <div style="font-size:28px; font-weight:800; color:${atRiskCount > 0 ? '#f87171' : '#34d399'}; line-height:1;">${atRiskCount}</div>
+                <div style="font-size:9px; color:#475569; text-transform:uppercase; letter-spacing:0.1em; margin-top:5px;">En riesgo (&lt;${p.threshold}%)</div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <!-- ── ACTIVITY INSIGHTS ─────────────────────────────────────────────────── -->
   ${(bestActivity || worstActivity) ? `
-  <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
-    ${bestActivity ? `<div style="background:#0f0f0f; border:1px solid #34d39940; border-radius:6px; padding:8px 14px; flex:1; min-width:180px;">
-      <div style="font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:3px;">Mejor actividad del equipo</div>
-      <div style="font-size:13px; color:#34d399; font-weight:700;">${bestActivity.name} <span style="font-weight:400;">(${bestActivity.avgPct}%)</span></div>
-    </div>` : ''}
-    ${worstActivity ? `<div style="background:#0f0f0f; border:1px solid #f8717140; border-radius:6px; padding:8px 14px; flex:1; min-width:180px;">
-      <div style="font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:3px;">Actividad más débil del equipo</div>
-      <div style="font-size:13px; color:#f87171; font-weight:700;">${worstActivity.name} <span style="font-weight:400;">(${worstActivity.avgPct}%)</span></div>
-    </div>` : ''}
-  </div>` : ''}
-
-  <!-- Spotlight: Top 3 / Bottom 3 -->
-  <table style="width:100%; border-collapse:separate; border-spacing:10px; margin-bottom:20px;">
+  <table style="width:100%; border-collapse:separate; border-spacing:8px; margin-bottom:20px;">
     <tr>
-      <td style="vertical-align:top; width:50%;">
-        <div style="background:#0f0f0f; border:1px solid #1e1e1e; border-top:2px solid #34d399; border-radius:8px; overflow:hidden;">
-          <div style="padding:10px 12px; border-bottom:1px solid #1e1e1e;">
-            <span style="font-size:10px; font-weight:700; color:#34d399; text-transform:uppercase; letter-spacing:0.1em;">Top rendimiento</span>
-          </div>
-          <table style="width:100%; border-collapse:collapse;">${top3Rows}</table>
-        </div>
-      </td>
-      <td style="vertical-align:top; width:50%;">
-        <div style="background:#0f0f0f; border:1px solid #f8717130; border-top:2px solid #f87171; border-radius:8px; overflow:hidden;">
-          <div style="padding:10px 12px; border-bottom:1px solid #1e1e1e;">
-            <span style="font-size:10px; font-weight:700; color:#f87171; text-transform:uppercase; letter-spacing:0.1em;">Requieren atención</span>
-          </div>
-          <table style="width:100%; border-collapse:collapse;">${bottom3Rows}</table>
-        </div>
+      ${bestActivity ? `<td style="background:#0f0f0f; border:1px solid #34d39930; border-radius:8px; padding:12px 16px; vertical-align:top;">
+        <div style="font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px;">Mejor actividad del equipo</div>
+        <div style="font-size:14px; color:#34d399; font-weight:700;">${bestActivity.name}</div>
+        <div style="font-size:11px; color:#34d39980; margin-top:2px;">${bestActivity.avgPct}% cumplimiento promedio</div>
+      </td>` : '<td></td>'}
+      ${worstActivity ? `<td style="background:#0f0f0f; border:1px solid #f8717130; border-radius:8px; padding:12px 16px; vertical-align:top;">
+        <div style="font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px;">Actividad mas debil</div>
+        <div style="font-size:14px; color:#f87171; font-weight:700;">${worstActivity.name}</div>
+        <div style="font-size:11px; color:#f8717180; margin-top:2px;">${worstActivity.avgPct}% cumplimiento promedio</div>
+      </td>` : '<td></td>'}
+      <td style="background:#0f0f0f; border:1px solid #1e1e1e; border-radius:8px; padding:12px 16px; vertical-align:top;">
+        <div style="font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px;">Tendencias</div>
+        <div style="font-size:13px; color:#34d399; font-weight:600;">&#8593; ${improvingCount} mejorando</div>
+        <div style="font-size:13px; color:#f87171; font-weight:600; margin-top:3px;">&#8595; ${decliningCount} bajando</div>
       </td>
     </tr>
-  </table>
+  </table>` : ''}
 
-  <!-- Full rep table with activity breakdown -->
+  <!-- ── ALERTAS ───────────────────────────────────────────────────────────── -->
+  ${criticalAlerts}
+  ${decliningAlert}
+
+  <!-- ── GRÁFICA DE BARRAS HORIZONTAL ────────────────────────────────────── -->
   <div style="background:#0f0f0f; border:1px solid #1e1e1e; border-radius:8px; overflow:hidden; margin-bottom:20px;">
-    <div style="padding:12px 16px; border-bottom:1px solid #1e1e1e;">
-      <span style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.1em;">Desglose por representante</span>
+    <div style="padding:12px 16px; border-bottom:1px solid #1a1a1a; background:#111111;">
+      <span style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.1em;">Cumplimiento por representante</span>
     </div>
     <table style="width:100%; border-collapse:collapse;">
-      <thead>
-        <tr style="background:#111111;">
-          <th style="padding:8px 12px; text-align:left; font-size:9px; color:#475569; text-transform:uppercase; letter-spacing:0.1em;">Rep</th>
-          <th style="padding:8px 12px; text-align:left; font-size:9px; color:#475569; text-transform:uppercase; letter-spacing:0.1em;">Cumplimiento por actividad</th>
-          <th style="padding:8px 12px; text-align:center; font-size:9px; color:#475569; text-transform:uppercase; letter-spacing:0.1em;">Tend.</th>
-          <th style="padding:8px 12px; text-align:center; font-size:9px; color:#475569; text-transform:uppercase; letter-spacing:0.1em;">Días</th>
-        </tr>
-      </thead>
-      <tbody>${repRows}</tbody>
+      ${barRows}
     </table>
   </div>
 
-  <!-- AI Analysis -->
-  <div style="background:#0f0f0f; border:1px solid #1e1e1e; border-left:3px solid #00D9FF; border-radius:8px; padding:20px; margin-bottom:20px;">
-    <p style="margin:0 0 14px 0; font-size:10px; font-weight:700; color:#00D9FF; text-transform:uppercase; letter-spacing:0.12em;">Análisis de IA · Coach Pro</p>
+  <!-- ── TABLA DETALLE COMPLETO ────────────────────────────────────────────── -->
+  <div style="background:#0f0f0f; border:1px solid #1e1e1e; border-radius:8px; overflow:hidden; margin-bottom:20px;">
+    <div style="padding:12px 16px; border-bottom:1px solid #1a1a1a; background:#111111;">
+      <span style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.1em;">Desglose de actividades por representante</span>
+    </div>
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr style="background:#111111; border-bottom:1px solid #1e1e1e;">
+          <th style="padding:8px 16px; text-align:left; font-size:9px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">Representante</th>
+          <th style="padding:8px 8px; text-align:left; font-size:9px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">Actividades</th>
+        </tr>
+      </thead>
+      <tbody>${detailRows}</tbody>
+    </table>
+  </div>
+
+  <!-- ── ANÁLISIS AI ───────────────────────────────────────────────────────── -->
+  <div style="background:#050505; border:1px solid #1e1e1e; border-left:3px solid #00D9FF; border-radius:8px; padding:24px; margin-bottom:20px;">
+    <table style="border-collapse:collapse; width:100%; margin-bottom:16px;"><tr>
+      <td style="padding:0; vertical-align:middle; padding-right:10px;">
+        <div style="width:6px; height:6px; border-radius:50%; background:#00D9FF; display:inline-block;"></div>
+      </td>
+      <td style="padding:0; vertical-align:middle;">
+        <span style="font-size:10px; font-weight:700; color:#00D9FF; text-transform:uppercase; letter-spacing:0.14em;">Análisis Coach Pro &nbsp;&#183;&nbsp; IA</span>
+      </td>
+    </tr></table>
     ${aiParagraphs}
   </div>
 
-  <!-- Footer -->
-  <p style="text-align:center; font-size:11px; color:#334155; margin-top:20px;">
-    ProspectPro · Reporte generado automáticamente<br>
-    <span style="color:#1e293b;">Para dejar de recibir estos reportes, configúralo en el Admin Dashboard.</span>
-  </p>
+  <!-- ── FOOTER ────────────────────────────────────────────────────────────── -->
+  <div style="border-top:1px solid #1a1a1a; padding-top:20px; margin-top:8px;">
+    <table style="width:100%; border-collapse:collapse;"><tr>
+      <td style="padding:0; vertical-align:middle;">
+        <div style="font-size:11px; color:#334155; line-height:1.6;">
+          <strong style="color:#475569; letter-spacing:0.05em;">PROSPECTPRO</strong> &nbsp;&#183;&nbsp; Generado automaticamente<br>
+          ${generatedAt} (hora Colombia)
+        </div>
+      </td>
+      <td style="padding:0; text-align:right; vertical-align:middle;">
+        <a href="https://app.prospectpro.cloud/dashboard" style="display:inline-block; background:#00D9FF12; color:#00D9FF; font-size:11px; font-weight:600; padding:7px 14px; border-radius:6px; border:1px solid #00D9FF30; text-decoration:none;">
+          Ver dashboard &#8594;
+        </a>
+      </td>
+    </tr></table>
+  </div>
 
+</div>
 </div>
 </body>
 </html>`
