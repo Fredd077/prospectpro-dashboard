@@ -23,6 +23,8 @@ import {
 import type { PeriodType } from '@/lib/types/common'
 import type { PipelineEntry } from '@/lib/types/database'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Mi Pipeline',
   description: 'Seguimiento de tu funnel comercial',
