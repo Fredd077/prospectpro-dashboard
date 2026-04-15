@@ -110,6 +110,12 @@ export default async function PipelinePage({ searchParams }: PageProps) {
   const activeDeals = (activeDealsRaw ?? []) as PipelineEntry[]
   const closedDeals = (closedDealsRaw ?? []) as PipelineEntry[]
 
+  const allStages = await sb
+    .from('pipeline_entries')
+    .select('stage')
+    .eq('user_id', user?.id ?? '')
+
+  console.log('ALL STAGES', allStages.data?.map(d => d.stage))
   console.log('PERIOD DEBUG', { period, start, end, closedDeals_count: closedDealsRaw?.length })
 
   const stages        = scenario?.funnel_stages  ?? DEFAULT_FUNNEL_STAGES
