@@ -99,7 +99,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     sb.from('pipeline_entries').select('*').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
     sb.from('vw_daily_compliance').select('type,real_executed').eq('user_id', user?.id ?? '').gte('log_date', start).lte('log_date', end),
     sb.from('deals').select('*').eq('user_id', user?.id ?? '').eq('status', 'active').order('entry_date', { ascending: false }),
-    sb.from('deals').select('*').eq('user_id', user?.id ?? '').in('status', ['won', 'lost']).gte('closed_at', `${start}T00:00:00`).lte('closed_at', `${end}T23:59:59`),
+    sb.from('deals').select('*').eq('user_id', user?.id ?? '').in('status', ['won', 'lost']).order('closed_at', { ascending: false }),
   ])
 
   const activeDeals = (activeDealsRaw ?? []) as Deal[]

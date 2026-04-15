@@ -8,6 +8,7 @@ import { es } from 'date-fns/locale'
 import { Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fmtUSD } from '@/lib/calculations/pipeline'
+import { DatePickerInput } from '@/components/ui/DatePickerInput'
 import { todayISO } from '@/lib/utils/dates'
 import {
   createDeal,
@@ -18,13 +19,6 @@ import {
 } from '@/lib/actions/deals'
 import type { Deal } from '@/lib/types/database'
 import type { PeriodType } from '@/lib/types/common'
-
-const PERIOD_LABELS: Record<PeriodType, string> = {
-  daily:     'hoy',
-  weekly:    'esta semana',
-  monthly:   'este mes',
-  quarterly: 'este trimestre',
-}
 
 interface KanbanBoardProps {
   activeDeals: Deal[]
@@ -172,8 +166,9 @@ export function KanbanBoard({
   closedDeals,
   stages,
   scenarioId,
-  period,
+  period: _period,
 }: KanbanBoardProps) {
+  void _period
   const router = useRouter()
   const today = todayISO()
   // 'Actividad' se registra via Check-in, no en deals — excluirla del Kanban.
@@ -339,8 +334,8 @@ export function KanbanBoard({
       {/* Metrics row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <MetricCard label="Tratos activos"                   value={String(activeDeals.length)} accent="primary" />
-        <MetricCard label={`Ganados ${PERIOD_LABELS[period]}`} value={String(wonDeals.length)}   accent="emerald" />
-        <MetricCard label={`Perdidos ${PERIOD_LABELS[period]}`} value={String(lostDeals.length)} accent="red"     />
+        <MetricCard label="Ganados (total)"  value={String(wonDeals.length)}  accent="emerald" />
+        <MetricCard label="Perdidos (total)" value={String(lostDeals.length)} accent="red"     />
         <MetricCard label="Pipeline abierto"                 value={fmtUSD(openPipeline)}       accent="primary" />
       </div>
 
@@ -511,12 +506,10 @@ export function KanbanBoard({
               {/* Fecha */}
               <div>
                 <label className={labelClass}>Fecha *</label>
-                <input
-                  type="date"
+                <DatePickerInput
                   value={newDate}
+                  onChange={(d) => setNewDate(d)}
                   max={today}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className={inputClass}
                 />
               </div>
 
