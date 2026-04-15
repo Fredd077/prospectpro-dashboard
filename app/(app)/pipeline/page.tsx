@@ -108,6 +108,12 @@ export default async function PipelinePage({ searchParams }: PageProps) {
   const activeDeals = (activeDealsRaw ?? []) as Deal[]
   const closedDeals = (closedDealsRaw ?? []) as Deal[]
 
+  console.log('KANBAN DEBUG', {
+    funnel_stages: scenario?.funnel_stages,
+    deal_stages: activeDeals.map(d => d.stage),
+    activeDeals_raw: activeDealsRaw,
+  })
+
   const stages        = scenario?.funnel_stages  ?? DEFAULT_FUNNEL_STAGES
   const outboundRates = scenario?.outbound_rates ?? DEFAULT_OUTBOUND_RATES
   const inboundRates  = scenario?.inbound_rates  ?? DEFAULT_INBOUND_RATES
