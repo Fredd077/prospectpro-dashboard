@@ -108,6 +108,8 @@ export default async function PipelinePage({ searchParams }: PageProps) {
   const activeDeals = (activeDealsRaw ?? []) as PipelineEntry[]
   const closedDeals = (closedDealsRaw ?? []) as PipelineEntry[]
 
+  console.log('PERIOD DEBUG', { period, start, end, closedDeals_count: closedDealsRaw?.length })
+
   const stages        = scenario?.funnel_stages  ?? DEFAULT_FUNNEL_STAGES
   const outboundRates = scenario?.outbound_rates ?? DEFAULT_OUTBOUND_RATES
   const inboundRates  = scenario?.inbound_rates  ?? DEFAULT_INBOUND_RATES
