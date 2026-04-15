@@ -19,7 +19,7 @@ CREATE TABLE deals (
   -- Tipo y etapa
   prospect_type      TEXT         NOT NULL DEFAULT 'OUTBOUND'
                        CHECK (prospect_type IN ('OUTBOUND', 'INBOUND')),
-  current_stage      TEXT         NOT NULL,
+  stage              TEXT         NOT NULL,
 
   -- Estado del trato
   status             TEXT         NOT NULL DEFAULT 'active'
@@ -51,7 +51,7 @@ CREATE POLICY "deals_own" ON deals
 CREATE INDEX idx_deals_user_status
   ON deals(user_id, status);
 CREATE INDEX idx_deals_user_stage
-  ON deals(user_id, current_stage);
+  ON deals(user_id, stage);
 CREATE INDEX idx_deals_entry_date
   ON deals(user_id, entry_date DESC);
 

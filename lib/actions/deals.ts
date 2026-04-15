@@ -24,7 +24,7 @@ export async function createDeal(data: {
       company_name: data.company_name?.trim() ?? null,
       prospect_name: data.prospect_name?.trim() ?? null,
       prospect_type: data.prospect_type,
-      current_stage: data.initial_stage,
+      stage: data.initial_stage,
       status: 'active',
       amount_usd: data.amount_usd ?? null,
       entry_date: data.entry_date,
@@ -68,7 +68,7 @@ export async function advanceDeal(
 
   const { data: deal, error: fetchError } = await sb
     .from('deals')
-    .select('current_stage, prospect_type, recipe_scenario_id, company_name, prospect_name')
+    .select('stage, prospect_type, recipe_scenario_id, company_name, prospect_name')
     .eq('id', dealId)
     .eq('user_id', user.id)
     .single()
@@ -77,7 +77,7 @@ export async function advanceDeal(
 
   const { error: updateError } = await sb
     .from('deals')
-    .update({ current_stage: toStage, updated_at: new Date().toISOString() })
+    .update({ stage: toStage, updated_at: new Date().toISOString() })
     .eq('id', dealId)
     .eq('user_id', user.id)
 
@@ -90,7 +90,7 @@ export async function advanceDeal(
       recipe_scenario_id: deal.recipe_scenario_id ?? null,
       deal_id: dealId,
       stage: toStage,
-      from_stage: deal.current_stage,
+      from_stage: deal.stage,
       prospect_type: deal.prospect_type as 'OUTBOUND' | 'INBOUND',
       company_name: deal.company_name ?? null,
       prospect_name: deal.prospect_name ?? null,
@@ -115,7 +115,7 @@ export async function closeDealWon(
 
   const { data: deal, error: fetchError } = await sb
     .from('deals')
-    .select('current_stage, prospect_type, recipe_scenario_id, company_name, prospect_name')
+    .select('stage, prospect_type, recipe_scenario_id, company_name, prospect_name')
     .eq('id', dealId)
     .eq('user_id', user.id)
     .single()
@@ -143,8 +143,8 @@ export async function closeDealWon(
       user_id: user.id,
       recipe_scenario_id: deal.recipe_scenario_id ?? null,
       deal_id: dealId,
-      stage: deal.current_stage,
-      from_stage: deal.current_stage,
+      stage: deal.stage,
+      from_stage: deal.stage,
       prospect_type: deal.prospect_type as 'OUTBOUND' | 'INBOUND',
       company_name: deal.company_name ?? null,
       prospect_name: deal.prospect_name ?? null,
@@ -170,7 +170,7 @@ export async function closeDealLost(
 
   const { data: deal, error: fetchError } = await sb
     .from('deals')
-    .select('current_stage')
+    .select('stage')
     .eq('id', dealId)
     .eq('user_id', user.id)
     .single()
@@ -182,7 +182,7 @@ export async function closeDealLost(
     .update({
       status: 'lost',
       lost_reason: lost_reason ?? null,
-      lost_at_stage: deal.current_stage,
+      lost_at_stage: deal.stage,
       closed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -206,7 +206,7 @@ export async function updateDeal(
     amount_usd?: number | null
     prospect_type?: 'OUTBOUND' | 'INBOUND'
     entry_date?: string
-    current_stage?: string
+    stage?: string
   },
 ): Promise<void> {
   const sb = await getSupabaseServerClient()

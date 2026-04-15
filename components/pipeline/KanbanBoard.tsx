@@ -76,7 +76,7 @@ function DealCard({ deal, isLastStage, onAdvance, onWin, onLose, onEdit }: DealC
       {/* Row 0: stage tag + date */}
       <div className="flex items-center justify-between mb-1">
         <span className="text-[9px] font-bold uppercase tracking-widest rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-400 border border-amber-500/30">
-          {deal.current_stage}
+          {deal.stage}
         </span>
         <span className="text-[9px] text-muted-foreground">
           {format(parseISO(deal.entry_date), 'd MMM', { locale: es })}
@@ -245,7 +245,7 @@ export function KanbanBoard({
 
   async function handleAdvanceDeal() {
     if (!advancingDeal) return
-    const nextIndex = stages.indexOf(advancingDeal.current_stage) + 1
+    const nextIndex = stages.indexOf(advancingDeal.stage) + 1
     const nextStage = stages[nextIndex]
     if (!nextStage) return
     setSaving(true)
@@ -300,7 +300,7 @@ export function KanbanBoard({
     if (!editingDeal) return
     setSaving(true)
     try {
-      // Nota: cambiar current_stage aquí es una corrección directa.
+      // Nota: cambiar stage aquí es una corrección directa.
       // No registra pipeline_entry — usar advanceDeal() para movimientos reales.
       await updateDeal(editingDeal.id, {
         company_name:  editCompany.trim() || null,
@@ -308,7 +308,7 @@ export function KanbanBoard({
         amount_usd:    editAmount ? Number(editAmount) : null,
         prospect_type: editType,
         entry_date:    editDate,
-        current_stage: editStage,
+        stage:         editStage,
       })
       toast.success('Trato actualizado ✓')
       setEditingDeal(null)
@@ -344,7 +344,7 @@ export function KanbanBoard({
 
         {/* Active stage columns */}
         {kanbanStages.map((stage) => {
-          const stageDeals = activeDeals.filter((d) => d.current_stage === stage)
+          const stageDeals = activeDeals.filter((d) => d.stage === stage)
           const stageCount = stageDeals.length
           return (
             <div key={stage} className="flex flex-col gap-3 min-w-[220px] max-w-[220px]">
@@ -360,7 +360,7 @@ export function KanbanBoard({
                 <DealCard
                   key={deal.id}
                   deal={deal}
-                  isLastStage={deal.current_stage === lastStage}
+                  isLastStage={deal.stage === lastStage}
                   onAdvance={() => { setAdvanceDate(today); setAdvancingDeal(deal) }}
                   onWin={() => {
                     setWinAmount(deal.amount_usd != null ? String(deal.amount_usd) : '')
@@ -374,7 +374,7 @@ export function KanbanBoard({
                     setEditAmount(deal.amount_usd != null ? String(deal.amount_usd) : '')
                     setEditType(deal.prospect_type)
                     setEditDate(deal.entry_date)
-                    setEditStage(deal.current_stage)
+                    setEditStage(deal.stage)
                     setEditingDeal(deal)
                   }}
                 />
@@ -432,7 +432,7 @@ export function KanbanBoard({
                 <p className="text-xs font-semibold text-foreground truncate">{deal.prospect_name}</p>
               )}
               <p className="text-[10px] text-muted-foreground">
-                Se perdió en: {deal.lost_at_stage ?? deal.current_stage}
+                Se perdió en: {deal.lost_at_stage ?? deal.stage}
               </p>
               {deal.lost_reason && (
                 <p className="text-[10px] text-muted-foreground/70 italic">{deal.lost_reason}</p>
@@ -585,12 +585,12 @@ export function KanbanBoard({
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-muted-foreground">Etapa actual:</span>
-                <span className="font-semibold text-foreground">{advancingDeal.current_stage}</span>
+                <span className="font-semibold text-foreground">{advancingDeal.stage}</span>
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-muted-foreground">Avanzar a:</span>
                 <span className="font-semibold text-primary">
-                  {stages[stages.indexOf(advancingDeal.current_stage) + 1] ?? '—'}
+                  {stages[stages.indexOf(advancingDeal.stage) + 1] ?? '—'}
                 </span>
               </div>
               <div>
@@ -690,7 +690,7 @@ export function KanbanBoard({
               {losingDeal.company_name ?? losingDeal.prospect_name ?? 'Trato sin nombre'}
             </p>
             <p className="text-[10px] text-muted-foreground/60 mb-4">
-              Se perdió en etapa: {losingDeal.current_stage}
+              Se perdió en etapa: {losingDeal.stage}
             </p>
             <div>
               <label className={labelClass}>Razón (opcional)</label>
