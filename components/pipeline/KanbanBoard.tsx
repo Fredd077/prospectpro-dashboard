@@ -17,12 +17,12 @@ import {
   closeDealLost,
   updateDeal,
 } from '@/lib/actions/deals'
-import type { Deal } from '@/lib/types/database'
+import type { PipelineEntry } from '@/lib/types/database'
 import type { PeriodType } from '@/lib/types/common'
 
 interface KanbanBoardProps {
-  activeDeals: Deal[]
-  closedDeals: Deal[]
+  activeDeals: PipelineEntry[]
+  closedDeals: PipelineEntry[]
   stages: string[]
   scenarioId: string | null
   period: PeriodType
@@ -62,7 +62,7 @@ function MetricCard({ label, value, accent }: MetricCardProps) {
 // ── Deal card ─────────────────────────────────────────────────────────────────
 
 interface DealCardProps {
-  deal: Deal
+  deal: PipelineEntry
   isLastStage: boolean
   onAdvance: () => void
   onWin: () => void
@@ -178,10 +178,10 @@ export function KanbanBoard({
 
   // Modal open/close state
   const [showNewDeal, setShowNewDeal] = useState(false)
-  const [advancingDeal, setAdvancingDeal] = useState<Deal | null>(null)
-  const [losingDeal, setLosingDeal] = useState<Deal | null>(null)
-  const [winningDeal, setWinningDeal] = useState<Deal | null>(null)
-  const [editingDeal, setEditingDeal] = useState<Deal | null>(null)
+  const [advancingDeal, setAdvancingDeal] = useState<PipelineEntry | null>(null)
+  const [losingDeal, setLosingDeal] = useState<PipelineEntry | null>(null)
+  const [winningDeal, setWinningDeal] = useState<PipelineEntry | null>(null)
+  const [editingDeal, setEditingDeal] = useState<PipelineEntry | null>(null)
   const [saving, setSaving] = useState(false)
 
   // Edit deal form state
@@ -211,8 +211,8 @@ export function KanbanBoard({
   const [lostReason, setLostReason] = useState('')
 
   // Derived metrics
-  const wonDeals  = closedDeals.filter((d) => d.status === 'won')
-  const lostDeals = closedDeals.filter((d) => d.status === 'lost')
+  const wonDeals  = closedDeals.filter((d) => d.stage === 'Ganado')
+  const lostDeals = closedDeals.filter((d) => d.stage === 'Perdido')
   const openPipeline = activeDeals.reduce((sum, d) => sum + (d.amount_usd ?? 0), 0)
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -404,11 +404,9 @@ export function KanbanBoard({
               {deal.amount_usd != null && (
                 <p className="text-sm font-bold font-data text-emerald-400">{fmtUSD(deal.amount_usd)}</p>
               )}
-              {deal.closed_at && (
-                <p className="text-[10px] text-muted-foreground">
-                  {format(parseISO(deal.closed_at), 'd MMM', { locale: es })}
-                </p>
-              )}
+              <p className="text-[10px] text-muted-foreground">
+                {format(parseISO(deal.updated_at), 'd MMM', { locale: es })}
+              </p>
             </div>
           ))}
         </div>
@@ -432,10 +430,10 @@ export function KanbanBoard({
                 <p className="text-xs font-semibold text-foreground truncate">{deal.prospect_name}</p>
               )}
               <p className="text-[10px] text-muted-foreground">
-                Se perdió en: {deal.lost_at_stage ?? deal.stage}
+                Se perdió en: {deal.from_stage ?? deal.stage}
               </p>
-              {deal.lost_reason && (
-                <p className="text-[10px] text-muted-foreground/70 italic">{deal.lost_reason}</p>
+              {deal.notes && (
+                <p className="text-[10px] text-muted-foreground/70 italic">{deal.notes}</p>
               )}
             </div>
           ))}

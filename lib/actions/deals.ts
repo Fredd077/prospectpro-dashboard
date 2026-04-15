@@ -16,49 +16,32 @@ export async function createDeal(data: {
   const { data: { user } } = await sb.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const { data: deal, error: dealError } = await sb
-    .from('deals')
-    .insert({
-      user_id: user.id,
-      recipe_scenario_id: data.recipe_scenario_id ?? null,
-      company_name: data.company_name?.trim() ?? null,
-      prospect_name: data.prospect_name?.trim() ?? null,
-      prospect_type: data.prospect_type,
-      stage: data.initial_stage,
-      status: 'active',
-      amount_usd: data.amount_usd ?? null,
-      entry_date: data.entry_date,
-    })
-    .select('id')
-    .single()
-
-  if (dealError) throw dealError
-
-  const { error: entryError } = await sb
+  const { data: entry, error } = await sb
     .from('pipeline_entries')
     .insert({
       user_id: user.id,
       recipe_scenario_id: data.recipe_scenario_id ?? null,
-      deal_id: deal.id,
-      stage: data.initial_stage,
-      from_stage: null,
-      prospect_type: data.prospect_type,
       company_name: data.company_name?.trim() ?? null,
       prospect_name: data.prospect_name?.trim() ?? null,
+      prospect_type: data.prospect_type,
+      stage: data.initial_stage,
+      from_stage: null,
       quantity: 1,
       amount_usd: data.amount_usd ?? null,
       entry_date: data.entry_date,
       is_quick_entry: false,
     })
+    .select('id')
+    .single()
 
-  if (entryError) throw entryError
+  if (error) throw error
 
   revalidatePath('/pipeline')
-  return deal.id
+  return entry.id
 }
 
 export async function advanceDeal(
-  dealId: string,
+  entryId: string,
   toStage: string,
   moveDate: string,
 ): Promise<void> {
@@ -66,46 +49,33 @@ export async function advanceDeal(
   const { data: { user } } = await sb.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const { data: deal, error: fetchError } = await sb
-    .from('deals')
-    .select('stage, prospect_type, recipe_scenario_id, company_name, prospect_name')
-    .eq('id', dealId)
+  const { data: entry, error: fetchError } = await sb
+    .from('pipeline_entries')
+    .select('stage')
+    .eq('id', entryId)
     .eq('user_id', user.id)
     .single()
 
   if (fetchError) throw fetchError
 
-  const { error: updateError } = await sb
-    .from('deals')
-    .update({ stage: toStage, updated_at: new Date().toISOString() })
-    .eq('id', dealId)
+  const { error } = await sb
+    .from('pipeline_entries')
+    .update({
+      stage:      toStage,
+      from_stage: entry.stage,
+      entry_date: moveDate,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', entryId)
     .eq('user_id', user.id)
 
-  if (updateError) throw updateError
-
-  const { error: entryError } = await sb
-    .from('pipeline_entries')
-    .insert({
-      user_id: user.id,
-      recipe_scenario_id: deal.recipe_scenario_id ?? null,
-      deal_id: dealId,
-      stage: toStage,
-      from_stage: deal.stage,
-      prospect_type: deal.prospect_type as 'OUTBOUND' | 'INBOUND',
-      company_name: deal.company_name ?? null,
-      prospect_name: deal.prospect_name ?? null,
-      quantity: 1,
-      entry_date: moveDate,
-      is_quick_entry: false,
-    })
-
-  if (entryError) throw entryError
+  if (error) throw error
 
   revalidatePath('/pipeline')
 }
 
 export async function closeDealWon(
-  dealId: string,
+  entryId: string,
   amount_usd: number | null,
   closeDate: string,
 ): Promise<void> {
@@ -113,54 +83,26 @@ export async function closeDealWon(
   const { data: { user } } = await sb.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const { data: deal, error: fetchError } = await sb
-    .from('deals')
-    .select('stage, prospect_type, recipe_scenario_id, company_name, prospect_name')
-    .eq('id', dealId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (fetchError) throw fetchError
-
   const updatePayload: Record<string, unknown> = {
-    status: 'won',
-    closed_at: new Date().toISOString(),
+    stage:      'Ganado',
+    entry_date: closeDate,
     updated_at: new Date().toISOString(),
   }
   if (amount_usd != null) updatePayload.amount_usd = amount_usd
 
-  const { error: updateError } = await sb
-    .from('deals')
+  const { error } = await sb
+    .from('pipeline_entries')
     .update(updatePayload)
-    .eq('id', dealId)
+    .eq('id', entryId)
     .eq('user_id', user.id)
 
-  if (updateError) throw updateError
-
-  const { error: entryError } = await sb
-    .from('pipeline_entries')
-    .insert({
-      user_id: user.id,
-      recipe_scenario_id: deal.recipe_scenario_id ?? null,
-      deal_id: dealId,
-      stage: deal.stage,
-      from_stage: deal.stage,
-      prospect_type: deal.prospect_type as 'OUTBOUND' | 'INBOUND',
-      company_name: deal.company_name ?? null,
-      prospect_name: deal.prospect_name ?? null,
-      quantity: 1,
-      amount_usd: amount_usd,
-      entry_date: closeDate,
-      is_quick_entry: false,
-    })
-
-  if (entryError) throw entryError
+  if (error) throw error
 
   revalidatePath('/pipeline')
 }
 
 export async function closeDealLost(
-  dealId: string,
+  entryId: string,
   lost_reason: string | null,
   lostDate: string,
 ): Promise<void> {
@@ -168,45 +110,31 @@ export async function closeDealLost(
   const { data: { user } } = await sb.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const { data: deal, error: fetchError } = await sb
-    .from('deals')
-    .select('stage')
-    .eq('id', dealId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (fetchError) throw fetchError
-
-  const { error: updateError } = await sb
-    .from('deals')
+  const { error } = await sb
+    .from('pipeline_entries')
     .update({
-      status: 'lost',
-      lost_reason: lost_reason ?? null,
-      lost_at_stage: deal.stage,
-      closed_at: new Date().toISOString(),
+      stage:      'Perdido',
+      notes:      lost_reason ?? null,
+      entry_date: lostDate,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', dealId)
+    .eq('id', entryId)
     .eq('user_id', user.id)
 
-  if (updateError) throw updateError
+  if (error) throw error
 
-  // No pipeline_entry on lost — el trato se cayó
   revalidatePath('/pipeline')
-
-  // lostDate param accepted for API consistency; not stored on lost deals
-  void lostDate
 }
 
 export async function updateDeal(
-  dealId: string,
+  entryId: string,
   data: {
-    company_name?: string | null
+    company_name?:  string | null
     prospect_name?: string | null
-    amount_usd?: number | null
+    amount_usd?:    number | null
     prospect_type?: 'OUTBOUND' | 'INBOUND'
-    entry_date?: string
-    stage?: string
+    entry_date?:    string
+    stage?:         string
   },
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
@@ -214,12 +142,12 @@ export async function updateDeal(
   if (!user) throw new Error('Not authenticated')
 
   const { error } = await sb
-    .from('deals')
+    .from('pipeline_entries')
     .update({
       ...data,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', dealId)
+    .eq('id', entryId)
     .eq('user_id', user.id)
 
   if (error) throw error

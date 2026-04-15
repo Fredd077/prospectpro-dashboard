@@ -21,7 +21,7 @@ import {
   DEFAULT_INBOUND_RATES,
 } from '@/lib/calculations/recipe'
 import type { PeriodType } from '@/lib/types/common'
-import type { Deal } from '@/lib/types/database'
+import type { PipelineEntry } from '@/lib/types/database'
 
 export const metadata: Metadata = {
   title: 'Mi Pipeline',
@@ -100,13 +100,13 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     sb.from('pipeline_entries').select('*').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
     sb.from('vw_daily_compliance').select('type,real_executed').eq('user_id', user?.id ?? '').gte('log_date', start).lte('log_date', end),
     // No date filter — Kanban shows ALL active deals regardless of creation date
-    sb.from('deals').select('*').eq('user_id', user?.id ?? '').eq('status', 'active').order('entry_date', { ascending: false }),
+    sb.from('pipeline_entries').select('*').eq('user_id', user?.id ?? '').not('stage', 'in', '("Ganado","Perdido","Won","Lost")').order('entry_date', { ascending: false }),
     // No date filter — Kanban shows full closed-deals history in Won/Lost columns
-    sb.from('deals').select('*').eq('user_id', user?.id ?? '').in('status', ['won', 'lost']).order('closed_at', { ascending: false }),
+    sb.from('pipeline_entries').select('*').eq('user_id', user?.id ?? '').in('stage', ['Ganado', 'Perdido']).order('updated_at', { ascending: false }),
   ])
 
-  const activeDeals = (activeDealsRaw ?? []) as Deal[]
-  const closedDeals = (closedDealsRaw ?? []) as Deal[]
+  const activeDeals = (activeDealsRaw ?? []) as PipelineEntry[]
+  const closedDeals = (closedDealsRaw ?? []) as PipelineEntry[]
 
   const stages        = scenario?.funnel_stages  ?? DEFAULT_FUNNEL_STAGES
   const outboundRates = scenario?.outbound_rates ?? DEFAULT_OUTBOUND_RATES
