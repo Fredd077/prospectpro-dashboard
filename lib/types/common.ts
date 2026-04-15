@@ -1,4 +1,4 @@
-export type PeriodType = 'daily' | 'weekly' | 'monthly' | 'quarterly'
+export type PeriodType = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
 export type ActivityType = 'OUTBOUND' | 'INBOUND' | 'ALL'
 export type SemaphoreColor = 'green' | 'yellow' | 'red' | 'no_goal'
 

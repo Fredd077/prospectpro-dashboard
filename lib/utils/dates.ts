@@ -5,6 +5,8 @@ import {
   endOfMonth,
   startOfQuarter,
   endOfQuarter,
+  startOfYear,
+  endOfYear,
   eachDayOfInterval,
   parseISO,
   differenceInDays,
@@ -56,6 +58,11 @@ export function getPeriodRange(period: PeriodType, refDate: Date): DateRange {
         start: toISODate(reanchorNoon(startOfQuarter(refDate))),
         end:   toISODate(endOfQuarter(refDate)),
       }
+    case 'yearly':
+      return {
+        start: toISODate(reanchorNoon(startOfYear(refDate))),
+        end:   toISODate(endOfYear(refDate)),
+      }
   }
 }
 
@@ -96,6 +103,8 @@ export function periodLabel(period: PeriodType, refDate: Date): string {
       return format(refDate, 'MMMM yyyy', { locale: es })
     case 'quarterly':
       return `Q${Math.ceil((refDate.getMonth() + 1) / 3)} ${getYear(refDate)}`
+    case 'yearly':
+      return String(getYear(refDate))
   }
 }
 

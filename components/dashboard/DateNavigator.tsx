@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { parseISO, subDays, addDays, subWeeks, addWeeks, subMonths, addMonths, subQuarters, addQuarters } from 'date-fns'
+import { parseISO, subDays, addDays, subWeeks, addWeeks, subMonths, addMonths, subQuarters, addQuarters, subYears, addYears } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
@@ -21,6 +21,7 @@ function shiftDate(period: PeriodType, date: Date, direction: -1 | 1): Date {
     case 'weekly':    return direction === -1 ? subWeeks(date, 1)    : addWeeks(date, 1)
     case 'monthly':   return direction === -1 ? subMonths(date, 1)   : addMonths(date, 1)
     case 'quarterly': return direction === -1 ? subQuarters(date, 1) : addQuarters(date, 1)
+    case 'yearly':    return direction === -1 ? subYears(date, 1)    : addYears(date, 1)
   }
 }
 

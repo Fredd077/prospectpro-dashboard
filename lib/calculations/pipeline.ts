@@ -80,12 +80,13 @@ export function calcRevenueProgress(closed: number, monthlyGoal: number): number
  */
 export function scalePlanToperiod(
   monthlyValue: number,
-  period: 'daily' | 'weekly' | 'monthly' | 'quarterly',
+  period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly',
   workingDays: number,
 ): number {
   if (period === 'monthly')   return Math.ceil(monthlyValue)
   if (period === 'weekly')    return Math.ceil(monthlyValue / (workingDays / 5))
   if (period === 'quarterly') return Math.ceil(monthlyValue * 3)
+  if (period === 'yearly')    return Math.ceil(monthlyValue * 12)
   return Math.ceil(monthlyValue / workingDays)
 }
 

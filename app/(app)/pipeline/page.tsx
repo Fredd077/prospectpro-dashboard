@@ -43,6 +43,7 @@ const PERIOD_OPTIONS: { value: PeriodType; label: string }[] = [
   { value: 'weekly',    label: 'Semana'    },
   { value: 'monthly',   label: 'Mes'       },
   { value: 'quarterly', label: 'Trimestre' },
+  { value: 'yearly',    label: 'Año'       },
 ]
 
 const TAB_OPTIONS = [
@@ -62,7 +63,7 @@ function buildUrl(base: Record<string, string | undefined>) {
 
 export default async function PipelinePage({ searchParams }: PageProps) {
   const params         = await searchParams
-  const period         = (['daily', 'weekly', 'monthly', 'quarterly'].includes(params.period ?? '')
+  const period         = (['daily', 'weekly', 'monthly', 'quarterly', 'yearly'].includes(params.period ?? '')
     ? params.period
     : 'monthly') as PeriodType
   const tabParam       = (['kanban', 'funnel', 'registros'].includes(params.tab ?? '')
@@ -98,7 +99,9 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     sb.from('recipe_scenarios').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     sb.from('pipeline_entries').select('*').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
     sb.from('vw_daily_compliance').select('type,real_executed').eq('user_id', user?.id ?? '').gte('log_date', start).lte('log_date', end),
+    // No date filter — Kanban shows ALL active deals regardless of creation date
     sb.from('deals').select('*').eq('user_id', user?.id ?? '').eq('status', 'active').order('entry_date', { ascending: false }),
+    // No date filter — Kanban shows full closed-deals history in Won/Lost columns
     sb.from('deals').select('*').eq('user_id', user?.id ?? '').in('status', ['won', 'lost']).order('closed_at', { ascending: false }),
   ])
 
