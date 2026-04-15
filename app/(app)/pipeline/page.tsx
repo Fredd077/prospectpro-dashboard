@@ -101,8 +101,8 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     sb.from('vw_daily_compliance').select('type,real_executed').eq('user_id', user?.id ?? '').gte('log_date', start).lte('log_date', end),
     // No date filter — Kanban shows ALL active deals regardless of creation date
     sb.from('pipeline_entries').select('*').eq('user_id', user?.id ?? '').not('stage', 'in', '("Ganado","Perdido","Won","Lost")').order('entry_date', { ascending: false }),
-    // No date filter — Kanban shows full closed-deals history in Won/Lost columns
-    sb.from('pipeline_entries').select('*').eq('user_id', user?.id ?? '').in('stage', ['Ganado', 'Perdido']).order('updated_at', { ascending: false }),
+    // Date-filtered — Ganados/Perdidos count respects the selected period
+    sb.from('pipeline_entries').select('*').eq('user_id', user?.id ?? '').in('stage', ['Ganado', 'Perdido']).gte('entry_date', start).lte('entry_date', end).order('updated_at', { ascending: false }),
   ])
 
   const activeDeals = (activeDealsRaw ?? []) as PipelineEntry[]
@@ -298,6 +298,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
               stages={stages}
               scenarioId={scenario?.id ?? null}
               period={period}
+              periodLabel={pLabel}
             />
           </div>
         )}

@@ -26,6 +26,7 @@ interface KanbanBoardProps {
   stages: string[]
   scenarioId: string | null
   period: PeriodType
+  periodLabel: string
 }
 
 // ── Metric card ───────────────────────────────────────────────────────────────
@@ -167,6 +168,7 @@ export function KanbanBoard({
   stages,
   scenarioId,
   period: _period,
+  periodLabel,
 }: KanbanBoardProps) {
   void _period
   const router = useRouter()
@@ -334,8 +336,8 @@ export function KanbanBoard({
       {/* Metrics row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <MetricCard label="Tratos activos"                   value={String(activeDeals.length)} accent="primary" />
-        <MetricCard label="Ganados (total)"  value={String(wonDeals.length)}  accent="emerald" />
-        <MetricCard label="Perdidos (total)" value={String(lostDeals.length)} accent="red"     />
+        <MetricCard label={`Ganados · ${periodLabel}`}  value={String(wonDeals.length)}  accent="emerald" />
+        <MetricCard label={`Perdidos · ${periodLabel}`} value={String(lostDeals.length)} accent="red"     />
         <MetricCard label="Pipeline abierto"                 value={fmtUSD(openPipeline)}       accent="primary" />
       </div>
 
