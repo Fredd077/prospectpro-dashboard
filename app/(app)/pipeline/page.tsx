@@ -306,6 +306,8 @@ export default async function PipelinePage({ searchParams }: PageProps) {
               scenarioId={scenario?.id ?? null}
               period={period}
               periodLabel={pLabel}
+              periodStart={start}
+              periodEnd={end}
             />
           </div>
         )}

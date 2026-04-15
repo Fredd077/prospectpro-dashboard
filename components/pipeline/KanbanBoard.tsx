@@ -28,6 +28,8 @@ interface KanbanBoardProps {
   scenarioId: string | null
   period: PeriodType
   periodLabel: string
+  periodStart: string
+  periodEnd: string
 }
 
 // ── Metric card ───────────────────────────────────────────────────────────────
@@ -171,6 +173,8 @@ export function KanbanBoard({
   scenarioId,
   period: _period,
   periodLabel,
+  periodStart,
+  periodEnd,
 }: KanbanBoardProps) {
   void _period
   const router = useRouter()
@@ -179,6 +183,11 @@ export function KanbanBoard({
   // Si el funnel del usuario no empieza con 'Actividad', mostrar todos los stages.
   const kanbanStages = stages[0]?.toLowerCase() === 'actividad' ? stages.slice(1) : stages
   const lastStage = stages[stages.length - 1]
+
+  // Filter deals by period for column cards and counters
+  const filteredDeals = activeDeals.filter(
+    (d) => d.entry_date >= periodStart && d.entry_date <= periodEnd
+  )
 
   // Modal open/close state
   const [showNewDeal, setShowNewDeal] = useState(false)
@@ -348,7 +357,7 @@ export function KanbanBoard({
 
         {/* Active stage columns */}
         {kanbanStages.map((stage) => {
-          const stageDeals = activeDeals.filter((d) => d.stage === stage)
+          const stageDeals = filteredDeals.filter((d) => d.stage === stage)
           const stageCount = stageDeals.length
           return (
             <div key={stage} className="flex flex-col gap-3 min-w-[220px] max-w-[220px]">
