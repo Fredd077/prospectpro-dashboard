@@ -96,19 +96,23 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     { data: allEntries },
     { data: actLogs },
     { data: activeDealsRaw },
+    { data: activeDealsMetricsRaw },
     { data: closedDealsRaw },
   ] = await Promise.all([
     sb.from('recipe_scenarios').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     sb.from('pipeline_entries').select('*').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
     sb.from('vw_daily_compliance').select('type,real_executed').eq('user_id', user?.id ?? '').gte('log_date', start).lte('log_date', end),
-    // No date filter — Kanban shows ALL active deals regardless of creation date
-    sb.from('pipeline_entries').select('*').eq('user_id', user?.id ?? '').not('stage', 'in', '("Ganado","Perdido","Won","Lost")').order('entry_date', { ascending: false }),
+    // No date filter — Kanban columns show ALL active deals regardless of creation date
+    sb.from('pipeline_entries').select('*').eq('user_id', user?.id ?? '').not('stage', 'in', '("Ganado","Perdido")').order('entry_date', { ascending: false }),
+    // Date-filtered — "Tratos activos" and "Pipeline abierto" metrics respect the selected period
+    sb.from('pipeline_entries').select('*').eq('user_id', user?.id ?? '').not('stage', 'in', '("Ganado","Perdido")').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }),
     // Date-filtered — Ganados/Perdidos count respects the selected period
     sb.from('pipeline_entries').select('*').eq('user_id', user?.id ?? '').in('stage', ['Ganado', 'Perdido']).gte('entry_date', start).lte('entry_date', end).order('updated_at', { ascending: false }),
   ])
 
-  const activeDeals = (activeDealsRaw ?? []) as PipelineEntry[]
-  const closedDeals = (closedDealsRaw ?? []) as PipelineEntry[]
+  const activeDeals        = (activeDealsRaw ?? [])        as PipelineEntry[]
+  const activeDealsMetrics = (activeDealsMetricsRaw ?? []) as PipelineEntry[]
+  const closedDeals        = (closedDealsRaw ?? [])        as PipelineEntry[]
 
   const stages        = scenario?.funnel_stages  ?? DEFAULT_FUNNEL_STAGES
   const outboundRates = scenario?.outbound_rates ?? DEFAULT_OUTBOUND_RATES
@@ -296,6 +300,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
           <div className="p-6">
             <KanbanBoard
               activeDeals={activeDeals}
+              activeDealsMetrics={activeDealsMetrics}
               closedDeals={closedDeals}
               stages={stages}
               scenarioId={scenario?.id ?? null}

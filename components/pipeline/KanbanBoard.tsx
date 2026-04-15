@@ -22,6 +22,7 @@ import type { PeriodType } from '@/lib/types/common'
 
 interface KanbanBoardProps {
   activeDeals: PipelineEntry[]
+  activeDealsMetrics: PipelineEntry[]
   closedDeals: PipelineEntry[]
   stages: string[]
   scenarioId: string | null
@@ -164,6 +165,7 @@ function ModalOverlay({ children }: { children: React.ReactNode }) {
 
 export function KanbanBoard({
   activeDeals,
+  activeDealsMetrics,
   closedDeals,
   stages,
   scenarioId,
@@ -215,7 +217,7 @@ export function KanbanBoard({
   // Derived metrics
   const wonDeals  = closedDeals.filter((d) => d.stage === 'Ganado')
   const lostDeals = closedDeals.filter((d) => d.stage === 'Perdido')
-  const openPipeline = activeDeals.reduce((sum, d) => sum + (d.amount_usd ?? 0), 0)
+  const openPipeline = activeDealsMetrics.reduce((sum, d) => sum + (d.amount_usd ?? 0), 0)
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -335,7 +337,7 @@ export function KanbanBoard({
     <div className="relative">
       {/* Metrics row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <MetricCard label="Tratos activos"                   value={String(activeDeals.length)} accent="primary" />
+        <MetricCard label="Tratos activos"                   value={String(activeDealsMetrics.length)} accent="primary" />
         <MetricCard label={`Ganados · ${periodLabel}`}  value={String(wonDeals.length)}  accent="emerald" />
         <MetricCard label={`Perdidos · ${periodLabel}`} value={String(lostDeals.length)} accent="red"     />
         <MetricCard label="Pipeline abierto"                 value={fmtUSD(openPipeline)}       accent="primary" />
