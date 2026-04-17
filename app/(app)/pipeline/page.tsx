@@ -7,6 +7,7 @@ import { PipelineEntriesTable } from '@/components/pipeline/PipelineEntriesTable
 import { PipelineNewEntryModal } from '@/components/pipeline/PipelineNewEntryModal'
 import { DateNavigator } from '@/components/dashboard/DateNavigator'
 import { KanbanBoard } from '@/components/pipeline/KanbanBoard'
+import { PipelineSimpleBoard } from '@/components/pipeline/PipelineSimpleBoard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, periodLabel } from '@/lib/utils/dates'
 import {
@@ -21,7 +22,7 @@ import {
   DEFAULT_INBOUND_RATES,
 } from '@/lib/calculations/recipe'
 import type { PeriodType } from '@/lib/types/common'
-import type { PipelineEntry } from '@/lib/types/database'
+import type { PipelineEntry, PipelineSimple } from '@/lib/types/database'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,6 +50,7 @@ const PERIOD_OPTIONS: { value: PeriodType; label: string }[] = [
 ]
 
 const TAB_OPTIONS = [
+  { value: 'simple',    label: 'Pipeline'            },
   { value: 'kanban',    label: 'Kanban'             },
   { value: 'funnel',    label: 'Funnel vs Recetario' },
   { value: 'registros', label: 'Registros'           },
@@ -68,9 +70,9 @@ export default async function PipelinePage({ searchParams }: PageProps) {
   const period         = (['daily', 'weekly', 'monthly', 'quarterly', 'yearly'].includes(params.period ?? '')
     ? params.period
     : 'monthly') as PeriodType
-  const tabParam       = (['kanban', 'funnel', 'registros'].includes(params.tab ?? '')
+  const tabParam       = (['simple', 'kanban', 'funnel', 'registros'].includes(params.tab ?? '')
     ? params.tab
-    : 'kanban') as 'kanban' | 'funnel' | 'registros'
+    : 'simple') as 'simple' | 'kanban' | 'funnel' | 'registros'
   const stageFilter    = params.stage ?? ''
   const typeFilter     = (['OUTBOUND', 'INBOUND'].includes(params.type ?? '') ? params.type : '') as 'OUTBOUND' | 'INBOUND' | ''
   const refDateParam   = params.refDate ?? ''
@@ -98,6 +100,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     { data: activeDealsRaw },
     { data: activeDealsMetricsRaw },
     { data: closedDealsRaw },
+    { data: pipelineSimpleRaw },
   ] = await Promise.all([
     sb.from('recipe_scenarios').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     sb.from('pipeline_entries').select('*').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
@@ -108,11 +111,14 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     sb.from('pipeline_entries').select('*').eq('user_id', user?.id ?? '').not('stage', 'in', '("Ganado","Perdido")').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }),
     // Date-filtered — Ganados/Perdidos count respects the selected period
     sb.from('pipeline_entries').select('*').eq('user_id', user?.id ?? '').in('stage', ['Ganado', 'Perdido']).gte('entry_date', start).lte('entry_date', end).order('updated_at', { ascending: false }),
+    // Pipeline simple — date-filtered by selected period
+    sb.from('pipeline_simple').select('*').eq('user_id', user?.id ?? '').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }),
   ])
 
   const activeDeals        = (activeDealsRaw ?? [])        as PipelineEntry[]
   const activeDealsMetrics = (activeDealsMetricsRaw ?? []) as PipelineEntry[]
   const closedDeals        = (closedDealsRaw ?? [])        as PipelineEntry[]
+  const pipelineSimple     = (pipelineSimpleRaw ?? [])     as PipelineSimple[]
 
   const stages        = scenario?.funnel_stages  ?? DEFAULT_FUNNEL_STAGES
   const outboundRates = scenario?.outbound_rates ?? DEFAULT_OUTBOUND_RATES
@@ -238,8 +244,8 @@ export default async function PipelinePage({ searchParams }: PageProps) {
             <DateNavigator period={period} refDate={refDateParam || today} />
           </Suspense>
 
-          {/* Type filter — hidden on kanban (no meaningful interaction there) */}
-          {tabParam !== 'kanban' && (
+          {/* Type filter — hidden on kanban and simple tabs */}
+          {tabParam !== 'kanban' && tabParam !== 'simple' && (
             <div className="flex items-center rounded-md border border-border overflow-hidden">
               {[
                 { value: '',         label: 'Todo'     },
@@ -263,7 +269,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
           )}
 
           {/* Stage filter — only for funnel/registros */}
-          {tabParam !== 'kanban' && availableStages.length > 0 && (
+          {tabParam !== 'kanban' && tabParam !== 'simple' && availableStages.length > 0 && (
             <div className="flex items-center gap-1 flex-wrap">
               <Link href={buildUrl({ tab: tabParam, period, type: typeFilter || undefined })}
                 className={`px-2.5 py-1 rounded text-xs transition-colors ${
@@ -286,7 +292,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
           )}
 
           {/* New entry button — only for funnel/registros */}
-          {tabParam !== 'kanban' && (
+          {tabParam !== 'kanban' && tabParam !== 'simple' && (
             <div className="ml-auto">
               <Suspense>
                 <PipelineNewEntryModal stages={stages} scenarioId={scenario?.id ?? null} />
@@ -294,6 +300,16 @@ export default async function PipelinePage({ searchParams }: PageProps) {
             </div>
           )}
         </div>
+
+        {/* ── Pipeline Simple tab ────────────────────────────────────────── */}
+        {tabParam === 'simple' && (
+          <div className="p-6">
+            <PipelineSimpleBoard
+              entries={pipelineSimple}
+              periodLabel={pLabel}
+            />
+          </div>
+        )}
 
         {/* ── Kanban tab ─────────────────────────────────────────────────── */}
         {tabParam === 'kanban' && (
