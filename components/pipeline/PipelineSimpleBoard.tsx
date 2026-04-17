@@ -30,11 +30,20 @@ const STAGE_COLOR: Record<Stage, { border: string; label: string; badge: string 
 
 // ── Metric card ───────────────────────────────────────────────────────────────
 
-function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function MetricCard({
+  label, value, sub, accent = 'primary',
+}: {
+  label: string
+  value: string
+  sub?: string
+  accent?: 'primary' | 'emerald'
+}) {
+  const topBorder  = accent === 'emerald' ? 'border-t-emerald-500/40' : 'border-t-primary/40'
+  const valueColor = accent === 'emerald' ? 'text-emerald-400'        : 'text-primary'
   return (
-    <div className="rounded-lg border border-border bg-card p-4 border-t-2 border-t-primary/40">
+    <div className={`rounded-lg border border-border bg-card p-4 border-t-2 ${topBorder}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
-      <p className="text-xl font-bold tabular-nums text-primary">{value}</p>
+      <p className={`text-xl font-bold tabular-nums ${valueColor}`}>{value}</p>
       {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   )
@@ -123,7 +132,8 @@ interface PipelineSimpleBoardProps {
   periodLabel: string
 }
 
-export function PipelineSimpleBoard({ entries, periodLabel }: PipelineSimpleBoardProps) {
+export function PipelineSimpleBoard({ entries, periodLabel: _periodLabel }: PipelineSimpleBoardProps) {
+  void _periodLabel
   const router = useRouter()
   const today = todayISO()
 
@@ -144,11 +154,10 @@ export function PipelineSimpleBoard({ entries, periodLabel }: PipelineSimpleBoar
   const [formNotes, setFormNotes]       = useState('')
 
   // Derived metrics
-  const totalValue = entries.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-  const stageCount = STAGES.reduce<Record<string, number>>((acc, s) => {
-    acc[s] = entries.filter((e) => e.stage === s).length
-    return acc
-  }, {})
+  const countReunion   = entries.filter((e) => e.stage === 'Reunión').length
+  const countPropuesta = entries.filter((e) => e.stage === 'Propuesta').length
+  const pipelineValue  = entries.filter((e) => e.stage === 'Propuesta').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+  const closedValue    = entries.filter((e) => e.stage === 'Cierre').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -244,10 +253,10 @@ export function PipelineSimpleBoard({ entries, periodLabel }: PipelineSimpleBoar
     <div className="relative">
       {/* Metrics row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <MetricCard label="Total entradas"     value={String(entries.length)}    sub={periodLabel} />
-        <MetricCard label="Reuniones"          value={String(stageCount['Reunión'] ?? 0)} />
-        <MetricCard label="Propuestas"         value={String(stageCount['Propuesta'] ?? 0)} />
-        <MetricCard label="Pipeline estimado"  value={fmtUSD(totalValue)}        sub={periodLabel} />
+        <MetricCard label="Reuniones"   value={String(countReunion)}   />
+        <MetricCard label="Propuestas"  value={String(countPropuesta)} />
+        <MetricCard label="En propuesta" value={fmtUSD(pipelineValue)} sub="pipeline estimado" />
+        <MetricCard label="Cerrado"      value={fmtUSD(closedValue)}   sub="negocios ganados"  accent="emerald" />
       </div>
 
       {/* Kanban columns */}
