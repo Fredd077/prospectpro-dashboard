@@ -115,6 +115,8 @@ function EntryCard({
 
   const estadoBadge = entry.status === 'abierto'
     ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+    : entry.status === 'ganado'
+    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
     : 'bg-red-500/10 text-red-400 border-red-500/20'
 
   return (
@@ -380,7 +382,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
       if (modalMode === 'edit' && editingEntry) {
         await updatePipelineSimple(editingEntry.id, payload)
         toast.success('Entrada actualizada ✓')
-      } else {
+      } else if (modalMode === 'duplicate' || modalMode === 'create') {
         await createPipelineSimple(payload)
         if (modalMode === 'duplicate' && sourceEntryId && sourceEntryStage === 'Propuesta' && formStage === 'Cierre') {
           await updatePipelineSimpleStatus(sourceEntryId, 'ganado')
