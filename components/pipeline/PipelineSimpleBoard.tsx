@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Copy, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fmtUSD } from '@/lib/calculations/pipeline'
 import { DatePickerInput } from '@/components/ui/DatePickerInput'
@@ -45,10 +45,12 @@ function MetricCard({ label, value, sub }: { label: string; value: string; sub?:
 function EntryCard({
   entry,
   onEdit,
+  onDuplicate,
   onDelete,
 }: {
   entry: PipelineSimple
   onEdit: () => void
+  onDuplicate: () => void
   onDelete: () => void
 }) {
   return (
@@ -64,6 +66,13 @@ function EntryCard({
             title="Editar"
           >
             <Pencil className="h-3 w-3" />
+          </button>
+          <button
+            onClick={onDuplicate}
+            className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
+            title="Duplicar"
+          >
+            <Copy className="h-3 w-3" />
           </button>
           <button
             onClick={onDelete}
@@ -118,8 +127,11 @@ export function PipelineSimpleBoard({ entries, periodLabel }: PipelineSimpleBoar
   const router = useRouter()
   const today = todayISO()
 
+  type ModalMode = 'create' | 'edit' | 'duplicate'
+
   const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [modalMode, setModalMode] = useState<ModalMode>('create')
   const [editingEntry, setEditingEntry] = useState<PipelineSimple | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
@@ -142,6 +154,7 @@ export function PipelineSimpleBoard({ entries, periodLabel }: PipelineSimpleBoar
 
   function openCreate(stage: Stage = 'Reunión') {
     setEditingEntry(null)
+    setModalMode('create')
     setFormStage(stage)
     setFormDate(today)
     setFormCompany('')
@@ -153,8 +166,21 @@ export function PipelineSimpleBoard({ entries, periodLabel }: PipelineSimpleBoar
 
   function openEdit(entry: PipelineSimple) {
     setEditingEntry(entry)
+    setModalMode('edit')
     setFormStage(entry.stage)
     setFormDate(entry.entry_date)
+    setFormCompany(entry.company_name ?? '')
+    setFormProspect(entry.prospect_name ?? '')
+    setFormAmount(entry.amount_usd != null ? String(entry.amount_usd) : '')
+    setFormNotes(entry.notes ?? '')
+    setShowForm(true)
+  }
+
+  function openDuplicate(entry: PipelineSimple) {
+    setEditingEntry(null)
+    setModalMode('duplicate')
+    setFormStage(entry.stage)
+    setFormDate(today)
     setFormCompany(entry.company_name ?? '')
     setFormProspect(entry.prospect_name ?? '')
     setFormAmount(entry.amount_usd != null ? String(entry.amount_usd) : '')
@@ -175,12 +201,12 @@ export function PipelineSimpleBoard({ entries, periodLabel }: PipelineSimpleBoar
         amount_usd:    formAmount ? Number(formAmount) : null,
         notes:         formNotes.trim() || null,
       }
-      if (editingEntry) {
+      if (modalMode === 'edit' && editingEntry) {
         await updatePipelineSimple(editingEntry.id, payload)
         toast.success('Entrada actualizada ✓')
       } else {
         await createPipelineSimple(payload)
-        toast.success('Entrada creada ✓')
+        toast.success(modalMode === 'duplicate' ? 'Entrada duplicada ✓' : 'Entrada creada ✓')
       }
       setShowForm(false)
       router.refresh()
@@ -254,6 +280,7 @@ export function PipelineSimpleBoard({ entries, periodLabel }: PipelineSimpleBoar
                   key={entry.id}
                   entry={entry}
                   onEdit={() => openEdit(entry)}
+                  onDuplicate={() => openDuplicate(entry)}
                   onDelete={() => setDeletingId(entry.id)}
                 />
               ))}
@@ -288,7 +315,7 @@ export function PipelineSimpleBoard({ entries, periodLabel }: PipelineSimpleBoar
               ✕
             </button>
             <h2 className="text-sm font-bold text-foreground mb-5">
-              {editingEntry ? 'Editar entrada' : 'Nueva entrada'}
+              {modalMode === 'edit' ? 'Editar entrada' : modalMode === 'duplicate' ? 'Duplicar entrada' : 'Nueva entrada'}
             </h2>
 
             <div className="space-y-3">
@@ -376,7 +403,7 @@ export function PipelineSimpleBoard({ entries, periodLabel }: PipelineSimpleBoar
                 disabled={saving}
                 className="flex-1 rounded-lg bg-primary/15 border border-primary/30 py-2 text-sm font-semibold text-primary hover:bg-primary/25 transition-colors disabled:opacity-50"
               >
-                {saving ? 'Guardando...' : editingEntry ? 'Guardar cambios' : 'Crear entrada'}
+                {saving ? 'Guardando...' : modalMode === 'edit' ? 'Guardar cambios' : modalMode === 'duplicate' ? 'Duplicar entrada' : 'Crear entrada'}
               </button>
             </div>
           </div>
