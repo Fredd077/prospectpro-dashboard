@@ -454,6 +454,42 @@ export interface Database {
           }
         ]
       }
+      pipeline_simple: {
+        Row: {
+          id: string
+          user_id: string
+          stage: 'Reunión' | 'Propuesta' | 'Cierre'
+          entry_date: string
+          company_name: string | null
+          prospect_name: string | null
+          amount_usd: number | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          stage: 'Reunión' | 'Propuesta' | 'Cierre'
+          entry_date?: string
+          company_name?: string | null
+          prospect_name?: string | null
+          amount_usd?: number | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          stage?: 'Reunión' | 'Propuesta' | 'Cierre'
+          entry_date?: string
+          company_name?: string | null
+          prospect_name?: string | null
+          amount_usd?: number | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       vw_daily_compliance: {
@@ -516,3 +552,7 @@ export type PipelineEntryUpdate = Database['public']['Tables']['pipeline_entries
 export type Deal = Database['public']['Tables']['deals']['Row']
 export type DealInsert = Database['public']['Tables']['deals']['Insert']
 export type DealUpdate = Database['public']['Tables']['deals']['Update']
+
+export type PipelineSimple = Database['public']['Tables']['pipeline_simple']['Row']
+export type PipelineSimpleInsert = Database['public']['Tables']['pipeline_simple']['Insert']
+export type PipelineSimpleUpdate = Database['public']['Tables']['pipeline_simple']['Update']
