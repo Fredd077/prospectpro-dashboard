@@ -15,17 +15,57 @@ import {
   updatePipelineSimple,
   deletePipelineSimple,
 } from '@/lib/actions/pipeline-simple'
+import { PipelineSimpleCharts } from '@/components/pipeline/PipelineSimpleCharts'
 import type { PipelineSimple } from '@/lib/types/database'
 
 const STAGES = ['Reunión', 'Propuesta', 'Cierre'] as const
 type Stage = (typeof STAGES)[number]
+type Status = 'abierto' | 'perdido' | 'ganado'
+type ProspectType = 'inbound' | 'outbound'
+
+type ActiveScenario = {
+  funnel_stages: string[]
+  outbound_rates: number[]
+  inbound_rates: number[]
+  working_days_per_month: number
+} | null
 
 // ── Stage config ──────────────────────────────────────────────────────────────
 
 const STAGE_COLOR: Record<Stage, { border: string; label: string; badge: string }> = {
-  'Reunión':  { border: 'border-t-cyan-500/50',    label: 'text-cyan-400',    badge: 'bg-cyan-400/10 text-cyan-400'    },
-  'Propuesta':{ border: 'border-t-amber-500/50',   label: 'text-amber-400',   badge: 'bg-amber-400/10 text-amber-400'  },
+  'Reunión':  { border: 'border-t-cyan-500/50',    label: 'text-cyan-400',    badge: 'bg-cyan-400/10 text-cyan-400'       },
+  'Propuesta':{ border: 'border-t-amber-500/50',   label: 'text-amber-400',   badge: 'bg-amber-400/10 text-amber-400'     },
   'Cierre':   { border: 'border-t-emerald-500/50', label: 'text-emerald-400', badge: 'bg-emerald-400/10 text-emerald-400' },
+}
+
+// ── Toggle button ─────────────────────────────────────────────────────────────
+
+function ToggleGroup<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string; activeClass: string }[]
+  value: T
+  onChange: (v: T) => void
+}) {
+  return (
+    <div className="flex rounded-md border border-border overflow-hidden">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={cn(
+            'flex-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border-r border-border last:border-r-0 transition-colors',
+            value === o.value ? o.activeClass : 'text-muted-foreground hover:text-foreground hover:bg-muted/20',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 // ── Metric card ───────────────────────────────────────────────────────────────
@@ -36,14 +76,20 @@ function MetricCard({
   label: string
   value: string
   sub?: string
-  accent?: 'primary' | 'emerald'
+  accent?: 'primary' | 'emerald' | 'amber' | 'red' | 'cyan'
 }) {
-  const topBorder  = accent === 'emerald' ? 'border-t-emerald-500/40' : 'border-t-primary/40'
-  const valueColor = accent === 'emerald' ? 'text-emerald-400'        : 'text-primary'
+  const colorMap = {
+    primary: { border: 'border-t-primary/40',         value: 'text-primary'        },
+    emerald: { border: 'border-t-emerald-500/40',     value: 'text-emerald-400'    },
+    amber:   { border: 'border-t-amber-500/40',       value: 'text-amber-400'      },
+    red:     { border: 'border-t-red-500/40',         value: 'text-red-400'        },
+    cyan:    { border: 'border-t-cyan-500/40',        value: 'text-cyan-400'       },
+  }
+  const c = colorMap[accent]
   return (
-    <div className={`rounded-lg border border-border bg-card p-4 border-t-2 ${topBorder}`}>
+    <div className={`rounded-lg border border-border bg-card p-4 border-t-2 ${c.border}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
-      <p className={`text-xl font-bold tabular-nums ${valueColor}`}>{value}</p>
+      <p className={`text-xl font-bold tabular-nums ${c.value}`}>{value}</p>
       {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   )
@@ -62,6 +108,14 @@ function EntryCard({
   onDuplicate: () => void
   onDelete: () => void
 }) {
+  const origenBadge = entry.prospect_type === 'outbound'
+    ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+
+  const estadoBadge = entry.status === 'abierto'
+    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+    : 'bg-red-500/10 text-red-400 border-red-500/20'
+
   return (
     <div className="rounded-lg border border-border bg-card p-3 space-y-2 hover:border-primary/30 transition-colors">
       <div className="flex items-center justify-between">
@@ -69,38 +123,34 @@ function EntryCard({
           {format(parseISO(entry.entry_date), 'd MMM', { locale: es })}
         </span>
         <div className="flex gap-1">
-          <button
-            onClick={onEdit}
-            className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
-            title="Editar"
-          >
+          <button onClick={onEdit}      className="p-1 rounded text-muted-foreground hover:text-primary transition-colors" title="Editar">
             <Pencil className="h-3 w-3" />
           </button>
-          <button
-            onClick={onDuplicate}
-            className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
-            title="Duplicar"
-          >
+          <button onClick={onDuplicate} className="p-1 rounded text-muted-foreground hover:text-primary transition-colors" title="Duplicar">
             <Copy className="h-3 w-3" />
           </button>
-          <button
-            onClick={onDelete}
-            className="p-1 rounded text-muted-foreground hover:text-red-400 transition-colors"
-            title="Eliminar"
-          >
+          <button onClick={onDelete}    className="p-1 rounded text-muted-foreground hover:text-red-400 transition-colors" title="Eliminar">
             <Trash2 className="h-3 w-3" />
           </button>
         </div>
       </div>
 
+      {/* Badges */}
+      <div className="flex gap-1 flex-wrap">
+        <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border ${origenBadge}`}>
+          {entry.prospect_type}
+        </span>
+        {entry.stage === 'Propuesta' && (
+          <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border ${estadoBadge}`}>
+            {entry.status}
+          </span>
+        )}
+      </div>
+
       {(entry.company_name || entry.prospect_name) && (
         <div>
-          {entry.company_name && (
-            <p className="text-xs font-semibold text-foreground truncate">{entry.company_name}</p>
-          )}
-          {entry.prospect_name && (
-            <p className="text-[10px] text-muted-foreground truncate">{entry.prospect_name}</p>
-          )}
+          {entry.company_name  && <p className="text-xs font-semibold text-foreground truncate">{entry.company_name}</p>}
+          {entry.prospect_name && <p className="text-[10px] text-muted-foreground truncate">{entry.prospect_name}</p>}
         </div>
       )}
 
@@ -125,51 +175,152 @@ function ModalOverlay({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ── Filter bar ────────────────────────────────────────────────────────────────
+
+function FilterBar({
+  filterOrigen, setFilterOrigen,
+  filterEstado, setFilterEstado,
+  filterEtapa,  setFilterEtapa,
+}: {
+  filterOrigen: 'all' | ProspectType
+  setFilterOrigen: (v: 'all' | ProspectType) => void
+  filterEstado: 'all' | Status
+  setFilterEstado: (v: 'all' | Status) => void
+  filterEtapa:  'all' | Stage
+  setFilterEtapa:  (v: 'all' | Stage) => void
+}) {
+  const btnBase = 'px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors'
+  const active  = 'bg-primary/15 text-primary border border-primary/30'
+  const inactive = 'text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-transparent'
+
+  return (
+    <div className="flex flex-wrap gap-3 mb-4 items-center text-[10px]">
+      {/* Origen */}
+      <div className="flex items-center gap-1">
+        <span className="text-muted-foreground/60 mr-1 uppercase tracking-widest">Origen</span>
+        {(['all', 'outbound', 'inbound'] as const).map((v) => (
+          <button key={v} onClick={() => setFilterOrigen(v)}
+            className={cn(btnBase, filterOrigen === v ? (
+              v === 'outbound' ? 'bg-cyan-400/10 text-cyan-400 border border-cyan-400/30' :
+              v === 'inbound'  ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/30' :
+              active
+            ) : inactive)}
+          >
+            {v === 'all' ? 'Todos' : v}
+          </button>
+        ))}
+      </div>
+
+      <div className="w-px h-4 bg-border" />
+
+      {/* Estado */}
+      <div className="flex items-center gap-1">
+        <span className="text-muted-foreground/60 mr-1 uppercase tracking-widest">Estado</span>
+        {(['all', 'abierto', 'perdido', 'ganado'] as const).map((v) => (
+          <button key={v} onClick={() => setFilterEstado(v)}
+            className={cn(btnBase, filterEstado === v ? (
+              v === 'abierto' ? 'bg-amber-400/10 text-amber-400 border border-amber-400/30' :
+              v === 'perdido' ? 'bg-red-400/10 text-red-400 border border-red-400/30' :
+              v === 'ganado'  ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/30' :
+              active
+            ) : inactive)}
+          >
+            {v === 'all' ? 'Todos' : v}
+          </button>
+        ))}
+      </div>
+
+      <div className="w-px h-4 bg-border" />
+
+      {/* Etapa */}
+      <div className="flex items-center gap-1">
+        <span className="text-muted-foreground/60 mr-1 uppercase tracking-widest">Etapa</span>
+        {(['all', 'Reunión', 'Propuesta', 'Cierre'] as const).map((v) => (
+          <button key={v} onClick={() => setFilterEtapa(v)}
+            className={cn(btnBase, filterEtapa === v ? active : inactive)}
+          >
+            {v === 'all' ? 'Todas' : v}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── PipelineSimpleBoard ───────────────────────────────────────────────────────
 
 interface PipelineSimpleBoardProps {
   entries: PipelineSimple[]
-  periodLabel: string
+  period: string
+  activeScenario: ActiveScenario
 }
 
-export function PipelineSimpleBoard({ entries, periodLabel: _periodLabel }: PipelineSimpleBoardProps) {
-  void _periodLabel
+export function PipelineSimpleBoard({ entries, period, activeScenario }: PipelineSimpleBoardProps) {
   const router = useRouter()
   const today = todayISO()
 
   type ModalMode = 'create' | 'edit' | 'duplicate'
 
-  const [saving, setSaving] = useState(false)
-  const [showForm, setShowForm] = useState(false)
-  const [modalMode, setModalMode] = useState<ModalMode>('create')
+  const [saving, setSaving]           = useState(false)
+  const [showForm, setShowForm]       = useState(false)
+  const [modalMode, setModalMode]     = useState<ModalMode>('create')
   const [editingEntry, setEditingEntry] = useState<PipelineSimple | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId]   = useState<string | null>(null)
+
+  // Filters
+  const [filterOrigen, setFilterOrigen] = useState<'all' | ProspectType>('all')
+  const [filterEstado, setFilterEstado] = useState<'all' | Status>('all')
+  const [filterEtapa,  setFilterEtapa]  = useState<'all' | Stage>('all')
 
   // Form state
-  const [formStage, setFormStage]       = useState<Stage>('Reunión')
-  const [formDate, setFormDate]         = useState(today)
-  const [formCompany, setFormCompany]   = useState('')
-  const [formProspect, setFormProspect] = useState('')
-  const [formAmount, setFormAmount]     = useState('')
-  const [formNotes, setFormNotes]       = useState('')
+  const [formStage,       setFormStage]       = useState<Stage>('Reunión')
+  const [formStatus,      setFormStatus]      = useState<Status>('abierto')
+  const [formProspectType, setFormProspectType] = useState<ProspectType>('outbound')
+  const [formDate,        setFormDate]        = useState(today)
+  const [formCompany,     setFormCompany]     = useState('')
+  const [formProspect,    setFormProspect]    = useState('')
+  const [formAmount,      setFormAmount]      = useState('')
+  const [formNotes,       setFormNotes]       = useState('')
 
-  // Derived metrics
-  const countReunion   = entries.filter((e) => e.stage === 'Reunión').length
-  const countPropuesta = entries.filter((e) => e.stage === 'Propuesta').length
-  const pipelineValue  = entries.filter((e) => e.stage === 'Propuesta').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-  const closedValue    = entries.filter((e) => e.stage === 'Cierre').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+  // Filtered entries for Kanban columns + metrics
+  const filtered = entries.filter(e => {
+    if (filterOrigen !== 'all' && e.prospect_type !== filterOrigen) return false
+    if (filterEstado !== 'all' && e.status !== filterEstado) return false
+    if (filterEtapa  !== 'all' && e.stage  !== filterEtapa)  return false
+    return true
+  })
+
+  // Derived metrics (on filtered data)
+  const countReunion   = filtered.filter(e => e.stage === 'Reunión').length
+  const countPropuesta = filtered.filter(e => e.stage === 'Propuesta').length
+  const pipelineValue  = filtered.filter(e => e.stage === 'Propuesta' && e.status === 'abierto').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+  const perdidoValue   = filtered.filter(e => e.status === 'perdido').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+  const closedValue    = filtered.filter(e => e.stage === 'Cierre').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+
+  const convRP = countReunion > 0   ? Math.round(countPropuesta / countReunion * 100)   : 0
+  const countCierre = filtered.filter(e => e.stage === 'Cierre').length
+  const convPC = countPropuesta > 0 ? Math.round(countCierre / countPropuesta * 100) : 0
+  const minConv = Math.min(convRP, convPC)
+  const convColor = minConv >= 70 ? 'emerald' : minConv >= 40 ? 'amber' : 'red'
+  const convValue = countReunion === 0 && countPropuesta === 0 ? '—' : `${convRP}% → ${convPC}%`
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function resetForm(stage: Stage = 'Reunión', source?: PipelineSimple) {
+    setFormStage(source?.stage ?? stage)
+    setFormStatus(source?.status ?? 'abierto')
+    setFormProspectType(source?.prospect_type ?? 'outbound')
+    setFormDate(today)
+    setFormCompany(source?.company_name ?? '')
+    setFormProspect(source?.prospect_name ?? '')
+    setFormAmount(source?.amount_usd != null ? String(source.amount_usd) : '')
+    setFormNotes(source?.notes ?? '')
+  }
 
   function openCreate(stage: Stage = 'Reunión') {
     setEditingEntry(null)
     setModalMode('create')
-    setFormStage(stage)
-    setFormDate(today)
-    setFormCompany('')
-    setFormProspect('')
-    setFormAmount('')
-    setFormNotes('')
+    resetForm(stage)
     setShowForm(true)
   }
 
@@ -177,6 +328,8 @@ export function PipelineSimpleBoard({ entries, periodLabel: _periodLabel }: Pipe
     setEditingEntry(entry)
     setModalMode('edit')
     setFormStage(entry.stage)
+    setFormStatus(entry.status)
+    setFormProspectType(entry.prospect_type)
     setFormDate(entry.entry_date)
     setFormCompany(entry.company_name ?? '')
     setFormProspect(entry.prospect_name ?? '')
@@ -188,13 +341,15 @@ export function PipelineSimpleBoard({ entries, periodLabel: _periodLabel }: Pipe
   function openDuplicate(entry: PipelineSimple) {
     setEditingEntry(null)
     setModalMode('duplicate')
-    setFormStage(entry.stage)
-    setFormDate(today)
-    setFormCompany(entry.company_name ?? '')
-    setFormProspect(entry.prospect_name ?? '')
-    setFormAmount(entry.amount_usd != null ? String(entry.amount_usd) : '')
-    setFormNotes(entry.notes ?? '')
+    resetForm('Reunión', entry)
     setShowForm(true)
+  }
+
+  // Auto-set status when stage changes in the modal
+  function handleFormStageChange(s: Stage) {
+    setFormStage(s)
+    if (s === 'Cierre')   setFormStatus('ganado')
+    if (s === 'Reunión')  setFormStatus('abierto')
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -202,8 +357,11 @@ export function PipelineSimpleBoard({ entries, periodLabel: _periodLabel }: Pipe
   async function handleSave() {
     setSaving(true)
     try {
+      const derivedStatus: Status = formStage === 'Cierre' ? 'ganado' : formStage === 'Reunión' ? 'abierto' : formStatus
       const payload = {
         stage:         formStage,
+        status:        derivedStatus,
+        prospect_type: formProspectType,
         entry_date:    formDate,
         company_name:  formCompany.trim() || null,
         prospect_name: formProspect.trim() || null,
@@ -240,51 +398,59 @@ export function PipelineSimpleBoard({ entries, periodLabel: _periodLabel }: Pipe
     }
   }
 
-  const inputClass =
-    'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/60'
-  const labelClass =
-    'block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1'
-  const cancelBtnClass =
-    'flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors'
+  const inputClass   = 'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/60'
+  const labelClass   = 'block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1'
+  const cancelBtnClass = 'flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors'
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="relative">
-      {/* Metrics row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <MetricCard label="Reuniones"   value={String(countReunion)}   />
-        <MetricCard label="Propuestas"  value={String(countPropuesta)} />
-        <MetricCard label="En propuesta" value={fmtUSD(pipelineValue)} sub="pipeline estimado" />
-        <MetricCard label="Cerrado"      value={fmtUSD(closedValue)}   sub="negocios ganados"  accent="emerald" />
+      {/* Metrics row — 6 cards */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
+        <MetricCard label="Reuniones"    value={String(countReunion)}   accent="cyan"    />
+        <MetricCard label="Propuestas"   value={String(countPropuesta)} accent="cyan"    />
+        <MetricCard label="En propuesta" value={fmtUSD(pipelineValue)}  sub="pipeline estimado"  accent="amber"   />
+        <MetricCard label="Perdidos"     value={fmtUSD(perdidoValue)}   sub="negocios perdidos"  accent="red"     />
+        <MetricCard label="Cerrado"      value={fmtUSD(closedValue)}    sub="negocios ganados"   accent="emerald" />
+        <MetricCard
+          label="Conversión"
+          value={convValue}
+          sub="reun→prop → prop→cierre"
+          accent={convColor as 'emerald' | 'amber' | 'red'}
+        />
       </div>
+
+      {/* Filter bar */}
+      <FilterBar
+        filterOrigen={filterOrigen} setFilterOrigen={setFilterOrigen}
+        filterEstado={filterEstado} setFilterEstado={setFilterEstado}
+        filterEtapa={filterEtapa}   setFilterEtapa={setFilterEtapa}
+      />
 
       {/* Kanban columns */}
       <div className="flex gap-4 overflow-x-auto pb-6">
         {STAGES.map((stage) => {
-          const col = STAGE_COLOR[stage]
-          const stageEntries = entries.filter((e) => e.stage === stage)
+          const col          = STAGE_COLOR[stage]
+          const stageEntries = filtered.filter(e => e.stage === stage)
           return (
             <div key={stage} className="flex flex-col gap-3 min-w-[240px] max-w-[240px]">
               {/* Column header */}
               <div className="flex items-center gap-2 mb-2">
-                <span className={cn('text-xs font-bold uppercase tracking-widest', col.label)}>
-                  {stage}
-                </span>
+                <span className={cn('text-xs font-bold uppercase tracking-widest', col.label)}>{stage}</span>
                 <span className={cn('text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center', col.badge)}>
                   {stageEntries.length}
                 </span>
                 <button
                   onClick={() => openCreate(stage)}
                   className="ml-auto text-[10px] text-muted-foreground hover:text-primary transition-colors px-1.5 py-0.5 rounded hover:bg-primary/10"
-                  title={`Agregar a ${stage}`}
                 >
                   + Nuevo
                 </button>
               </div>
 
               {/* Cards */}
-              {stageEntries.map((entry) => (
+              {stageEntries.map(entry => (
                 <EntryCard
                   key={entry.id}
                   entry={entry}
@@ -303,6 +469,9 @@ export function PipelineSimpleBoard({ entries, periodLabel: _periodLabel }: Pipe
           )
         })}
       </div>
+
+      {/* Charts section */}
+      <PipelineSimpleCharts entries={filtered} period={period} activeScenario={activeScenario} />
 
       {/* FAB */}
       <button
@@ -334,79 +503,80 @@ export function PipelineSimpleBoard({ entries, periodLabel: _periodLabel }: Pipe
                   <label className={labelClass}>Etapa *</label>
                   <select
                     value={formStage}
-                    onChange={(e) => setFormStage(e.target.value as Stage)}
+                    onChange={e => handleFormStageChange(e.target.value as Stage)}
                     className={inputClass}
                   >
-                    {STAGES.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
+                    {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 {/* Fecha */}
                 <div>
                   <label className={labelClass}>Fecha *</label>
-                  <DatePickerInput
-                    value={formDate}
-                    onChange={(d) => setFormDate(d)}
-                    max={today}
-                  />
+                  <DatePickerInput value={formDate} onChange={d => setFormDate(d)} max={today} />
                 </div>
               </div>
+
+              {/* Origen */}
+              <div>
+                <label className={labelClass}>Origen</label>
+                <ToggleGroup<ProspectType>
+                  value={formProspectType}
+                  onChange={setFormProspectType}
+                  options={[
+                    { value: 'outbound', label: 'Outbound', activeClass: 'bg-cyan-400/15 text-cyan-400 border-r-0' },
+                    { value: 'inbound',  label: 'Inbound',  activeClass: 'bg-emerald-400/15 text-emerald-400'       },
+                  ]}
+                />
+              </div>
+
+              {/* Estado — only for Propuesta */}
+              {formStage === 'Propuesta' && (
+                <div>
+                  <label className={labelClass}>Estado</label>
+                  <ToggleGroup<Status>
+                    value={formStatus}
+                    onChange={setFormStatus}
+                    options={[
+                      { value: 'abierto', label: 'Abierto', activeClass: 'bg-amber-400/15 text-amber-400' },
+                      { value: 'perdido', label: 'Perdido', activeClass: 'bg-red-400/15 text-red-400'     },
+                    ]}
+                  />
+                </div>
+              )}
 
               {/* Empresa */}
               <div>
                 <label className={labelClass}>Empresa</label>
-                <input
-                  type="text"
-                  value={formCompany}
-                  onChange={(e) => setFormCompany(e.target.value)}
-                  placeholder="Nombre de empresa..."
-                  className={inputClass}
-                />
+                <input type="text" value={formCompany} onChange={e => setFormCompany(e.target.value)}
+                  placeholder="Nombre de empresa..." className={inputClass} />
               </div>
 
               {/* Prospecto */}
               <div>
                 <label className={labelClass}>Prospecto</label>
-                <input
-                  type="text"
-                  value={formProspect}
-                  onChange={(e) => setFormProspect(e.target.value)}
-                  placeholder="Nombre del prospecto..."
-                  className={inputClass}
-                />
+                <input type="text" value={formProspect} onChange={e => setFormProspect(e.target.value)}
+                  placeholder="Nombre del prospecto..." className={inputClass} />
               </div>
 
               {/* Monto */}
               <div>
                 <label className={labelClass}>Monto estimado (USD)</label>
-                <input
-                  type="number"
-                  value={formAmount}
-                  onChange={(e) => setFormAmount(e.target.value)}
-                  placeholder="0"
-                  min={0}
-                  className={inputClass}
-                />
+                <input type="number" value={formAmount} onChange={e => setFormAmount(e.target.value)}
+                  placeholder="0" min={0} className={inputClass} />
               </div>
 
               {/* Notas */}
               <div>
                 <label className={labelClass}>Notas</label>
-                <textarea
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  placeholder="Notas adicionales..."
-                  rows={2}
+                <textarea value={formNotes} onChange={e => setFormNotes(e.target.value)}
+                  placeholder="Notas adicionales..." rows={2}
                   className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/60 resize-none"
                 />
               </div>
             </div>
 
             <div className="flex gap-2 mt-5">
-              <button onClick={() => setShowForm(false)} className={cancelBtnClass}>
-                Cancelar
-              </button>
+              <button onClick={() => setShowForm(false)} className={cancelBtnClass}>Cancelar</button>
               <button
                 onClick={handleSave}
                 disabled={saving}
@@ -426,9 +596,7 @@ export function PipelineSimpleBoard({ entries, periodLabel: _periodLabel }: Pipe
             <h2 className="text-sm font-bold text-red-400 mb-2">¿Eliminar entrada?</h2>
             <p className="text-xs text-muted-foreground mb-5">Esta acción no se puede deshacer.</p>
             <div className="flex gap-2">
-              <button onClick={() => setDeletingId(null)} className={cancelBtnClass}>
-                Cancelar
-              </button>
+              <button onClick={() => setDeletingId(null)} className={cancelBtnClass}>Cancelar</button>
               <button
                 onClick={() => handleDelete(deletingId)}
                 disabled={saving}

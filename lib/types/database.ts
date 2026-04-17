@@ -459,6 +459,8 @@ export interface Database {
           id: string
           user_id: string
           stage: 'Reunión' | 'Propuesta' | 'Cierre'
+          status: 'abierto' | 'perdido' | 'ganado'
+          prospect_type: 'inbound' | 'outbound'
           entry_date: string
           company_name: string | null
           prospect_name: string | null
@@ -471,6 +473,8 @@ export interface Database {
           id?: string
           user_id?: string
           stage: 'Reunión' | 'Propuesta' | 'Cierre'
+          status?: 'abierto' | 'perdido' | 'ganado'
+          prospect_type?: 'inbound' | 'outbound'
           entry_date?: string
           company_name?: string | null
           prospect_name?: string | null
@@ -481,6 +485,8 @@ export interface Database {
         }
         Update: {
           stage?: 'Reunión' | 'Propuesta' | 'Cierre'
+          status?: 'abierto' | 'perdido' | 'ganado'
+          prospect_type?: 'inbound' | 'outbound'
           entry_date?: string
           company_name?: string | null
           prospect_name?: string | null

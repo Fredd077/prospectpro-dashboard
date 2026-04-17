@@ -4,9 +4,13 @@ import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 type Stage = 'Reunión' | 'Propuesta' | 'Cierre'
+type Status = 'abierto' | 'perdido' | 'ganado'
+type ProspectType = 'inbound' | 'outbound'
 
 export async function createPipelineSimple(data: {
   stage: Stage
+  status?: Status
+  prospect_type?: ProspectType
   entry_date: string
   company_name?: string | null
   prospect_name?: string | null
@@ -20,13 +24,15 @@ export async function createPipelineSimple(data: {
   const { data: row, error } = await sb
     .from('pipeline_simple')
     .insert({
-      user_id:      user.id,
-      stage:        data.stage,
-      entry_date:   data.entry_date,
-      company_name: data.company_name?.trim() ?? null,
+      user_id:       user.id,
+      stage:         data.stage,
+      status:        data.status ?? 'abierto',
+      prospect_type: data.prospect_type ?? 'outbound',
+      entry_date:    data.entry_date,
+      company_name:  data.company_name?.trim() ?? null,
       prospect_name: data.prospect_name?.trim() ?? null,
-      amount_usd:   data.amount_usd ?? null,
-      notes:        data.notes?.trim() ?? null,
+      amount_usd:    data.amount_usd ?? null,
+      notes:         data.notes?.trim() ?? null,
     })
     .select('id')
     .single()
@@ -41,6 +47,8 @@ export async function updatePipelineSimple(
   id: string,
   data: {
     stage?: Stage
+    status?: Status
+    prospect_type?: ProspectType
     entry_date?: string
     company_name?: string | null
     prospect_name?: string | null
