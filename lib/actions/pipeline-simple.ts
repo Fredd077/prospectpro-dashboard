@@ -70,6 +70,24 @@ export async function updatePipelineSimple(
   revalidatePath('/pipeline')
 }
 
+export async function updatePipelineSimpleStatus(
+  id: string,
+  status: Status,
+): Promise<void> {
+  const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { error } = await sb
+    .from('pipeline_simple')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) throw error
+  revalidatePath('/pipeline')
+}
+
 export async function deletePipelineSimple(id: string): Promise<void> {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()

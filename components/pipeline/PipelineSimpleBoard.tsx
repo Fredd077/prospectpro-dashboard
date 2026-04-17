@@ -13,6 +13,7 @@ import { todayISO } from '@/lib/utils/dates'
 import {
   createPipelineSimple,
   updatePipelineSimple,
+  updatePipelineSimpleStatus,
   deletePipelineSimple,
 } from '@/lib/actions/pipeline-simple'
 import { PipelineSimpleCharts } from '@/components/pipeline/PipelineSimpleCharts'
@@ -266,6 +267,8 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   const [modalMode, setModalMode]     = useState<ModalMode>('create')
   const [editingEntry, setEditingEntry] = useState<PipelineSimple | null>(null)
   const [deletingId, setDeletingId]   = useState<string | null>(null)
+  const [sourceEntryId, setSourceEntryId]     = useState<string | null>(null)
+  const [sourceEntryStage, setSourceEntryStage] = useState<Stage | null>(null)
 
   // Filters
   const [filterOrigen, setFilterOrigen] = useState<'all' | ProspectType>('all')
@@ -320,6 +323,8 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   function openCreate(stage: Stage = 'Reunión') {
     setEditingEntry(null)
     setModalMode('create')
+    setSourceEntryId(null)
+    setSourceEntryStage(null)
     resetForm(stage)
     setShowForm(true)
   }
@@ -327,6 +332,8 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   function openEdit(entry: PipelineSimple) {
     setEditingEntry(entry)
     setModalMode('edit')
+    setSourceEntryId(null)
+    setSourceEntryStage(null)
     setFormStage(entry.stage)
     setFormStatus(entry.status)
     setFormProspectType(entry.prospect_type)
@@ -341,6 +348,8 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   function openDuplicate(entry: PipelineSimple) {
     setEditingEntry(null)
     setModalMode('duplicate')
+    setSourceEntryId(entry.id)
+    setSourceEntryStage(entry.stage)
     resetForm('Reunión', entry)
     setShowForm(true)
   }
@@ -373,7 +382,12 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
         toast.success('Entrada actualizada ✓')
       } else {
         await createPipelineSimple(payload)
-        toast.success(modalMode === 'duplicate' ? 'Entrada duplicada ✓' : 'Entrada creada ✓')
+        if (modalMode === 'duplicate' && sourceEntryId && sourceEntryStage === 'Propuesta' && formStage === 'Cierre') {
+          await updatePipelineSimpleStatus(sourceEntryId, 'ganado')
+          toast.success('Propuesta marcada como Ganada automáticamente')
+        } else {
+          toast.success(modalMode === 'duplicate' ? 'Entrada duplicada ✓' : 'Entrada creada ✓')
+        }
       }
       setShowForm(false)
       router.refresh()
@@ -537,8 +551,9 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
                     value={formStatus}
                     onChange={setFormStatus}
                     options={[
-                      { value: 'abierto', label: 'Abierto', activeClass: 'bg-amber-400/15 text-amber-400' },
-                      { value: 'perdido', label: 'Perdido', activeClass: 'bg-red-400/15 text-red-400'     },
+                      { value: 'abierto', label: 'Abierto', activeClass: 'bg-amber-400/15 text-amber-400'   },
+                      { value: 'ganado',  label: 'Ganado',  activeClass: 'bg-emerald-400/15 text-emerald-400' },
+                      { value: 'perdido', label: 'Perdido', activeClass: 'bg-red-400/15 text-red-400'       },
                     ]}
                   />
                 </div>
