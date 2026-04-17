@@ -110,8 +110,8 @@ function EntryCard({
   onDelete: () => void
 }) {
   const origenBadge = entry.prospect_type === 'outbound'
-    ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
-    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+    ? 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+    : 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20'
 
   const estadoBadge = entry.status === 'abierto'
     ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
@@ -539,8 +539,8 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
                   value={formProspectType}
                   onChange={setFormProspectType}
                   options={[
-                    { value: 'outbound', label: 'Outbound', activeClass: 'bg-cyan-400/15 text-cyan-400 border-r-0' },
-                    { value: 'inbound',  label: 'Inbound',  activeClass: 'bg-emerald-400/15 text-emerald-400'       },
+                    { value: 'outbound', label: 'Outbound', activeClass: 'bg-violet-500/20 border-violet-500/40 text-violet-300'  },
+                    { value: 'inbound',  label: 'Inbound',  activeClass: 'bg-fuchsia-500/20 border-fuchsia-500/40 text-fuchsia-300' },
                   ]}
                 />
               </div>
