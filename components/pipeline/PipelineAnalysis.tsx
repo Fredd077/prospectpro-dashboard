@@ -79,11 +79,11 @@ function StageOriginBlock({ stage, total, outbound, inbound, stageColor }: {
         <span className="text-sm font-bold tabular-nums text-foreground">{total}</span>
       </div>
       <div className="flex gap-1.5">
-        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border bg-orange-500/10 text-orange-400 border-orange-500/20">
-          OUT {outbound}
+        <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded border bg-orange-500/10 text-orange-400 border-orange-500/20">
+          OUTBOUND {outbound}
         </span>
-        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border bg-sky-500/10 text-sky-400 border-sky-500/20">
-          IN {inbound}
+        <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded border bg-sky-500/10 text-sky-400 border-sky-500/20">
+          INBOUND {inbound}
         </span>
       </div>
     </div>
@@ -234,9 +234,16 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: P
 
         <div className="pt-3 border-t border-border/50">
           <SectionTitle>Estado de propuestas</SectionTitle>
-          <StatRow label="Abiertas"  value={String(stats.propAbiertas)} color="text-amber-400" />
-          <StatRow label="Ganadas"   value={String(stats.propGanadas)}  color="text-emerald-400" />
-          <StatRow label="Perdidas"  value={String(stats.propPerdidas)} color="text-red-400" />
+          {([
+            { label: 'Abiertas', value: stats.propAbiertas, color: 'text-amber-400'   },
+            { label: 'Ganadas',  value: stats.propGanadas,  color: 'text-emerald-400' },
+            { label: 'Perdidas', value: stats.propPerdidas, color: 'text-red-400'     },
+          ] as const).map(({ label, value, color }) => (
+            <div key={label} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
+              <span className="text-base text-muted-foreground">{label}</span>
+              <span className={`text-2xl font-bold tabular-nums ${color}`}>{value}</span>
+            </div>
+          ))}
         </div>
       </div>
 

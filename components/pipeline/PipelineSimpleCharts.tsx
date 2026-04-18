@@ -77,27 +77,31 @@ function FunnelChart({ entries }: { entries: PipelineSimple[] }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-3 py-4">
-        {bars.map((b, i) => (
-          <div key={b.label} className="w-full max-w-md">
-            <div className="flex justify-between text-[10px] text-muted-foreground mb-1 px-1">
-              <span className={b.text + ' font-semibold uppercase tracking-wider'}>{b.label}</span>
-              <span className="tabular-nums">{b.count}</span>
-            </div>
-            <div className="flex justify-center">
-              <div
-                className={`h-8 rounded ${b.color} transition-all`}
-                style={{ width: `${b.pct}%` }}
-              />
-            </div>
-            {i < bars.length - 1 && (
-              <div className="flex justify-center mt-1">
-                <span className="text-[9px] text-muted-foreground/60">
-                  ↓ {i === 0 ? convRP : convPC}% conversión
-                </span>
+        {bars.map((b, i) => {
+          const convVal = i === 0 ? convRP : convPC
+          const convColor = convVal >= 50 ? 'text-emerald-400' : convVal >= 25 ? 'text-amber-400' : 'text-red-400'
+          return (
+            <div key={b.label} className="w-full max-w-md">
+              <div className="flex justify-between mb-1 px-1">
+                <span className={`text-sm font-bold tracking-widest uppercase ${b.text}`}>{b.label}</span>
+                <span className={`text-base font-bold tabular-nums ${b.text}`}>{b.count}</span>
               </div>
-            )}
-          </div>
-        ))}
+              <div className="flex justify-center">
+                <div
+                  className={`h-8 rounded ${b.color} transition-all`}
+                  style={{ width: `${b.pct}%` }}
+                />
+              </div>
+              {i < bars.length - 1 && (
+                <div className="flex justify-center mt-1">
+                  <span className={`text-sm font-semibold ${convColor}`}>
+                    ↓ {convVal}% conversión
+                  </span>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
       {countR === 0 && countP === 0 && countC === 0 && (
         <p className="text-center text-xs text-muted-foreground py-8">Sin datos para el período seleccionado</p>
