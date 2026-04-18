@@ -306,25 +306,24 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
 
   {
     const monthStart = today.slice(0, 8) + '01'
-    const [pipelineEntriesRes, activeScenarioRes] = await Promise.all([
-      service.from('pipeline_entries').select('stage, amount_usd, prospect_type, quantity, entry_date')
+    const [pipelineRes, activeScenarioRes] = await Promise.all([
+      service.from('pipeline_simple').select('stage, status, amount_usd')
         .eq('user_id', userId)
         .gte('entry_date', monthStart)
         .lte('entry_date', today),
-      service.from('recipe_scenarios').select('funnel_stages,monthly_revenue_goal')
+      service.from('recipe_scenarios').select('monthly_revenue_goal')
         .eq('user_id', userId).eq('is_active', true)
         .order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
-    const activeScenario  = activeScenarioRes.data
-    const pipelineStages  = (activeScenario?.funnel_stages ?? DEFAULT_FUNNEL_STAGES) as string[]
-    const entries   = (pipelineEntriesRes.data ?? []).map(e => ({ ...e, stage: e.stage.trim() }))
-    const wonItems  = entries.filter(e => e.stage === 'Ganado')
-    const lostItems = entries.filter(e => e.stage === 'Perdido')
-    const openItems = entries.filter(e => e.stage !== 'Ganado' && e.stage !== 'Perdido')
-    const { open: openAmount, closed: wonAmount } = calcPipelineValue(entries, pipelineStages)
+    const rows      = pipelineRes.data ?? []
+    const wonItems  = rows.filter(e => e.status === 'ganado')
+    const lostItems = rows.filter(e => e.status === 'perdido')
+    const openItems = rows.filter(e => e.status === 'abierto')
+    const wonAmount  = wonItems.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+    const openAmount = openItems.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
     const stageCounts: Record<string, number> = {}
     for (const e of openItems) {
-      stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + (e.quantity ?? 1)
+      stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + 1
     }
     dashPipeline = {
       stageCounts,
@@ -333,7 +332,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
       wonCount:    wonItems.length,
       lostCount:   lostItems.length,
       openCount:   openItems.length,
-      monthlyGoal: Number(activeScenario?.monthly_revenue_goal ?? 0),
+      monthlyGoal: Number(activeScenarioRes.data?.monthly_revenue_goal ?? 0),
     }
   }
 

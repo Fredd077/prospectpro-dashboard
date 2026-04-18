@@ -7,8 +7,6 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 import { buildWeeklyContextForCron, type ActivityCompliance } from './coach-context'
-import { calcPipelineValue } from '@/lib/calculations/pipeline'
-import { DEFAULT_FUNNEL_STAGES } from '@/lib/calculations/recipe'
 import { todayISO, toISODate } from './dates'
 import { startOfWeek } from 'date-fns'
 import { format, parseISO } from 'date-fns'
@@ -36,32 +34,24 @@ async function fetchPipelineSummary(
   periodEnd: string,
   sb: SbClient,
 ): Promise<PipelineSummary> {
-  const [{ data: entries }, { data: scenario }] = await Promise.all([
-    sb.from('pipeline_entries')
-      .select('stage, amount_usd, prospect_type, quantity')
-      .eq('user_id', userId)
-      .gte('entry_date', periodStart)
-      .lte('entry_date', periodEnd),
-    sb.from('recipe_scenarios')
-      .select('funnel_stages')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ])
+  const { data: rows } = await sb
+    .from('pipeline_simple')
+    .select('stage, status, amount_usd')
+    .eq('user_id', userId)
+    .gte('entry_date', periodStart)
+    .lte('entry_date', periodEnd)
 
-  const all            = (entries ?? []).map(e => ({ ...e, stage: e.stage.trim() }))
-  const pipelineStages = (scenario?.funnel_stages ?? DEFAULT_FUNNEL_STAGES) as string[]
-  const won  = all.filter(e => e.stage === 'Ganado')
-  const lost = all.filter(e => e.stage === 'Perdido')
-  const open = all.filter(e => e.stage !== 'Ganado' && e.stage !== 'Perdido')
+  const all  = rows ?? []
+  const won  = all.filter(e => e.status === 'ganado')
+  const lost = all.filter(e => e.status === 'perdido')
+  const open = all.filter(e => e.status === 'abierto')
 
-  const { open: openAmount, closed: wonAmount } = calcPipelineValue(all, pipelineStages)
+  const wonAmount  = won.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+  const openAmount = open.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
 
   const stageCounts: Record<string, number> = {}
   for (const e of open) {
-    stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + (e.quantity ?? 1)
+    stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + 1
   }
 
   return {
