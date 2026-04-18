@@ -350,7 +350,7 @@ export interface Database {
           company_name: string | null
           prospect_name: string | null
           prospect_type: 'OUTBOUND' | 'INBOUND'
-          stage: string
+          current_stage: string
           status: 'active' | 'won' | 'lost'
           amount_usd: number | null
           lost_reason: string | null
@@ -367,7 +367,7 @@ export interface Database {
           company_name?: string | null
           prospect_name?: string | null
           prospect_type?: 'OUTBOUND' | 'INBOUND'
-          stage: string
+          current_stage: string
           status?: 'active' | 'won' | 'lost'
           amount_usd?: number | null
           lost_reason?: string | null
@@ -382,7 +382,7 @@ export interface Database {
           company_name?: string | null
           prospect_name?: string | null
           prospect_type?: 'OUTBOUND' | 'INBOUND'
-          stage?: string
+          current_stage?: string
           status?: 'active' | 'won' | 'lost'
           amount_usd?: number | null
           lost_reason?: string | null

@@ -7,6 +7,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 import { buildWeeklyContextForCron, type ActivityCompliance } from './coach-context'
+import { calcPipelineValue } from '@/lib/calculations/pipeline'
+import { DEFAULT_FUNNEL_STAGES } from '@/lib/calculations/recipe'
 import { todayISO, toISODate } from './dates'
 import { startOfWeek } from 'date-fns'
 import { format, parseISO } from 'date-fns'
@@ -15,6 +17,63 @@ import { es } from 'date-fns/locale'
 type SbClient = SupabaseClient<Database>
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+// ─── Pipeline summary helper ──────────────────────────────────────────────────
+
+interface PipelineSummary {
+  wonCount: number
+  lostCount: number
+  openCount: number
+  wonAmount: number
+  openAmount: number
+  stageCounts: Record<string, number>
+  totalDeals: number
+}
+
+async function fetchPipelineSummary(
+  userId: string,
+  periodStart: string,
+  periodEnd: string,
+  sb: SbClient,
+): Promise<PipelineSummary> {
+  const [{ data: entries }, { data: scenario }] = await Promise.all([
+    sb.from('pipeline_entries')
+      .select('stage, amount_usd, prospect_type, quantity')
+      .eq('user_id', userId)
+      .gte('entry_date', periodStart)
+      .lte('entry_date', periodEnd),
+    sb.from('recipe_scenarios')
+      .select('funnel_stages')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  const all            = entries ?? []
+  const pipelineStages = (scenario?.funnel_stages ?? DEFAULT_FUNNEL_STAGES) as string[]
+  const won  = all.filter(e => e.stage === 'Ganado')
+  const lost = all.filter(e => e.stage === 'Perdido')
+  const open = all.filter(e => e.stage !== 'Ganado' && e.stage !== 'Perdido')
+
+  const { open: openAmount, closed: wonAmount } = calcPipelineValue(all, pipelineStages)
+
+  const stageCounts: Record<string, number> = {}
+  for (const e of open) {
+    stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + (e.quantity ?? 1)
+  }
+
+  return {
+    wonCount:   won.length,
+    lostCount:  lost.length,
+    openCount:  open.length,
+    wonAmount,
+    openAmount,
+    stageCounts,
+    totalDeals: all.length,
+  }
+}
 
 export interface TeamReportOptions {
   scope: 'team' | 'at_risk'
@@ -51,6 +110,7 @@ interface UserSummary {
   daysActive: number
   monthlyAchievedPct: number
   activities: ActivityCompliance[]
+  pipeline: PipelineSummary
 }
 
 // ─── Timezone-safe week range ─────────────────────────────────────────────────
@@ -137,7 +197,11 @@ export async function generateTeamReport(
   for (const user of users) {
     try {
       // ── Problem 2 fix: pass corrected weekStart so context queries right range
-      const ctx = await buildWeeklyContextForCron(user.id, weekStart, sb)
+      const monthStart = weekEnd.slice(0, 8) + '01'
+      const [ctx, pipeline] = await Promise.all([
+        buildWeeklyContextForCron(user.id, weekStart, sb),
+        fetchPipelineSummary(user.id, monthStart, weekEnd, sb),
+      ])
       summaries.push({
         userId:            user.id,
         userName:          ctx.userName,
@@ -148,6 +212,7 @@ export async function generateTeamReport(
         daysActive:        ctx.streak,
         monthlyAchievedPct: ctx.monthlyProgress?.achievedPct ?? 0,
         activities:        ctx.activities,
+        pipeline,
       })
     } catch (err) {
       console.error(`[team-report] Context failed for ${user.id}:`, err)
@@ -197,15 +262,30 @@ export async function generateTeamReport(
   const weekLabel    = format(parseISO(weekStart), "d 'de' MMMM", { locale: es })
   const weekEndLabel = format(parseISO(weekEnd),   "d 'de' MMMM yyyy", { locale: es })
 
+  // Team pipeline aggregates (CAMBIO 4)
+  const teamWonAmount  = filtered.reduce((s, u) => s + u.pipeline.wonAmount, 0)
+  const teamOpenAmount = filtered.reduce((s, u) => s + u.pipeline.openAmount, 0)
+  const teamWonCount   = filtered.reduce((s, u) => s + u.pipeline.wonCount, 0)
+
   const repLines = sorted
     .map((u, i) => {
       const actBreakdown = u.activities
         .map((a) => `${a.name}: ${a.real}/${a.goal} (${a.pct}%)`)
         .join(' | ')
+      const stageStr = Object.entries(u.pipeline.stageCounts)
+        .map(([s, n]) => `${s}: ${n}`)
+        .join(' | ') || 'sin deals activos'
+      const pipelineLine = [
+        `   Pipeline: ${u.pipeline.wonCount} ganados ($${u.pipeline.wonAmount.toLocaleString('es-CO')})`,
+        `| ${u.pipeline.openCount} en curso ($${u.pipeline.openAmount.toLocaleString('es-CO')})`,
+        `| ${u.pipeline.lostCount} perdidos`,
+        u.pipeline.openCount > 0 ? `| Etapas: ${stageStr}` : '',
+      ].filter(Boolean).join(' ')
       return (
         `${i + 1}. ${u.userName} — ${u.overallCompliance}% cumplimiento | ` +
         `Tendencia: ${u.trend} | Días activos: ${u.daysActive}/5\n` +
         `   Actividades: ${actBreakdown}\n` +
+        pipelineLine + '\n' +
         `   Canal fuerte: ${u.strongest ?? 'N/A'} | Canal débil: ${u.weakest ?? 'N/A'} | ` +
         `Meta mensual: ${u.monthlyAchievedPct}%`
       )
@@ -223,6 +303,8 @@ MÉTRICAS DEL EQUIPO:
 - Tendencia positiva (↑): ${improvingCount} | Tendencia negativa (↓): ${decliningCount}
 - Actividad con mejor cumplimiento del equipo: ${bestActivity ? `${bestActivity.name} (${bestActivity.avgPct}%)` : 'N/A'}
 - Actividad con peor cumplimiento del equipo: ${worstActivity ? `${worstActivity.name} (${worstActivity.avgPct}%)` : 'N/A'}
+- Pipeline total ganado: ${teamWonCount} deals ($${teamWonAmount.toLocaleString('es-CO')})
+- Pipeline total en curso: $${teamOpenAmount.toLocaleString('es-CO')}
 
 TOP 3 DEL EQUIPO:
 ${top3.map((u, i) => `${i + 1}. ${u.userName} — ${u.overallCompliance}%`).join('\n')}
@@ -241,7 +323,7 @@ RANKING DEL EQUIPO: Tabla simple (sin asteriscos) con los 3 mejores y 3 que más
 
 PATRÓN COMÚN DE FALLO: La actividad o comportamiento donde más reps fallan simultáneamente.
 
-ANÁLISIS INDIVIDUAL — REQUIEREN ATENCIÓN: Para cada rep bajo ${threshold}%, UNA recomendación específica y accionable. Nombra la actividad exacta y el número concreto que deben alcanzar.
+ANÁLISIS INDIVIDUAL — REQUIEREN ATENCIÓN: Para cada rep bajo ${threshold}%, UNA recomendación específica y accionable. Nombra la actividad exacta y el número concreto que deben alcanzar. Si el rep tiene pipeline en curso, menciona si el monto abierto puede salvar su mes. Si tiene 0 deals en las últimas etapas del funnel, señálalo como señal de alerta temprana.
 
 ACCIÓN PRIORITARIA PARA EL MANAGER: UNA acción concreta, medible y con deadline esta semana.
 
@@ -279,7 +361,35 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
     memberName,
   })
 
-  // 8. Send via Resend
+  // 8. Save to coach_messages first — ensures analysis is persisted even if email fails
+  const generatedAt = new Date().toISOString()
+  let savedId: string | null = null
+  try {
+    const { data } = await sb
+      .from('coach_messages')
+      .insert({
+        user_id:       adminUserId,
+        type:          'team_report',
+        message:       aiAnalysis,
+        period_date:   weekStart,
+        is_read:       false,
+        triggered_by:  triggeredBy,
+        report_scope:  scopeLabel,
+        sent_to_email: toEmail ?? '',
+      } as never)
+      .select('id')
+      .single()
+    savedId = (data as { id: string } | null)?.id ?? null
+  } catch (err) {
+    console.error('[team-report] Failed to save record:', err)
+  }
+
+  // 9. Send via Resend — skip if no recipient address
+  if (!toEmail) {
+    console.warn('[team-report] No recipient email — skipping Resend')
+    return { success: true, sentTo: '', generatedAt, id: savedId }
+  }
+
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -298,33 +408,11 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
 
   if (!resendRes.ok) {
     const errText = await resendRes.text()
-    throw new Error(`[team-report] Resend failed: ${errText}`)
+    console.error(`[team-report] Resend failed: ${errText}`)
+    return { success: true, sentTo: toEmail, generatedAt, id: savedId }
   }
 
-  // 9. Save to coach_messages under admin/manager user
-  const generatedAt = new Date().toISOString()
-  let savedId: string | null = null
-  try {
-    const { data } = await sb
-      .from('coach_messages')
-      .insert({
-        user_id:       adminUserId,
-        type:          'team_report',
-        message:       aiAnalysis,
-        period_date:   weekStart,   // week being analyzed, not generation timestamp
-        is_read:       false,
-        triggered_by:  triggeredBy,
-        report_scope:  scopeLabel,
-        sent_to_email: toEmail,
-      } as never)
-      .select('id')
-      .single()
-    savedId = (data as { id: string } | null)?.id ?? null
-  } catch (err) {
-    console.error('[team-report] Failed to save record:', err)
-  }
-
-  return { success: true, sentTo: adminEmail, generatedAt, id: savedId }
+  return { success: true, sentTo: adminEmail ?? toEmail, generatedAt, id: savedId }
 }
 
 // ─── Email builder ────────────────────────────────────────────────────────────

@@ -296,16 +296,18 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   // ── Pipeline summary for dashboard tab ──────────────────────────────────
   let dashPipeline: {
     stageCounts: Record<string, number>
-    pipelineStages: string[]
+    wonAmount: number
     openAmount: number
-    closedAmount: number
+    wonCount: number
+    lostCount: number
+    openCount: number
     monthlyGoal: number
   } | null = null
 
   {
     const monthStart = today.slice(0, 8) + '01'
     const [pipelineEntriesRes, activeScenarioRes] = await Promise.all([
-      service.from('pipeline_entries').select('stage,quantity,amount_usd')
+      service.from('pipeline_entries').select('stage, amount_usd, prospect_type, quantity')
         .eq('user_id', userId)
         .gte('entry_date', monthStart)
         .lte('entry_date', today),
@@ -313,32 +315,26 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
         .eq('user_id', userId).eq('is_active', true)
         .order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
-    const pipelineEntries = pipelineEntriesRes.data ?? []
     const activeScenario  = activeScenarioRes.data
     const pipelineStages  = (activeScenario?.funnel_stages ?? DEFAULT_FUNNEL_STAGES) as string[]
-
-    // Contar entradas por etapa (NO hay columna status — solo stage)
+    const entries   = pipelineEntriesRes.data ?? []
+    const wonItems  = entries.filter(e => e.stage === 'Ganado')
+    const lostItems = entries.filter(e => e.stage === 'Perdido')
+    const openItems = entries.filter(e => e.stage !== 'Ganado' && e.stage !== 'Perdido')
+    const { open: openAmount, closed: wonAmount } = calcPipelineValue(entries, pipelineStages)
     const stageCounts: Record<string, number> = {}
-    for (const e of pipelineEntries) {
+    for (const e of openItems) {
       stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + (e.quantity ?? 1)
     }
-
-    // La última etapa del funnel = cierres ganados
-    const lastStage = pipelineStages[pipelineStages.length - 1] ?? ''
-
-    // Pipeline abierto = todas las entradas con monto (están en curso)
-    const openAmount = pipelineEntries
-      .filter(e => e.amount_usd != null)
-      .reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-
-    // Cerrado = entradas en la última etapa del funnel con monto
-    const closedAmount = pipelineEntries
-      .filter(e => e.stage === lastStage && e.amount_usd != null)
-      .reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-
-    const monthlyGoal = Number(activeScenario?.monthly_revenue_goal ?? 0)
-
-    dashPipeline = { stageCounts, pipelineStages, openAmount, closedAmount, monthlyGoal }
+    dashPipeline = {
+      stageCounts,
+      wonAmount,
+      openAmount,
+      wonCount:    wonItems.length,
+      lostCount:   lostItems.length,
+      openCount:   openItems.length,
+      monthlyGoal: Number(activeScenario?.monthly_revenue_goal ?? 0),
+    }
   }
 
   // ── Coach week label ─────────────────────────────────────────────────────
@@ -543,24 +539,40 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
             <div className="rounded-lg border border-border bg-card p-5 space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="text-sm font-semibold text-foreground">Pipeline — este mes</h3>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="text-muted-foreground">Abierto: <span className="text-primary font-semibold">${dashPipeline.openAmount.toLocaleString('es-CO')}</span></span>
-                  <span className="text-muted-foreground">Cerrado: <span className="text-emerald-400 font-semibold">${dashPipeline.closedAmount.toLocaleString('es-CO')}</span></span>
-                  {dashPipeline.monthlyGoal > 0 && (
-                    <span className="text-muted-foreground">Meta: <span className="text-foreground font-semibold">${dashPipeline.monthlyGoal.toLocaleString('es-CO')}</span></span>
+                {dashPipeline.monthlyGoal > 0 && (
+                  <span className="text-xs text-muted-foreground">Meta: <span className="text-foreground font-semibold">${dashPipeline.monthlyGoal.toLocaleString('es-CO')}</span></span>
+                )}
+              </div>
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex flex-col items-center">
+                  <span className="text-emerald-400 font-bold tabular-nums text-lg">{dashPipeline.wonCount}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Ganados</span>
+                  {dashPipeline.wonAmount > 0 && (
+                    <span className="text-[10px] text-emerald-400/70">${dashPipeline.wonAmount.toLocaleString('es-CO')}</span>
                   )}
                 </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-primary font-bold tabular-nums text-lg">{dashPipeline.openCount}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Abiertos</span>
+                  {dashPipeline.openAmount > 0 && (
+                    <span className="text-[10px] text-primary/70">${dashPipeline.openAmount.toLocaleString('es-CO')}</span>
+                  )}
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-red-400 font-bold tabular-nums text-lg">{dashPipeline.lostCount}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Perdidos</span>
+                </div>
               </div>
-              <div className="divide-y divide-border/50">
-                {dashPipeline.pipelineStages.map((stage) => (
-                  <div key={stage} className="flex items-center justify-between py-2">
-                    <span className="text-xs text-muted-foreground">{stage}</span>
-                    <span className="text-sm font-bold tabular-nums text-foreground">
-                      {dashPipeline!.stageCounts[stage] ?? 0}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              {Object.keys(dashPipeline.stageCounts).length > 0 && (
+                <div className="divide-y divide-border/50 pt-2 border-t border-border/50">
+                  {Object.entries(dashPipeline.stageCounts).map(([stage, count]) => (
+                    <div key={stage} className="flex items-center justify-between py-1.5">
+                      <span className="text-xs text-muted-foreground">{stage}</span>
+                      <span className="text-sm font-bold tabular-nums text-foreground">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
