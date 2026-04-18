@@ -305,7 +305,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   {
     const monthStart = today.slice(0, 8) + '01'
     const [pipelineEntriesRes, activeScenarioRes] = await Promise.all([
-      service.from('pipeline_simple').select('stage,prospect_type,amount_usd,status')
+      service.from('pipeline_entries').select('stage,quantity,amount_usd')
         .eq('user_id', userId)
         .gte('entry_date', monthStart)
         .lte('entry_date', today),
@@ -313,26 +313,32 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
         .eq('user_id', userId).eq('is_active', true)
         .order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
-    const pipelineEntries = (pipelineEntriesRes.data ?? []) as {
-      stage: string; prospect_type?: string | null; amount_usd?: number | null; status?: string | null
-    }[]
+    const pipelineEntries = pipelineEntriesRes.data ?? []
     const activeScenario  = activeScenarioRes.data
-    const pipelineStages  = activeScenario?.funnel_stages ?? ['Discurso', 'Reunión', 'Propuesta', 'Cierre']
+    const pipelineStages  = (activeScenario?.funnel_stages ?? DEFAULT_FUNNEL_STAGES) as string[]
 
+    // Contar entradas por etapa (NO hay columna status — solo stage)
     const stageCounts: Record<string, number> = {}
     for (const e of pipelineEntries) {
-      stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + 1
+      stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + (e.quantity ?? 1)
     }
 
-    const openAmount = pipelineEntries
-      .filter(e => !e.status || e.status === 'open' || e.status === 'abierto')
-      .reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-    const closedAmount = pipelineEntries
-      .filter(e => e.status === 'won' || e.status === 'ganado')
-      .reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-    const dashMonthlyGoal = activeScenario?.monthly_revenue_goal ?? 0
+    // La última etapa del funnel = cierres ganados
+    const lastStage = pipelineStages[pipelineStages.length - 1] ?? ''
 
-    dashPipeline = { stageCounts, pipelineStages, openAmount, closedAmount, monthlyGoal: dashMonthlyGoal }
+    // Pipeline abierto = todas las entradas con monto (están en curso)
+    const openAmount = pipelineEntries
+      .filter(e => e.amount_usd != null)
+      .reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+
+    // Cerrado = entradas en la última etapa del funnel con monto
+    const closedAmount = pipelineEntries
+      .filter(e => e.stage === lastStage && e.amount_usd != null)
+      .reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+
+    const monthlyGoal = Number(activeScenario?.monthly_revenue_goal ?? 0)
+
+    dashPipeline = { stageCounts, pipelineStages, openAmount, closedAmount, monthlyGoal }
   }
 
   // ── Coach week label ─────────────────────────────────────────────────────
