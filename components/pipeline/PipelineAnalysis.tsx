@@ -1,0 +1,218 @@
+'use client'
+
+import { useMemo } from 'react'
+import { fmtUSD } from '@/lib/calculations/pipeline'
+import type { PipelineSimple } from '@/lib/types/database'
+
+interface Props {
+  entries: PipelineSimple[]
+  monthlyRevenueGoal: number | null
+  period: string
+  periodLabel: string
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function pct(num: number, den: number) {
+  return den > 0 ? Math.round((num / den) * 100) : 0
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
+      {children}
+    </h3>
+  )
+}
+
+function StatRow({ label, value, sub, color = 'text-foreground' }: {
+  label: string
+  value: string
+  sub?: string
+  color?: string
+}) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="text-right">
+        <span className={`text-sm font-bold tabular-nums ${color}`}>{value}</span>
+        {sub && <p className="text-[10px] text-muted-foreground/60">{sub}</p>}
+      </div>
+    </div>
+  )
+}
+
+function GoalBar({ value, goal }: { value: number; goal: number }) {
+  const progress = goal > 0 ? Math.min(Math.round((value / goal) * 100), 100) : 0
+  const color = progress >= 100 ? 'bg-emerald-500' : progress >= 60 ? 'bg-amber-500' : 'bg-primary'
+  const textColor = progress >= 100 ? 'text-emerald-400' : progress >= 60 ? 'text-amber-400' : 'text-primary'
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between text-[10px]">
+        <span className="text-muted-foreground">Progreso hacia meta</span>
+        <span className={`font-bold tabular-nums ${textColor}`}>{progress}%</span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${progress}%` }} />
+      </div>
+      <div className="flex justify-between text-[10px] text-muted-foreground/60">
+        <span>{fmtUSD(value)} ganado</span>
+        <span>Meta: {fmtUSD(goal)}</span>
+      </div>
+    </div>
+  )
+}
+
+// ── Main ───────────────────────────────────────────────────────────────────────
+
+export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: Props) {
+  const stats = useMemo(() => {
+    const reuniones  = entries.filter(e => e.stage === 'Reunión')
+    const propuestas = entries.filter(e => e.stage === 'Propuesta')
+    const cierres    = entries.filter(e => e.stage === 'Cierre')
+
+    const propAbiertas = propuestas.filter(e => e.status === 'abierto')
+    const propGanadas  = propuestas.filter(e => e.status === 'ganado')
+    const propPerdidas = propuestas.filter(e => e.status === 'perdido')
+
+    const revenueGanado   = cierres.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+    const revenuePipeline = propAbiertas.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+    const revenuePerdido  = propPerdidas.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+
+    const totalConAmonto  = entries.filter(e => e.amount_usd != null).length
+    const sumaAmonto      = entries.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+    const avgTicket       = totalConAmonto > 0 ? sumaAmonto / totalConAmonto : 0
+
+    const convReunProp    = pct(propuestas.length, reuniones.length)
+    const convPropCierre  = pct(cierres.length, propuestas.length)
+    const tasaGanado      = pct(propGanadas.length + cierres.length, propuestas.length + cierres.length)
+
+    const outbound = entries.filter(e => e.prospect_type === 'outbound').length
+    const inbound  = entries.filter(e => e.prospect_type === 'inbound').length
+
+    return {
+      reuniones: reuniones.length,
+      propuestas: propuestas.length,
+      cierres: cierres.length,
+      propAbiertas: propAbiertas.length,
+      propGanadas: propGanadas.length,
+      propPerdidas: propPerdidas.length,
+      revenueGanado,
+      revenuePipeline,
+      revenuePerdido,
+      avgTicket,
+      convReunProp,
+      convPropCierre,
+      tasaGanado,
+      outbound,
+      inbound,
+      total: entries.length,
+    }
+  }, [entries])
+
+  if (entries.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-center text-xs text-muted-foreground">
+        Sin datos para el período: {periodLabel}
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+
+      {/* ── Columna 1: Revenue ─────────────────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <SectionTitle>Revenue — {periodLabel}</SectionTitle>
+
+        {monthlyRevenueGoal != null && monthlyRevenueGoal > 0 && (
+          <GoalBar value={stats.revenueGanado} goal={monthlyRevenueGoal} />
+        )}
+
+        <div>
+          <StatRow
+            label="Ganado (Cierres)"
+            value={fmtUSD(stats.revenueGanado)}
+            color="text-emerald-400"
+          />
+          <StatRow
+            label="Pipeline abierto"
+            value={fmtUSD(stats.revenuePipeline)}
+            sub={`${stats.propAbiertas} propuesta${stats.propAbiertas !== 1 ? 's' : ''} activa${stats.propAbiertas !== 1 ? 's' : ''}`}
+            color="text-amber-400"
+          />
+          <StatRow
+            label="Perdido"
+            value={fmtUSD(stats.revenuePerdido)}
+            color="text-red-400"
+          />
+          <StatRow
+            label="Ticket promedio"
+            value={stats.avgTicket > 0 ? fmtUSD(stats.avgTicket) : '—'}
+            sub="sobre entradas con monto"
+          />
+        </div>
+      </div>
+
+      {/* ── Columna 2: Conversión ──────────────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <SectionTitle>Conversión</SectionTitle>
+        <div>
+          <StatRow
+            label="Reunión → Propuesta"
+            value={`${stats.convReunProp}%`}
+            sub={`${stats.propuestas} de ${stats.reuniones} reuniones`}
+            color={stats.convReunProp >= 50 ? 'text-emerald-400' : stats.convReunProp >= 25 ? 'text-amber-400' : 'text-red-400'}
+          />
+          <StatRow
+            label="Propuesta → Cierre"
+            value={`${stats.convPropCierre}%`}
+            sub={`${stats.cierres} de ${stats.propuestas} propuestas`}
+            color={stats.convPropCierre >= 40 ? 'text-emerald-400' : stats.convPropCierre >= 20 ? 'text-amber-400' : 'text-red-400'}
+          />
+          <StatRow
+            label="Tasa ganados"
+            value={`${stats.tasaGanado}%`}
+            sub="propuestas ganadas + cierres"
+            color={stats.tasaGanado >= 50 ? 'text-emerald-400' : stats.tasaGanado >= 25 ? 'text-amber-400' : 'text-red-400'}
+          />
+        </div>
+
+        <div className="pt-2 border-t border-border/50">
+          <SectionTitle>Estado de propuestas</SectionTitle>
+          <StatRow label="Abiertas"  value={String(stats.propAbiertas)} color="text-amber-400" />
+          <StatRow label="Ganadas"   value={String(stats.propGanadas)}  color="text-emerald-400" />
+          <StatRow label="Perdidas"  value={String(stats.propPerdidas)} color="text-red-400" />
+        </div>
+      </div>
+
+      {/* ── Columna 3: Actividad ───────────────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <SectionTitle>Actividad</SectionTitle>
+        <div>
+          <StatRow label="Total entradas" value={String(stats.total)} />
+          <StatRow label="Reuniones"      value={String(stats.reuniones)}  color="text-cyan-400"    />
+          <StatRow label="Propuestas"     value={String(stats.propuestas)} color="text-amber-400"   />
+          <StatRow label="Cierres"        value={String(stats.cierres)}    color="text-emerald-400" />
+        </div>
+
+        <div className="pt-2 border-t border-border/50">
+          <SectionTitle>Por origen</SectionTitle>
+          <StatRow
+            label="Outbound"
+            value={String(stats.outbound)}
+            sub={`${pct(stats.outbound, stats.total)}% del total`}
+            color="text-orange-400"
+          />
+          <StatRow
+            label="Inbound"
+            value={String(stats.inbound)}
+            sub={`${pct(stats.inbound, stats.total)}% del total`}
+            color="text-sky-400"
+          />
+        </div>
+      </div>
+
+    </div>
+  )
+}
