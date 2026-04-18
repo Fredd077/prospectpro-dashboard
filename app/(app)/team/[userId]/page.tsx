@@ -326,6 +326,10 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     for (const e of openItems) {
       stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + (e.quantity ?? 1)
     }
+    console.log('[debug-pipeline] entries count:', pipelineEntriesRes.data?.length)
+    console.log('[debug-pipeline] scenario:', activeScenarioRes.data?.funnel_stages)
+    console.log('[debug-pipeline] calcResult:', JSON.stringify(calcPipelineValue(pipelineEntriesRes.data ?? [], (activeScenarioRes.data?.funnel_stages ?? []) as string[])))
+    console.log('[debug-pipeline] stageCounts:', JSON.stringify(stageCounts))
     dashPipeline = {
       stageCounts,
       wonAmount,
