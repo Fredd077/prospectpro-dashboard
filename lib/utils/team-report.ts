@@ -50,7 +50,7 @@ async function fetchPipelineSummary(
   const openAmount = open.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
 
   const stageCounts: Record<string, number> = {}
-  for (const e of open) {
+  for (const e of all) {
     stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + 1
   }
 

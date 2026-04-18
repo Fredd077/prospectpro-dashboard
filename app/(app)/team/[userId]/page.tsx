@@ -322,7 +322,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     const wonAmount  = wonItems.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
     const openAmount = openItems.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
     const stageCounts: Record<string, number> = {}
-    for (const e of openItems) {
+    for (const e of rows) {
       stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + 1
     }
     dashPipeline = {
