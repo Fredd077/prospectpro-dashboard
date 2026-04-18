@@ -18,7 +18,6 @@ import { TodayWidget } from '@/components/dashboard/TodayWidget'
 import { RecipeValidationCard } from '@/components/dashboard/RecipeValidationCard'
 import { CoachProCard } from '@/components/dashboard/CoachProCard'
 import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
-import { FunnelSection } from '@/components/dashboard/FunnelSection'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
 import { calcCompliance } from '@/lib/calculations/compliance'
@@ -27,7 +26,6 @@ import { formatPercent } from '@/lib/utils/formatters'
 import { getSemaphoreColor } from '@/lib/utils/colors'
 import { getActivityGoal, getDailyImpliedGoal } from '@/lib/utils/goals'
 import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
-import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 import type { PeriodType, ActivityType } from '@/lib/types/common'
 import type { DailyCompliance } from '@/lib/types/database'
 
@@ -285,45 +283,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     ? calcRecipeValidation(activeScenario, allActivities as Parameters<typeof calcRecipeValidation>[1])
     : null
 
-  // --- Funnel stages from active recipe scenario ---
-  type FunnelStage = { label: string; planned: number; actual?: number }
-  const funnelStages: FunnelStage[] = []
-
-  if (activeScenario) {
-    const s = activeScenario
-    const days = s.working_days_per_month ?? 22
-
-    // Scale planned values to the selected period
-    function scalePlan(monthly: number | null): number {
-      if (!monthly) return 0
-      if (period === 'monthly')   return Math.ceil(monthly)
-      if (period === 'weekly')    return Math.ceil(monthly / (days / 5))
-      if (period === 'quarterly') return Math.ceil(monthly * 3)
-      // daily
-      return Math.ceil(monthly / days)
-    }
-
-    const recipeResult = calcRecipe({
-      monthly_revenue_goal:   s.monthly_revenue_goal,
-      average_ticket:         s.average_ticket,
-      outbound_pct:           s.outbound_pct,
-      working_days_per_month: s.working_days_per_month,
-      funnel_stages:  s.funnel_stages  ?? DEFAULT_FUNNEL_STAGES,
-      outbound_rates: s.outbound_rates ?? DEFAULT_OUTBOUND_RATES,
-      inbound_rates:  s.inbound_rates  ?? DEFAULT_INBOUND_RATES,
-    })
-
-    const stageNames = s.funnel_stages ?? DEFAULT_FUNNEL_STAGES
-    stageNames.forEach((stageName, i) => {
-      const planMonthly = (recipeResult.outbound.stage_values[i] ?? 0) + (recipeResult.inbound.stage_values[i] ?? 0)
-      funnelStages.push({
-        label:   stageName,
-        planned: scalePlan(planMonthly),
-        actual:  i === 0 ? totalReal : undefined,
-      })
-    })
-  }
-
   return (
     <div className="flex flex-col h-full">
       <TopBar
@@ -403,38 +362,37 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             />
           </div>
 
-          {/* Plan vs Recipe validation card */}
-          {recipeValidation && (
-            <RecipeValidationCard validation={recipeValidation} />
-          )}
-
-          {/* Funnel Real — pipeline mini card (fetches its own data) */}
-          <FunnelSection>
-            <PipelineMiniCard />
-          </FunnelSection>
-
-          {/* Per-activity breakdown table */}
-          {breakdownRows.length > 0 && (
-            <ActivityBreakdownTable rows={breakdownRows} />
-          )}
-
-          {/* Charts */}
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h2 className="mb-1 text-sm font-semibold text-foreground">Visualizaciones</h2>
-            {!activeScenario && (
-              <p className="mb-4 text-xs text-muted-foreground">
-                Para ver el Funnel crea un escenario activo en{' '}
-                <Link href="/recipe" className="underline underline-offset-2 hover:text-foreground">Recetario</Link>.
-              </p>
+          {/* Plan vs Recetario + Funnel Real — lado a lado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {recipeValidation && (
+              <div className="min-h-[240px]">
+                <RecipeValidationCard validation={recipeValidation} />
+              </div>
             )}
-            <ChartSwitcher
-              barData={barData}
-              trendData={trendData}
-              radarData={radarData}
-              heatmapData={heatmapData}
-              tableRows={tableRows}
-              funnelStages={funnelStages}
-            />
+            <div className="min-h-[240px]">
+              <PipelineMiniCard />
+            </div>
+          </div>
+
+          {/* Desglose por actividad + Visualizaciones — lado a lado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Desglose por actividad</h2>
+              {breakdownRows.length > 0
+                ? <ActivityBreakdownTable rows={breakdownRows} />
+                : <p className="text-xs text-muted-foreground">Sin actividades registradas.</p>
+              }
+            </div>
+            <div className="rounded-lg border border-border bg-card p-6">
+              <h2 className="mb-1 text-sm font-semibold text-foreground">Visualizaciones</h2>
+              <ChartSwitcher
+                barData={barData}
+                trendData={trendData}
+                radarData={radarData}
+                heatmapData={heatmapData}
+                tableRows={tableRows}
+              />
+            </div>
           </div>
         </div>
       </div>

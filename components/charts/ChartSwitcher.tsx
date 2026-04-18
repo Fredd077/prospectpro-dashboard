@@ -2,15 +2,13 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { BarChart2, TrendingUp, Radar, CalendarDays, Table2, Filter } from 'lucide-react'
+import { BarChart2, TrendingUp, Radar, CalendarDays, Table2 } from 'lucide-react'
 import { HorizontalBarChart } from './HorizontalBarChart'
 import { TrendLineChart } from './TrendLineChart'
 import { RadarChart } from './RadarChart'
 import { HeatmapChart } from './HeatmapChart'
 import { DetailTable } from './DetailTable'
 import type { DetailRow } from './DetailTable'
-import type { FunnelStage } from './FunnelChart'
-import { FunnelChart } from './FunnelChart'
 
 interface BarDataPoint {
   name: string
@@ -44,17 +42,15 @@ interface ChartSwitcherProps {
   radarData?: RadarDataPoint[]
   heatmapData?: HeatmapDay[]
   tableRows?: DetailRow[]
-  funnelStages?: FunnelStage[]
   defaultChart?: string
 }
 
 const CHART_TABS = [
-  { value: 'bars',    label: 'Barras',     icon: BarChart2 },
-  { value: 'trend',   label: 'Tendencia',  icon: TrendingUp },
-  { value: 'radar',   label: 'Balance',    icon: Radar },
-  { value: 'heatmap', label: 'Heatmap',    icon: CalendarDays },
-  { value: 'table',   label: 'Tabla',      icon: Table2 },
-  { value: 'funnel',  label: 'Funnel',     icon: Filter },
+  { value: 'bars',    label: 'Barras',    icon: BarChart2 },
+  { value: 'trend',   label: 'Tendencia', icon: TrendingUp },
+  { value: 'radar',   label: 'Balance',   icon: Radar },
+  { value: 'heatmap', label: 'Heatmap',   icon: CalendarDays },
+  { value: 'table',   label: 'Tabla',     icon: Table2 },
 ] as const
 
 export function ChartSwitcher({
@@ -63,7 +59,6 @@ export function ChartSwitcher({
   radarData = [],
   heatmapData = [],
   tableRows = [],
-  funnelStages = [],
   defaultChart = 'bars',
 }: ChartSwitcherProps) {
   const [active, setActive] = useState(defaultChart)
@@ -99,7 +94,6 @@ export function ChartSwitcher({
       {active === 'radar'   && <RadarChart data={radarData} />}
       {active === 'heatmap' && <HeatmapChart data={heatmapData} />}
       {active === 'table'   && <DetailTable rows={tableRows} periodLabel="Semana" />}
-      {active === 'funnel'  && <FunnelChart stages={funnelStages} />}
     </div>
   )
 }
