@@ -294,7 +294,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   const status = statusBadge(periodPct)
 
   // ── Pipeline summary for dashboard tab ──────────────────────────────────
-  let dashPipelineSummary: {
+  let dashPipeline: {
     stageCounts: Record<string, number>
     pipelineStages: string[]
     openAmount: number
@@ -332,7 +332,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
       .reduce((s, e) => s + (e.amount_usd ?? 0), 0)
     const dashMonthlyGoal = activeScenario?.monthly_revenue_goal ?? 0
 
-    dashPipelineSummary = { stageCounts, pipelineStages, openAmount, closedAmount, monthlyGoal: dashMonthlyGoal }
+    dashPipeline = { stageCounts, pipelineStages, openAmount, closedAmount, monthlyGoal: dashMonthlyGoal }
   }
 
   // ── Coach week label ─────────────────────────────────────────────────────
@@ -532,35 +532,35 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
             <TrendChart weeks={trendData} />
           </div>
 
-          {/* ── Activity breakdown ─────────────────────────────────────────── */}
-          {breakdownRows.length > 0 && (
-            <ActivityBreakdownTable rows={breakdownRows} />
-          )}
-
           {/* ── Pipeline summary ───────────────────────────────────────────── */}
-          {dashPipelineSummary && (
-            <div className="rounded-lg border border-border bg-card p-5 space-y-4">
-              <div className="flex items-center justify-between">
+          {dashPipeline && (
+            <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="text-sm font-semibold text-foreground">Pipeline — este mes</h3>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span>Abierto: <span className="text-primary font-semibold">${dashPipelineSummary.openAmount.toLocaleString('es-CO')}</span></span>
-                  <span>Cerrado: <span className="text-emerald-400 font-semibold">${dashPipelineSummary.closedAmount.toLocaleString('es-CO')}</span></span>
-                  {dashPipelineSummary.monthlyGoal > 0 && (
-                    <span>Meta: <span className="text-foreground font-semibold">${dashPipelineSummary.monthlyGoal.toLocaleString('es-CO')}</span></span>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-muted-foreground">Abierto: <span className="text-primary font-semibold">${dashPipeline.openAmount.toLocaleString('es-CO')}</span></span>
+                  <span className="text-muted-foreground">Cerrado: <span className="text-emerald-400 font-semibold">${dashPipeline.closedAmount.toLocaleString('es-CO')}</span></span>
+                  {dashPipeline.monthlyGoal > 0 && (
+                    <span className="text-muted-foreground">Meta: <span className="text-foreground font-semibold">${dashPipeline.monthlyGoal.toLocaleString('es-CO')}</span></span>
                   )}
                 </div>
               </div>
               <div className="divide-y divide-border/50">
-                {dashPipelineSummary.pipelineStages.map((stage) => (
-                  <div key={stage} className="flex items-center justify-between py-2.5">
+                {dashPipeline.pipelineStages.map((stage) => (
+                  <div key={stage} className="flex items-center justify-between py-2">
                     <span className="text-xs text-muted-foreground">{stage}</span>
-                    <span className="text-xs font-semibold tabular-nums text-foreground">
-                      {dashPipelineSummary!.stageCounts[stage] ?? 0}
+                    <span className="text-sm font-bold tabular-nums text-foreground">
+                      {dashPipeline!.stageCounts[stage] ?? 0}
                     </span>
                   </div>
                 ))}
               </div>
             </div>
+          )}
+
+          {/* ── Activity breakdown ─────────────────────────────────────────── */}
+          {breakdownRows.length > 0 && (
+            <ActivityBreakdownTable rows={breakdownRows} />
           )}
 
           {/* ── Pipeline ───────────────────────────────────────────────────── */}
