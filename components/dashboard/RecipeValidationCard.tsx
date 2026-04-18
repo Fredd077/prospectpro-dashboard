@@ -46,11 +46,11 @@ export function RecipeValidationCard({ validation }: RecipeValidationCardProps) 
 
   return (
     <div className={cn(
-      'rounded-lg border bg-card overflow-hidden',
+      'rounded-lg border bg-card overflow-hidden max-w-2xl',
       isAligned ? 'border-emerald-400/20' : 'border-amber-400/20',
     )}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
+      <div className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors">
         <div className="flex items-center gap-2">
           <FlaskConical className={cn('h-4 w-4', isAligned ? 'text-emerald-400' : 'text-amber-400')} />
           <span className="text-sm font-semibold">Plan vs Recetario</span>
@@ -78,7 +78,7 @@ export function RecipeValidationCard({ validation }: RecipeValidationCardProps) 
       {!collapsed && (
         <>
           {/* Progress bars */}
-          <div className="px-4 pb-3 space-y-2.5">
+          <div className="px-4 pb-2 space-y-2.5 max-w-sm">
             <BarRow label="Total"    plan={validation.plan.total}    recipe={validation.recipe.total}    status={validation.status.total} />
             <BarRow label="Outbound" plan={validation.plan.outbound} recipe={validation.recipe.outbound} status={validation.status.outbound} />
             <BarRow label="Inbound"  plan={validation.plan.inbound}  recipe={validation.recipe.inbound}  status={validation.status.inbound} />
