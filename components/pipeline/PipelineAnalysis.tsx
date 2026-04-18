@@ -55,8 +55,8 @@ function NeonStat({ label, value, sub, threshHigh, threshLow }: {
     <div className="py-3 border-b border-border/50 last:border-0">
       <p className="text-base font-semibold text-foreground mb-1">{label}</p>
       <p
-        className={`text-4xl font-black tabular-nums leading-none ${textColor}`}
-        style={{ filter: `drop-shadow(0 0 8px ${glowColor}) drop-shadow(0 0 16px ${glowColor})` }}
+        className={`text-2xl font-bold tabular-nums leading-none ${textColor}`}
+        style={{ filter: `drop-shadow(0 0 4px ${glowColor})` }}
       >
         {value}%
       </p>
