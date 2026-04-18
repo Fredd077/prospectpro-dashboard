@@ -307,7 +307,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   {
     const monthStart = today.slice(0, 8) + '01'
     const [pipelineEntriesRes, activeScenarioRes] = await Promise.all([
-      service.from('pipeline_entries').select('stage, amount_usd, prospect_type, quantity')
+      service.from('pipeline_entries').select('stage, amount_usd, prospect_type, quantity, entry_date')
         .eq('user_id', userId)
         .gte('entry_date', monthStart)
         .lte('entry_date', today),
@@ -322,14 +322,14 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     const lostItems = entries.filter(e => e.stage === 'Perdido')
     const openItems = entries.filter(e => e.stage !== 'Ganado' && e.stage !== 'Perdido')
     const { open: openAmount, closed: wonAmount } = calcPipelineValue(entries, pipelineStages)
+    console.log('[debug-pipeline] dashMonthStart:', monthStart)
+    console.log('[debug-pipeline] today:', today)
+    console.log('[debug-pipeline] entries raw:', JSON.stringify(pipelineEntriesRes.data?.map(e => ({stage: e.stage, qty: e.quantity, date: e.entry_date}))))
+    console.log('[debug-pipeline] supabase error:', pipelineEntriesRes.error)
     const stageCounts: Record<string, number> = {}
     for (const e of openItems) {
       stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + (e.quantity ?? 1)
     }
-    console.log('[debug-pipeline] entries count:', pipelineEntriesRes.data?.length)
-    console.log('[debug-pipeline] scenario:', activeScenarioRes.data?.funnel_stages)
-    console.log('[debug-pipeline] calcResult:', JSON.stringify(calcPipelineValue(pipelineEntriesRes.data ?? [], (activeScenarioRes.data?.funnel_stages ?? []) as string[])))
-    console.log('[debug-pipeline] stageCounts:', JSON.stringify(stageCounts))
     dashPipeline = {
       stageCounts,
       wonAmount,
