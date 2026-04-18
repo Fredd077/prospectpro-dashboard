@@ -315,9 +315,6 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
         .eq('user_id', userId).eq('is_active', true)
         .order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
-    console.log('[debug-pipeline] query params - userId:', userId, 'monthStart:', monthStart, 'today:', today)
-    console.log('[debug-pipeline] raw entries count:', pipelineEntriesRes.data?.length, 'error:', pipelineEntriesRes.error?.message)
-    console.log('[debug-pipeline] all stages found:', pipelineEntriesRes.data?.map(e => e.stage + '|' + e.entry_date))
     const activeScenario  = activeScenarioRes.data
     const pipelineStages  = (activeScenario?.funnel_stages ?? DEFAULT_FUNNEL_STAGES) as string[]
     const entries   = (pipelineEntriesRes.data ?? []).map(e => ({ ...e, stage: e.stage.trim() }))
