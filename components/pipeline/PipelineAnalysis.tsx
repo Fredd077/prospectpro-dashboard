@@ -42,6 +42,54 @@ function StatRow({ label, value, sub, color = 'text-foreground' }: {
   )
 }
 
+function NeonStat({ label, value, sub, threshHigh, threshLow }: {
+  label: string
+  value: number
+  sub?: string
+  threshHigh: number
+  threshLow: number
+}) {
+  const glowColor = value >= threshHigh ? '#34d399' : value >= threshLow ? '#fbbf24' : '#f87171'
+  const textColor = value >= threshHigh ? 'text-emerald-400' : value >= threshLow ? 'text-amber-400' : 'text-red-400'
+  return (
+    <div className="py-3 border-b border-border/50 last:border-0">
+      <p className="text-[10px] text-muted-foreground mb-1">{label}</p>
+      <p
+        className={`text-4xl font-black tabular-nums leading-none ${textColor}`}
+        style={{ filter: `drop-shadow(0 0 8px ${glowColor}) drop-shadow(0 0 16px ${glowColor})` }}
+      >
+        {value}%
+      </p>
+      {sub && <p className="text-[10px] text-muted-foreground/60 mt-1">{sub}</p>}
+    </div>
+  )
+}
+
+function StageOriginBlock({ stage, total, outbound, inbound, stageColor }: {
+  stage: string
+  total: number
+  outbound: number
+  inbound: number
+  stageColor: string
+}) {
+  return (
+    <div className="py-2.5 border-b border-border/50 last:border-0">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className={`text-xs font-bold ${stageColor}`}>{stage}</span>
+        <span className="text-sm font-bold tabular-nums text-foreground">{total}</span>
+      </div>
+      <div className="flex gap-1.5">
+        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border bg-orange-500/10 text-orange-400 border-orange-500/20">
+          OUT {outbound}
+        </span>
+        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border bg-sky-500/10 text-sky-400 border-sky-500/20">
+          IN {inbound}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function GoalBar({ value, goal }: { value: number; goal: number }) {
   const progress = goal > 0 ? Math.min(Math.round((value / goal) * 100), 100) : 0
   const color = progress >= 100 ? 'bg-emerald-500' : progress >= 60 ? 'bg-amber-500' : 'bg-primary'
@@ -87,8 +135,12 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: P
     const convPropCierre  = pct(cierres.length, propuestas.length)
     const tasaGanado      = pct(propGanadas.length + cierres.length, propuestas.length + cierres.length)
 
-    const outbound = entries.filter(e => e.prospect_type === 'outbound').length
-    const inbound  = entries.filter(e => e.prospect_type === 'inbound').length
+    const reunionesOut  = reuniones.filter(e => e.prospect_type === 'outbound').length
+    const reunionesIn   = reuniones.filter(e => e.prospect_type === 'inbound').length
+    const propuestasOut = propuestas.filter(e => e.prospect_type === 'outbound').length
+    const propuestasIn  = propuestas.filter(e => e.prospect_type === 'inbound').length
+    const cierresOut    = cierres.filter(e => e.prospect_type === 'outbound').length
+    const cierresIn     = cierres.filter(e => e.prospect_type === 'inbound').length
 
     return {
       reuniones: reuniones.length,
@@ -104,8 +156,9 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: P
       convReunProp,
       convPropCierre,
       tasaGanado,
-      outbound,
-      inbound,
+      reunionesOut, reunionesIn,
+      propuestasOut, propuestasIn,
+      cierresOut, cierresIn,
       total: entries.length,
     }
   }, [entries])
@@ -155,30 +208,31 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: P
       </div>
 
       {/* ── Columna 2: Conversión ──────────────────────────────────────── */}
-      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+      <div className="rounded-xl border border-border bg-card p-5 space-y-1">
         <SectionTitle>Conversión</SectionTitle>
-        <div>
-          <StatRow
-            label="Reunión → Propuesta"
-            value={`${stats.convReunProp}%`}
-            sub={`${stats.propuestas} de ${stats.reuniones} reuniones`}
-            color={stats.convReunProp >= 50 ? 'text-emerald-400' : stats.convReunProp >= 25 ? 'text-amber-400' : 'text-red-400'}
-          />
-          <StatRow
-            label="Propuesta → Cierre"
-            value={`${stats.convPropCierre}%`}
-            sub={`${stats.cierres} de ${stats.propuestas} propuestas`}
-            color={stats.convPropCierre >= 40 ? 'text-emerald-400' : stats.convPropCierre >= 20 ? 'text-amber-400' : 'text-red-400'}
-          />
-          <StatRow
-            label="Tasa ganados"
-            value={`${stats.tasaGanado}%`}
-            sub="propuestas ganadas + cierres"
-            color={stats.tasaGanado >= 50 ? 'text-emerald-400' : stats.tasaGanado >= 25 ? 'text-amber-400' : 'text-red-400'}
-          />
-        </div>
+        <NeonStat
+          label="Reunión → Propuesta"
+          value={stats.convReunProp}
+          sub={`${stats.propuestas} de ${stats.reuniones} reuniones`}
+          threshHigh={50}
+          threshLow={25}
+        />
+        <NeonStat
+          label="Propuesta → Cierre"
+          value={stats.convPropCierre}
+          sub={`${stats.cierres} de ${stats.propuestas} propuestas`}
+          threshHigh={40}
+          threshLow={20}
+        />
+        <NeonStat
+          label="Tasa ganados"
+          value={stats.tasaGanado}
+          sub="propuestas ganadas + cierres"
+          threshHigh={50}
+          threshLow={25}
+        />
 
-        <div className="pt-2 border-t border-border/50">
+        <div className="pt-3 border-t border-border/50">
           <SectionTitle>Estado de propuestas</SectionTitle>
           <StatRow label="Abiertas"  value={String(stats.propAbiertas)} color="text-amber-400" />
           <StatRow label="Ganadas"   value={String(stats.propGanadas)}  color="text-emerald-400" />
@@ -188,27 +242,31 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: P
 
       {/* ── Columna 3: Actividad ───────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-        <SectionTitle>Actividad</SectionTitle>
-        <div>
-          <StatRow label="Total entradas" value={String(stats.total)} />
-          <StatRow label="Reuniones"      value={String(stats.reuniones)}  color="text-cyan-400"    />
-          <StatRow label="Propuestas"     value={String(stats.propuestas)} color="text-amber-400"   />
-          <StatRow label="Cierres"        value={String(stats.cierres)}    color="text-emerald-400" />
+        <div className="flex items-center justify-between">
+          <SectionTitle>Actividad por etapa y origen</SectionTitle>
+          <span className="text-xs text-muted-foreground tabular-nums">{stats.total} total</span>
         </div>
-
-        <div className="pt-2 border-t border-border/50">
-          <SectionTitle>Por origen</SectionTitle>
-          <StatRow
-            label="Outbound"
-            value={String(stats.outbound)}
-            sub={`${pct(stats.outbound, stats.total)}% del total`}
-            color="text-orange-400"
+        <div>
+          <StageOriginBlock
+            stage="Reuniones"
+            total={stats.reuniones}
+            outbound={stats.reunionesOut}
+            inbound={stats.reunionesIn}
+            stageColor="text-cyan-400"
           />
-          <StatRow
-            label="Inbound"
-            value={String(stats.inbound)}
-            sub={`${pct(stats.inbound, stats.total)}% del total`}
-            color="text-sky-400"
+          <StageOriginBlock
+            stage="Propuestas"
+            total={stats.propuestas}
+            outbound={stats.propuestasOut}
+            inbound={stats.propuestasIn}
+            stageColor="text-amber-400"
+          />
+          <StageOriginBlock
+            stage="Cierres"
+            total={stats.cierres}
+            outbound={stats.cierresOut}
+            inbound={stats.cierresIn}
+            stageColor="text-emerald-400"
           />
         </div>
       </div>

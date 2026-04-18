@@ -184,6 +184,7 @@ function FilterBar({
   filterOrigen, setFilterOrigen,
   filterEstado, setFilterEstado,
   filterEtapa,  setFilterEtapa,
+  onNewEntry,
 }: {
   filterOrigen: 'all' | ProspectType
   setFilterOrigen: (v: 'all' | ProspectType) => void
@@ -191,6 +192,7 @@ function FilterBar({
   setFilterEstado: (v: 'all' | Status) => void
   filterEtapa:  'all' | Stage
   setFilterEtapa:  (v: 'all' | Stage) => void
+  onNewEntry: () => void
 }) {
   const btnBase = 'px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors'
   const active  = 'bg-primary/15 text-primary border border-primary/30'
@@ -246,6 +248,14 @@ function FilterBar({
           </button>
         ))}
       </div>
+
+      {/* Nueva entrada — right-aligned */}
+      <button
+        onClick={onNewEntry}
+        className="ml-auto flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-[0_0_14px_rgba(0,217,255,0.3)] hover:opacity-90 transition-all"
+      >
+        + Nueva entrada
+      </button>
     </div>
   )
 }
@@ -442,6 +452,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
         filterOrigen={filterOrigen} setFilterOrigen={setFilterOrigen}
         filterEstado={filterEstado} setFilterEstado={setFilterEstado}
         filterEtapa={filterEtapa}   setFilterEtapa={setFilterEtapa}
+        onNewEntry={() => openCreate()}
       />
 
       {/* Kanban columns */}
@@ -488,14 +499,6 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
 
       {/* Charts section */}
       <PipelineSimpleCharts entries={filtered} period={period} activeScenario={activeScenario} />
-
-      {/* FAB */}
-      <button
-        onClick={() => openCreate()}
-        className="fixed bottom-20 right-20 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_0_20px_rgba(0,217,255,0.3)] hover:opacity-90 transition-all"
-      >
-        + Nueva entrada
-      </button>
 
       {/* ── Modal: Create / Edit ─────────────────────────────────────────── */}
       {showForm && (
