@@ -53,14 +53,14 @@ function NeonStat({ label, value, sub, threshHigh, threshLow }: {
   const textColor = value >= threshHigh ? 'text-emerald-400' : value >= threshLow ? 'text-amber-400' : 'text-red-400'
   return (
     <div className="py-3 border-b border-border/50 last:border-0">
-      <p className="text-[10px] text-muted-foreground mb-1">{label}</p>
+      <p className="text-base font-semibold text-foreground mb-1">{label}</p>
       <p
         className={`text-4xl font-black tabular-nums leading-none ${textColor}`}
         style={{ filter: `drop-shadow(0 0 8px ${glowColor}) drop-shadow(0 0 16px ${glowColor})` }}
       >
         {value}%
       </p>
-      {sub && <p className="text-[10px] text-muted-foreground/60 mt-1">{sub}</p>}
+      {sub && <p className="text-sm text-muted-foreground mt-1">{sub}</p>}
     </div>
   )
 }
