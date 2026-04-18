@@ -317,15 +317,11 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     ])
     const activeScenario  = activeScenarioRes.data
     const pipelineStages  = (activeScenario?.funnel_stages ?? DEFAULT_FUNNEL_STAGES) as string[]
-    const entries   = pipelineEntriesRes.data ?? []
+    const entries   = (pipelineEntriesRes.data ?? []).map(e => ({ ...e, stage: e.stage.trim() }))
     const wonItems  = entries.filter(e => e.stage === 'Ganado')
     const lostItems = entries.filter(e => e.stage === 'Perdido')
     const openItems = entries.filter(e => e.stage !== 'Ganado' && e.stage !== 'Perdido')
     const { open: openAmount, closed: wonAmount } = calcPipelineValue(entries, pipelineStages)
-    console.log('[debug-pipeline] dashMonthStart:', monthStart)
-    console.log('[debug-pipeline] today:', today)
-    console.log('[debug-pipeline] entries raw:', JSON.stringify(pipelineEntriesRes.data?.map(e => ({stage: e.stage, qty: e.quantity, date: e.entry_date}))))
-    console.log('[debug-pipeline] supabase error:', pipelineEntriesRes.error)
     const stageCounts: Record<string, number> = {}
     for (const e of openItems) {
       stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + (e.quantity ?? 1)

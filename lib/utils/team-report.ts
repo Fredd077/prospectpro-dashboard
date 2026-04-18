@@ -51,7 +51,7 @@ async function fetchPipelineSummary(
       .maybeSingle(),
   ])
 
-  const all            = entries ?? []
+  const all            = (entries ?? []).map(e => ({ ...e, stage: e.stage.trim() }))
   const pipelineStages = (scenario?.funnel_stages ?? DEFAULT_FUNNEL_STAGES) as string[]
   const won  = all.filter(e => e.stage === 'Ganado')
   const lost = all.filter(e => e.stage === 'Perdido')
