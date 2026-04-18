@@ -293,6 +293,48 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
 
   const status = statusBadge(periodPct)
 
+  // ── Pipeline summary for dashboard tab ──────────────────────────────────
+  let dashPipelineSummary: {
+    stageCounts: Record<string, number>
+    pipelineStages: string[]
+    openAmount: number
+    closedAmount: number
+    monthlyGoal: number
+  } | null = null
+
+  {
+    const monthStart = today.slice(0, 8) + '01'
+    const [pipelineEntriesRes, activeScenarioRes] = await Promise.all([
+      service.from('pipeline_simple').select('stage,prospect_type,amount_usd,status')
+        .eq('user_id', userId)
+        .gte('entry_date', monthStart)
+        .lte('entry_date', today),
+      service.from('recipe_scenarios').select('funnel_stages,monthly_revenue_goal')
+        .eq('user_id', userId).eq('is_active', true)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    ])
+    const pipelineEntries = (pipelineEntriesRes.data ?? []) as {
+      stage: string; prospect_type?: string | null; amount_usd?: number | null; status?: string | null
+    }[]
+    const activeScenario  = activeScenarioRes.data
+    const pipelineStages  = activeScenario?.funnel_stages ?? ['Discurso', 'Reunión', 'Propuesta', 'Cierre']
+
+    const stageCounts: Record<string, number> = {}
+    for (const e of pipelineEntries) {
+      stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + 1
+    }
+
+    const openAmount = pipelineEntries
+      .filter(e => !e.status || e.status === 'open' || e.status === 'abierto')
+      .reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+    const closedAmount = pipelineEntries
+      .filter(e => e.status === 'won' || e.status === 'ganado')
+      .reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+    const dashMonthlyGoal = activeScenario?.monthly_revenue_goal ?? 0
+
+    dashPipelineSummary = { stageCounts, pipelineStages, openAmount, closedAmount, monthlyGoal: dashMonthlyGoal }
+  }
+
   // ── Coach week label ─────────────────────────────────────────────────────
   let coachWeekLabel = ''
   if (lastCoach) {
@@ -493,6 +535,32 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
           {/* ── Activity breakdown ─────────────────────────────────────────── */}
           {breakdownRows.length > 0 && (
             <ActivityBreakdownTable rows={breakdownRows} />
+          )}
+
+          {/* ── Pipeline summary ───────────────────────────────────────────── */}
+          {dashPipelineSummary && (
+            <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Pipeline — este mes</h3>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>Abierto: <span className="text-primary font-semibold">${dashPipelineSummary.openAmount.toLocaleString('es-CO')}</span></span>
+                  <span>Cerrado: <span className="text-emerald-400 font-semibold">${dashPipelineSummary.closedAmount.toLocaleString('es-CO')}</span></span>
+                  {dashPipelineSummary.monthlyGoal > 0 && (
+                    <span>Meta: <span className="text-foreground font-semibold">${dashPipelineSummary.monthlyGoal.toLocaleString('es-CO')}</span></span>
+                  )}
+                </div>
+              </div>
+              <div className="divide-y divide-border/50">
+                {dashPipelineSummary.pipelineStages.map((stage) => (
+                  <div key={stage} className="flex items-center justify-between py-2.5">
+                    <span className="text-xs text-muted-foreground">{stage}</span>
+                    <span className="text-xs font-semibold tabular-nums text-foreground">
+                      {dashPipelineSummary!.stageCounts[stage] ?? 0}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* ── Pipeline ───────────────────────────────────────────────────── */}
