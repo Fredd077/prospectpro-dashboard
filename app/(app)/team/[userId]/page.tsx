@@ -10,6 +10,7 @@ import type { ActivityBreakdownRow } from '@/components/dashboard/ActivityBreakd
 import { PeriodSelector } from '@/components/team/PeriodSelector'
 import { todayISO, toISODate, getPeriodRange, addDaysToISO } from '@/lib/utils/dates'
 import { fmtUSD } from '@/lib/calculations/pipeline'
+import { getActivityGoal } from '@/lib/utils/goals'
 import type { PeriodType } from '@/lib/types/common'
 import { parseISO, format, formatDistanceToNow, addDays, getISOWeek, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -234,29 +235,33 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   const trendLogs  = trendLogsRes.data ?? []
   const lastCoach  = coachRes.data
 
-  // ── Compliance ───────────────────────────────────────────────────────────
+  // ── Period type mapping (mirrors dashboard logic) ───────────────────────
+  const periodType: PeriodType =
+    period === 'month' || period === 'last_month' ? 'monthly'
+    : period === 'quarter' ? 'quarterly'
+    : 'weekly'
+
+  // ── Compliance — use activity configured goals, same as dashboard ────────
   const periodReal = periodLogs.reduce((s, l) => s + l.real_executed, 0)
-  const periodGoal = periodLogs.reduce((s, l) => s + l.day_goal, 0)
+  const periodGoal = activities.reduce((s, a) => s + getActivityGoal(a, periodType), 0)
   const periodPct  = periodGoal > 0 ? Math.round((periodReal / periodGoal) * 100) : 0
 
   const prevReal   = prevLogs.reduce((s, l) => s + l.real_executed, 0)
-  const prevGoal   = prevLogs.reduce((s, l) => s + l.day_goal, 0)
+  const prevGoal   = activities.reduce((s, a) => s + getActivityGoal(a, periodType), 0)
   const prevPct    = prevGoal > 0 ? Math.round((prevReal / prevGoal) * 100) : 0
   const delta      = periodPct - prevPct
 
   // ── Activity breakdown rows ──────────────────────────────────────────────
   const realByAct: Record<string, number> = {}
-  const goalByAct: Record<string, number> = {}
   for (const l of periodLogs) {
     realByAct[l.activity_id] = (realByAct[l.activity_id] ?? 0) + l.real_executed
-    goalByAct[l.activity_id] = (goalByAct[l.activity_id] ?? 0) + l.day_goal
   }
   const breakdownRows: ActivityBreakdownRow[] = activities.map((a) => ({
     id:      a.id,
     name:    a.name,
     type:    a.type as 'OUTBOUND' | 'INBOUND',
     channel: a.channel,
-    goal:    goalByAct[a.id] ?? (period === 'month' || period === 'last_month' || period === 'quarter' ? a.monthly_goal : a.weekly_goal),
+    goal:    getActivityGoal(a, periodType),
     real:    realByAct[a.id] ?? 0,
   }))
 
