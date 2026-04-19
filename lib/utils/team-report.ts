@@ -6,7 +6,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
-import { buildWeeklyContextForCron, type ActivityCompliance } from './coach-context'
+import { buildWeeklyContextForCron, buildMonthlyContextForCron, type ActivityCompliance } from './coach-context'
 import { todayISO, toISODate } from './dates'
 import { startOfWeek } from 'date-fns'
 import { format, parseISO } from 'date-fns'
@@ -65,6 +65,10 @@ async function fetchPipelineSummary(
 export interface TeamReportOptions {
   scope: 'team' | 'at_risk'
   weekStart: string
+  /** Inclusive end of the report period (ISO date). Defaults to Friday of weekStart's week. */
+  periodEnd?: string
+  /** 'monthly' | 'quarterly' changes context builder and labels. Default: 'weekly'. */
+  reportPeriodType?: 'weekly' | 'monthly' | 'quarterly'
   adminUserId: string
   adminEmail: string
   triggeredBy: 'auto' | 'manual'
@@ -153,8 +157,20 @@ export async function generateTeamReport(
   const intendedEmail = recipientEmail ?? adminEmail
   const toEmail = intendedEmail
 
-  // ── Problem 1 fix: recompute weekStart/weekEnd with timezone-safe anchor ──
-  const { weekStart, weekEnd } = safeWeekRange(opts.weekStart)
+  const isMonthly = opts.reportPeriodType === 'monthly'
+
+  // ── Period range: monthly uses full month; weekly uses Mon–Fri ──
+  let weekStart: string
+  let weekEnd: string
+  if (isMonthly) {
+    weekStart = opts.weekStart   // already '2026-04-01' (month start)
+    weekEnd   = opts.periodEnd ?? opts.weekStart  // '2026-04-30'
+  } else {
+    // ── Problem 1 fix: recompute weekStart/weekEnd with timezone-safe anchor ──
+    const range = safeWeekRange(opts.weekStart)
+    weekStart = range.weekStart
+    weekEnd   = range.weekEnd
+  }
 
   // 1. Fetch all active + admin users
   const { data: allUsers, error: usersErr } = await sb
@@ -183,11 +199,12 @@ export async function generateTeamReport(
   const summaries: UserSummary[] = []
   for (const user of users) {
     try {
-      // ── Problem 2 fix: pass corrected weekStart so context queries right range
-      const monthStart = weekEnd.slice(0, 8) + '01'
+      const pipelineStart = isMonthly ? weekStart : weekEnd.slice(0, 8) + '01'
       const [ctx, pipeline] = await Promise.all([
-        buildWeeklyContextForCron(user.id, weekStart, sb),
-        fetchPipelineSummary(user.id, monthStart, weekEnd, sb),
+        isMonthly
+          ? buildMonthlyContextForCron(user.id, weekStart, sb)
+          : buildWeeklyContextForCron(user.id, weekStart, sb),
+        fetchPipelineSummary(user.id, pipelineStart, weekEnd, sb),
       ])
       summaries.push({
         userId:            user.id,
@@ -246,8 +263,12 @@ export async function generateTeamReport(
   const improvingCount = filtered.filter((u) => u.trend === 'improving').length
 
   // 5. Build enriched prompt for Claude
-  const weekLabel    = format(parseISO(weekStart), "d 'de' MMMM", { locale: es })
-  const weekEndLabel = format(parseISO(weekEnd),   "d 'de' MMMM yyyy", { locale: es })
+  const weekLabel    = isMonthly
+    ? format(parseISO(weekStart), "MMMM yyyy", { locale: es })
+    : format(parseISO(weekStart), "d 'de' MMMM", { locale: es })
+  const weekEndLabel = isMonthly
+    ? ''
+    : format(parseISO(weekEnd), "d 'de' MMMM yyyy", { locale: es })
 
   // Team pipeline aggregates (CAMBIO 4)
   const teamWonAmount  = filtered.reduce((s, u) => s + u.pipeline.wonAmount, 0)
@@ -279,8 +300,9 @@ export async function generateTeamReport(
     })
     .join('\n\n')
 
+  const periodRangeLabel = isMonthly ? weekLabel : `${weekLabel} – ${weekEndLabel}`
   const prompt = `ANÁLISIS DE EQUIPO — ProspectPro
-Período: ${weekLabel} – ${weekEndLabel}
+Período: ${periodRangeLabel}
 Scope: ${scope === 'at_risk' ? `Solo reps en riesgo (<${threshold}%)` : 'Equipo completo'}
 
 MÉTRICAS DEL EQUIPO:
@@ -332,6 +354,7 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
     weekStart,
     weekLabel,
     weekEndLabel,
+    isMonthly,
     scopeLabel,
     scope,
     threshold,
@@ -387,8 +410,8 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
       from: 'ProspectPro Reports <reportes@prospectpro.cloud>',
       to: toEmail,
       subject: memberName
-        ? `ProspectPro · Reporte de equipo — ${scopeLabel} · ${memberName} · ${weekLabel}–${weekEndLabel}`
-        : `ProspectPro · Reporte de equipo — ${scopeLabel} · ${weekLabel}–${weekEndLabel}`,
+        ? `ProspectPro · Reporte de equipo — ${scopeLabel} · ${memberName} · ${periodRangeLabel}`
+        : `ProspectPro · Reporte de equipo — ${scopeLabel} · ${periodRangeLabel}`,
       html,
     }),
   })
@@ -408,6 +431,7 @@ function buildTeamReportEmail(p: {
   weekStart:      string
   weekLabel:      string
   weekEndLabel:   string
+  isMonthly?:     boolean
   scopeLabel:     string
   scope:          'team' | 'at_risk'
   threshold:      number
@@ -423,7 +447,7 @@ function buildTeamReportEmail(p: {
   aiAnalysis:     string
   memberName?:    string
 }): string {
-  const { weekStart, weekLabel, weekEndLabel, scopeLabel, threshold, summaries,
+  const { weekStart, weekLabel, weekEndLabel, isMonthly, scopeLabel, threshold, summaries,
           atRiskCount, avgCompliance, improvingCount, decliningCount,
           bestActivity, worstActivity, aiAnalysis, memberName } = p
 
@@ -441,7 +465,7 @@ function buildTeamReportEmail(p: {
   const totalGoal = allActs.reduce((s, a) => s + a.goal, 0)
   const streakReps = summaries.filter((u) => u.daysActive >= 4).length
   const criticalReps = summaries.filter((u) => u.overallCompliance < 40)
-  const weekNum   = format(parseISO(weekStart), 'w')
+  const weekNum   = isMonthly ? null : format(parseISO(weekStart), 'w')
   const generatedAt = format(new Date(), "d 'de' MMMM yyyy 'a las' HH:mm", { locale: es })
   const sorted    = [...summaries].sort((a, b) => b.overallCompliance - a.overallCompliance)
 
@@ -586,15 +610,14 @@ function buildTeamReportEmail(p: {
             </tr></table>
           </td>
           <td style="padding:0; text-align:right; vertical-align:middle;">
-            <span style="background:#00D9FF18; color:#00D9FF; font-size:9px; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid #00D9FF35; letter-spacing:0.12em; text-transform:uppercase;">Reporte Semanal</span>
+            <span style="background:#00D9FF18; color:#00D9FF; font-size:9px; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid #00D9FF35; letter-spacing:0.12em; text-transform:uppercase;">${isMonthly ? 'Reporte Mensual' : 'Reporte Semanal'}</span>
           </td>
         </tr></table>
         <!-- Title -->
         <h1 style="margin:0 0 8px; font-size:26px; font-weight:800; color:#ffffff; line-height:1.15; letter-spacing:-0.02em;">Reporte del Equipo</h1>
         <p style="margin:0 0 14px; font-size:14px; color:#64748b;">
-          Semana <strong style="color:#00D9FF;">${weekNum}</strong>
-          &nbsp;&#183;&nbsp;
-          <strong style="color:#e2e8f0;">${weekLabel} – ${weekEndLabel}</strong>
+          ${weekNum ? `Semana <strong style="color:#00D9FF;">${weekNum}</strong>&nbsp;&#183;&nbsp;` : ''}
+          <strong style="color:#e2e8f0;">${isMonthly ? weekLabel : `${weekLabel} – ${weekEndLabel}`}</strong>
         </p>
         <!-- Badges row -->
         <table style="border-collapse:collapse;"><tr>

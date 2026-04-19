@@ -2,6 +2,26 @@ import { NextResponse } from 'next/server'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { generateTeamReport, currentWeekStart } from '@/lib/utils/team-report'
 
+function computePeriodEnd(pType: string, pDate: string): string {
+  if (pType === 'monthly') {
+    const [y, m] = pDate.split('-').map(Number)
+    const lastDay = new Date(y, m, 0).getDate()
+    return `${pDate.slice(0, 8)}${String(lastDay).padStart(2, '0')}`
+  }
+  if (pType === 'quarterly') {
+    const [y, m] = pDate.split('-').map(Number)
+    const endMonth = m + 2
+    const endYear  = endMonth > 12 ? y + 1 : y
+    const normMonth = ((endMonth - 1) % 12) + 1
+    const lastDay = new Date(endYear, normMonth, 0).getDate()
+    return `${endYear}-${String(normMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  }
+  // weekly: Friday = Monday + 4 days
+  const [y, mo, d] = pDate.split('-').map(Number)
+  const friday = new Date(Date.UTC(y, mo - 1, d + 4))
+  return `${friday.getUTCFullYear()}-${String(friday.getUTCMonth() + 1).padStart(2, '0')}-${String(friday.getUTCDate()).padStart(2, '0')}`
+}
+
 export const maxDuration = 120
 
 export async function POST(req: Request) {
@@ -53,8 +73,10 @@ export async function POST(req: Request) {
   }
 
   // Use the period_date supplied by the client (if any), otherwise default to current week
-  const weekStart = periodDate ?? currentWeekStart()
-  const service   = getSupabaseServiceClient()
+  const reportPeriodType = (periodType === 'monthly' || periodType === 'quarterly') ? periodType : 'weekly'
+  const weekStart  = periodDate ?? currentWeekStart()
+  const periodEnd  = computePeriodEnd(reportPeriodType, weekStart)
+  const service    = getSupabaseServiceClient()
 
   // If player_coach and no specific member selected, ensure manager's own data is included
   let effectiveFilterUserIds = memberId ? [memberId] : userIds
@@ -69,6 +91,8 @@ export async function POST(req: Request) {
       {
         scope,
         weekStart,
+        periodEnd,
+        reportPeriodType,
         adminUserId:   user.id,
         adminEmail:    profile!.email,
         triggeredBy:   'manual',
