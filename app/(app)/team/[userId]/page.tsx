@@ -9,8 +9,7 @@ import { ActivityBreakdownTable } from '@/components/dashboard/ActivityBreakdown
 import type { ActivityBreakdownRow } from '@/components/dashboard/ActivityBreakdownTable'
 import { PeriodSelector } from '@/components/team/PeriodSelector'
 import { todayISO, toISODate, getPeriodRange, addDaysToISO } from '@/lib/utils/dates'
-import { calcPipelineValue, fmtUSD } from '@/lib/calculations/pipeline'
-import { DEFAULT_FUNNEL_STAGES } from '@/lib/calculations/recipe'
+import { fmtUSD } from '@/lib/calculations/pipeline'
 import type { PeriodType } from '@/lib/types/common'
 import { parseISO, format, formatDistanceToNow, addDays, getISOWeek, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -207,14 +206,14 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
       .eq('user_id', userId).gte('log_date', past30Start).lte('log_date', today),
 
     service.from('recipe_scenarios')
-      .select('funnel_stages,monthly_revenue_goal')
+      .select('monthly_revenue_goal')
       .eq('user_id', userId).eq('is_active', true)
       .order('created_at', { ascending: false }).limit(1).maybeSingle(),
 
-    service.from('pipeline_entries')
-      .select('stage,quantity,amount_usd')
+    service.from('pipeline_simple')
+      .select('stage, status, amount_usd')
       .eq('user_id', userId)
-      .gte('entry_date', today.slice(0, 8) + '01').lte('entry_date', today),
+      .gte('entry_date', periodStart).lte('entry_date', periodEnd),
 
     service.from('coach_messages')
       .select('id,type,message,period_date,created_at')
@@ -232,9 +231,6 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   const periodLogs = periodLogsRes.data ?? []
   const prevLogs   = prevLogsRes.data ?? []
   const trendLogs  = trendLogsRes.data ?? []
-  const stages     = scenarioRes.data?.funnel_stages ?? DEFAULT_FUNNEL_STAGES
-  const monthlyGoal = scenarioRes.data?.monthly_revenue_goal ?? 0
-  const pipeline   = pipelineRes.data ?? []
   const lastCoach  = coachRes.data
 
   // ── Compliance ───────────────────────────────────────────────────────────
@@ -275,9 +271,23 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   })
 
   // ── Pipeline ─────────────────────────────────────────────────────────────
-  const { open: pipeOpen, closed: pipeClosed } = calcPipelineValue(pipeline, stages)
-  const countByStage: Record<string, number>   = {}
-  for (const e of pipeline) countByStage[e.stage] = (countByStage[e.stage] ?? 0) + e.quantity
+  const pipeRows   = pipelineRes.data ?? []
+  const wonAmount  = pipeRows.filter(r => r.stage === 'Cierre' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+  const openAmount = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Reunión' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+  const wonCount   = pipeRows.filter(r => r.stage === 'Cierre' && r.status === 'ganado').length
+  const lostCount  = pipeRows.filter(r => r.status === 'perdido').length
+  const openCount  = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Reunión').length
+  const stageCounts: Record<string, number> = {}
+  for (const r of pipeRows) { stageCounts[r.stage] = (stageCounts[r.stage] ?? 0) + 1 }
+  const dashPipeline = {
+    stageCounts,
+    wonAmount,
+    openAmount,
+    wonCount,
+    lostCount,
+    openCount,
+    monthlyGoal: Number(scenarioRes.data?.monthly_revenue_goal ?? 0),
+  }
 
   // ── Labels ───────────────────────────────────────────────────────────────
   let periodDisplayLabel: string
@@ -292,48 +302,6 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   }
 
   const status = statusBadge(periodPct)
-
-  // ── Pipeline summary for dashboard tab ──────────────────────────────────
-  let dashPipeline: {
-    stageCounts: Record<string, number>
-    wonAmount: number
-    openAmount: number
-    wonCount: number
-    lostCount: number
-    openCount: number
-    monthlyGoal: number
-  } | null = null
-
-  {
-    const monthStart = today.slice(0, 8) + '01'
-    const [pipelineRes, activeScenarioRes] = await Promise.all([
-      service.from('pipeline_simple').select('stage, status, amount_usd')
-        .eq('user_id', userId)
-        .gte('entry_date', monthStart)
-        .lte('entry_date', today),
-      service.from('recipe_scenarios').select('monthly_revenue_goal, funnel_stages')
-        .eq('user_id', userId).eq('is_active', true)
-        .order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    ])
-    const rows = pipelineRes.data ?? []
-    const lastStage = ((activeScenarioRes.data?.funnel_stages as string[] | null)?.at(-1)) ?? 'Cierre'
-    const wonAmount  = rows.filter(r => r.stage === lastStage && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
-    const openAmount = rows.filter(r => r.status === 'abierto' && r.stage !== 'Reunión' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
-    const wonCount   = rows.filter(r => r.stage === lastStage && r.status === 'ganado').length
-    const lostCount  = rows.filter(r => r.status === 'perdido').length
-    const openCount  = rows.filter(r => r.status === 'abierto' && r.stage !== 'Reunión').length
-    const stageCounts: Record<string, number> = {}
-    for (const r of rows) { stageCounts[r.stage] = (stageCounts[r.stage] ?? 0) + 1 }
-    dashPipeline = {
-      stageCounts,
-      wonAmount,
-      openAmount,
-      wonCount,
-      lostCount,
-      openCount,
-      monthlyGoal: Number(activeScenarioRes.data?.monthly_revenue_goal ?? 0),
-    }
-  }
 
   // ── Coach week label ─────────────────────────────────────────────────────
   let coachWeekLabel = ''
@@ -503,10 +471,10 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
                 Pipeline abierto
               </p>
               <p style={{ fontSize: 26, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#ffffff', lineHeight: 1, margin: '0 0 5px' }}>
-                {fmtUSD(pipeOpen)}
+                {fmtUSD(openAmount)}
               </p>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: 0 }}>
-                {fmtUSD(pipeClosed)} cerrado este mes
+                {fmtUSD(wonAmount)} cerrado en el período
               </p>
             </div>
 
@@ -533,10 +501,10 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
           </div>
 
           {/* ── Pipeline summary ───────────────────────────────────────────── */}
-          {dashPipeline && (
+          {pipeRows.length > 0 && (
             <div className="rounded-lg border border-border bg-card p-5 space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <h3 className="text-sm font-semibold text-foreground">Pipeline — este mes</h3>
+                <h3 className="text-sm font-semibold text-foreground">Pipeline — {periodDisplayLabel}</h3>
                 {dashPipeline.monthlyGoal > 0 && (
                   <span className="text-xs text-muted-foreground">Meta: <span className="text-foreground font-semibold">${dashPipeline.monthlyGoal.toLocaleString('es-CO')}</span></span>
                 )}
@@ -578,55 +546,6 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
           {breakdownRows.length > 0 && (
             <ActivityBreakdownTable rows={breakdownRows} />
           )}
-
-          {/* ── Pipeline ───────────────────────────────────────────────────── */}
-          <div style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', background: '#0d0d0d', overflow: 'hidden' }}>
-            <div style={{
-              padding: '14px 20px',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
-            }}>
-              <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', margin: 0 }}>
-                Pipeline — este mes
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
-                  Abierto: <strong style={{ color: '#ffffff', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(pipeOpen)}</strong>
-                </span>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
-                  Cerrado: <strong style={{ color: '#1D9E75', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(pipeClosed)}</strong>
-                </span>
-                {monthlyGoal > 0 && (
-                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
-                    Meta: <strong style={{ color: 'rgba(255,255,255,0.65)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(monthlyGoal)}</strong>
-                  </span>
-                )}
-              </div>
-            </div>
-            {stages.slice(1).some((s) => (countByStage[s] ?? 0) > 0) ? (
-              <div>
-                {stages.slice(1).map((stage) => {
-                  const count = countByStage[stage] ?? 0
-                  if (count === 0) return null
-                  return (
-                    <div key={stage} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '10px 20px', borderBottom: '0.5px solid rgba(255,255,255,0.04)',
-                    }}>
-                      <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>{stage}</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: '#ffffff' }}>
-                        {count}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p style={{ padding: '24px 20px', fontSize: 13, color: 'rgba(255,255,255,0.25)', textAlign: 'center', margin: 0 }}>
-                Sin registros en el pipeline este mes
-              </p>
-            )}
-          </div>
 
           {/* ── Coach Pro — último análisis ────────────────────────────────── */}
           <div style={{ borderRadius: 10, border: '1px solid #00D9FF', background: '#0a0a0a', padding: '24px 28px' }}>
