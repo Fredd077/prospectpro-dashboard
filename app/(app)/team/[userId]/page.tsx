@@ -186,7 +186,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     activitiesForEditRes,
   ] = await Promise.all([
     service.from('activities')
-      .select('id,name,type,channel,weekly_goal,monthly_goal')
+      .select('id,name,type,channel,daily_goal,weekly_goal,monthly_goal')
       .eq('user_id', userId).eq('status', 'active')
       .order('sort_order').order('name'),
 
