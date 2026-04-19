@@ -12,6 +12,7 @@ export interface ActivityGoals {
  * to weekly_goal so bars remain visible.
  */
 export function getActivityGoal(activity: ActivityGoals, period: PeriodType): number {
+  if (period === 'yearly')    return activity.monthly_goal * 12
   if (period === 'quarterly') return activity.monthly_goal * 3
   if (period === 'monthly')   return activity.monthly_goal
   if (period === 'weekly')    return activity.weekly_goal

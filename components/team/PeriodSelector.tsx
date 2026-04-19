@@ -9,7 +9,7 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
 
-export type PeriodOption = 'week' | 'last_week' | 'month' | 'last_month' | 'quarter' | 'custom'
+export type PeriodOption = 'week' | 'last_week' | 'month' | 'last_month' | 'quarter' | 'year' | 'custom'
 
 const OPTIONS: { value: PeriodOption; label: string }[] = [
   { value: 'week',       label: 'Esta semana'   },
@@ -17,6 +17,7 @@ const OPTIONS: { value: PeriodOption; label: string }[] = [
   { value: 'month',      label: 'Este mes'      },
   { value: 'last_month', label: 'Mes pasado'    },
   { value: 'quarter',    label: 'Trim. actual'  },
+  { value: 'year',       label: 'Año'           },
   { value: 'custom',     label: 'Personalizado' },
 ]
 

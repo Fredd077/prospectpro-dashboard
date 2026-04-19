@@ -103,7 +103,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   const { userId }                              = await params
   const { period: periodParam, tab, from: fromParam = '', to: toParam = '' } = await searchParams
 
-  const VALID_PERIODS: PeriodOption[] = ['week', 'last_week', 'month', 'last_month', 'quarter', 'custom']
+  const VALID_PERIODS: PeriodOption[] = ['week', 'last_week', 'month', 'last_month', 'quarter', 'year', 'custom']
   const period: PeriodOption = VALID_PERIODS.includes(periodParam as PeriodOption)
     ? (periodParam as PeriodOption)
     : 'week'
@@ -140,6 +140,9 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     case 'quarter':
       ({ start: periodStart, end: periodEnd } = getPeriodRange('quarterly', parseISO(today)))
       break
+    case 'year':
+      ({ start: periodStart, end: periodEnd } = getPeriodRange('yearly',    parseISO(today)))
+      break
     case 'custom':
       periodStart = /^\d{4}-\d{2}-\d{2}$/.test(fromParam) ? fromParam : today
       periodEnd   = /^\d{4}-\d{2}-\d{2}$/.test(toParam)   ? toParam   : today
@@ -159,6 +162,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     const prevPType: PeriodType =
       period === 'month' || period === 'last_month' ? 'monthly'
       : period === 'quarter' ? 'quarterly'
+      : period === 'year'    ? 'yearly'
       : 'weekly'
     ;({ start: prevStart, end: prevEnd } = getPeriodRange(prevPType, addDays(parseISO(periodStart), -1)))
   }
@@ -239,6 +243,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   const periodType: PeriodType =
     period === 'month' || period === 'last_month' ? 'monthly'
     : period === 'quarter' ? 'quarterly'
+    : period === 'year'    ? 'yearly'
     : 'weekly'
 
   // ── Compliance — use activity configured goals, same as dashboard ────────
@@ -301,6 +306,8 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     periodDisplayLabel = format(parseISO(periodStart), 'MMMM yyyy', { locale: es })
   } else if (period === 'quarter') {
     periodDisplayLabel = `Q${Math.ceil((parseISO(periodStart).getMonth() + 1) / 3)} ${parseISO(periodStart).getFullYear()}`
+  } else if (period === 'year') {
+    periodDisplayLabel = String(parseISO(periodStart).getFullYear())
   } else if (period === 'custom' && fromParam && toParam) {
     periodDisplayLabel = `${format(parseISO(fromParam), 'd MMM', { locale: es })} – ${format(parseISO(toParam), 'd MMM yyyy', { locale: es })}`
   } else {
