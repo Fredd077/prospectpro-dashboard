@@ -227,9 +227,10 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
       : Promise.resolve({ data: null }),
   ])
 
-  const activities = activitiesRes.data ?? []
-  const periodLogs = periodLogsRes.data ?? []
-  const prevLogs   = prevLogsRes.data ?? []
+  const activities        = activitiesRes.data ?? []
+  const activeActivityIds = new Set(activities.map(a => a.id))
+  const periodLogs = (periodLogsRes.data ?? []).filter(l => activeActivityIds.has(l.activity_id))
+  const prevLogs   = (prevLogsRes.data   ?? []).filter(l => activeActivityIds.has(l.activity_id))
   const trendLogs  = trendLogsRes.data ?? []
   const lastCoach  = coachRes.data
 
