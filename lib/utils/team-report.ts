@@ -24,6 +24,7 @@ interface PipelineSummary {
   openCount: number
   wonAmount: number
   openAmount: number
+  lostAmount: number
   stageCounts: Record<string, number>
   totalDeals: number
 }
@@ -45,6 +46,7 @@ async function fetchPipelineSummary(
   const lastStage  = 'Cierre'
   const wonAmount  = all.filter(r => r.stage === lastStage && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
   const openAmount = all.filter(r => r.status === 'abierto' && r.stage !== 'Reunión' && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
+  const lostAmount = all.filter(r => r.status === 'perdido' && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
   const wonCount   = all.filter(r => r.stage === lastStage && r.status === 'ganado').length
   const lostCount  = all.filter(r => r.status === 'perdido').length
   const openCount  = all.filter(r => r.status === 'abierto' && r.stage !== 'Reunión').length
@@ -57,6 +59,7 @@ async function fetchPipelineSummary(
     openCount,
     wonAmount,
     openAmount,
+    lostAmount,
     stageCounts,
     totalDeals: all.length,
   }
@@ -549,6 +552,36 @@ function buildTeamReportEmail(p: {
         </tr></table>
         ${actBreakdown}
       </td>
+      <td style="padding:10px 12px; vertical-align:top; border-left:1px solid #1a1a1a; min-width:160px;">
+        <!-- Stage counts row -->
+        <table style="border-collapse:collapse; width:100%; margin-bottom:8px;"><tr>
+          <td style="padding:0 6px 0 0; text-align:center;">
+            <div style="font-size:16px; font-weight:800; color:#00D9FF; line-height:1;">${u.pipeline.stageCounts['Reunión'] ?? 0}</div>
+            <div style="font-size:8px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; margin-top:2px;">Reuniones</div>
+          </td>
+          <td style="padding:0 6px; text-align:center; border-left:1px solid #1a1a1a;">
+            <div style="font-size:16px; font-weight:800; color:#fbbf24; line-height:1;">${u.pipeline.stageCounts['Propuesta'] ?? 0}</div>
+            <div style="font-size:8px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; margin-top:2px;">Propuestas</div>
+          </td>
+          <td style="padding:0 0 0 6px; text-align:center; border-left:1px solid #1a1a1a;">
+            <div style="font-size:16px; font-weight:800; color:#34d399; line-height:1;">${u.pipeline.stageCounts['Cierre'] ?? 0}</div>
+            <div style="font-size:8px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; margin-top:2px;">Cierres</div>
+          </td>
+        </tr></table>
+        <!-- Amounts -->
+        <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">
+          <span style="color:#34d399; font-weight:600;">$${u.pipeline.wonAmount.toLocaleString('es-CO')}</span>
+          <span style="color:#475569;"> ganado</span>
+        </div>
+        <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">
+          <span style="color:#fbbf24; font-weight:600;">$${u.pipeline.openAmount.toLocaleString('es-CO')}</span>
+          <span style="color:#475569;"> en curso</span>
+        </div>
+        ${u.pipeline.lostAmount > 0 ? `<div style="font-size:10px; color:#94a3b8;">
+          <span style="color:#f87171; font-weight:600;">$${u.pipeline.lostAmount.toLocaleString('es-CO')}</span>
+          <span style="color:#475569;"> perdido</span>
+        </div>` : ''}
+      </td>
     </tr>`
   }).join('')
 
@@ -721,6 +754,7 @@ function buildTeamReportEmail(p: {
         <tr style="background:#111111; border-bottom:1px solid #1e1e1e;">
           <th style="padding:8px 16px; text-align:left; font-size:9px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">Representante</th>
           <th style="padding:8px 8px; text-align:left; font-size:9px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">Actividades</th>
+          <th style="padding:8px 12px; text-align:left; font-size:9px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; border-left:1px solid #1a1a1a;">Pipeline</th>
         </tr>
       </thead>
       <tbody>${detailRows}</tbody>
