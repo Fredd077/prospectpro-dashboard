@@ -318,7 +318,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     const rows = pipelineRes.data ?? []
     const lastStage = ((activeScenarioRes.data?.funnel_stages as string[] | null)?.at(-1)) ?? 'Cierre'
     const wonAmount  = rows.filter(r => r.stage === lastStage && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
-    const openAmount = rows.filter(r => r.stage !== lastStage && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+    const openAmount = rows.filter(r => r.status === 'abierto' && r.stage !== 'Reunión' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
     const wonCount   = rows.filter(r => r.stage === lastStage && r.status === 'ganado').length
     const lostCount  = rows.filter(r => r.status === 'perdido').length
     const openCount  = rows.filter(r => r.status === 'abierto' && r.stage !== 'Reunión').length

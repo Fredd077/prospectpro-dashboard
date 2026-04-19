@@ -44,7 +44,7 @@ async function fetchPipelineSummary(
   const all = rows ?? []
   const lastStage  = 'Cierre'
   const wonAmount  = all.filter(r => r.stage === lastStage && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
-  const openAmount = all.filter(r => r.stage !== lastStage && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
+  const openAmount = all.filter(r => r.status === 'abierto' && r.stage !== 'Reunión' && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
   const wonCount   = all.filter(r => r.stage === lastStage && r.status === 'ganado').length
   const lostCount  = all.filter(r => r.status === 'perdido').length
   const openCount  = all.filter(r => r.status === 'abierto' && r.stage !== 'Reunión').length
