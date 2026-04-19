@@ -311,27 +311,26 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
         .eq('user_id', userId)
         .gte('entry_date', monthStart)
         .lte('entry_date', today),
-      service.from('recipe_scenarios').select('monthly_revenue_goal')
+      service.from('recipe_scenarios').select('monthly_revenue_goal, funnel_stages')
         .eq('user_id', userId).eq('is_active', true)
         .order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
-    const rows      = pipelineRes.data ?? []
-    const wonItems  = rows.filter(e => e.status === 'ganado')
-    const lostItems = rows.filter(e => e.status === 'perdido')
-    const openItems = rows.filter(e => e.status === 'abierto')
-    const wonAmount  = wonItems.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-    const openAmount = openItems.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+    const rows = pipelineRes.data ?? []
+    const lastStage = ((activeScenarioRes.data?.funnel_stages as string[] | null)?.at(-1)) ?? 'Cierre'
+    const wonAmount  = rows.filter(r => r.stage === lastStage && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+    const openAmount = rows.filter(r => r.stage !== lastStage && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+    const wonCount   = rows.filter(r => r.stage === lastStage && r.status === 'ganado').length
+    const lostCount  = rows.filter(r => r.status === 'perdido').length
+    const openCount  = rows.filter(r => r.status === 'abierto').length
     const stageCounts: Record<string, number> = {}
-    for (const e of rows) {
-      stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + 1
-    }
+    for (const r of rows) { stageCounts[r.stage] = (stageCounts[r.stage] ?? 0) + 1 }
     dashPipeline = {
       stageCounts,
       wonAmount,
       openAmount,
-      wonCount:    wonItems.length,
-      lostCount:   lostItems.length,
-      openCount:   openItems.length,
+      wonCount,
+      lostCount,
+      openCount,
       monthlyGoal: Number(activeScenarioRes.data?.monthly_revenue_goal ?? 0),
     }
   }

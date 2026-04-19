@@ -41,23 +41,20 @@ async function fetchPipelineSummary(
     .gte('entry_date', periodStart)
     .lte('entry_date', periodEnd)
 
-  const all  = rows ?? []
-  const won  = all.filter(e => e.status === 'ganado')
-  const lost = all.filter(e => e.status === 'perdido')
-  const open = all.filter(e => e.status === 'abierto')
-
-  const wonAmount  = won.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-  const openAmount = open.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-
+  const all = rows ?? []
+  const lastStage  = 'Cierre'
+  const wonAmount  = all.filter(r => r.stage === lastStage && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
+  const openAmount = all.filter(r => r.stage !== lastStage && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
+  const wonCount   = all.filter(r => r.stage === lastStage && r.status === 'ganado').length
+  const lostCount  = all.filter(r => r.status === 'perdido').length
+  const openCount  = all.filter(r => r.status === 'abierto').length
   const stageCounts: Record<string, number> = {}
-  for (const e of all) {
-    stageCounts[e.stage] = (stageCounts[e.stage] ?? 0) + 1
-  }
+  for (const r of all) { stageCounts[r.stage] = (stageCounts[r.stage] ?? 0) + 1 }
 
   return {
-    wonCount:   won.length,
-    lostCount:  lost.length,
-    openCount:  open.length,
+    wonCount,
+    lostCount,
+    openCount,
     wonAmount,
     openAmount,
     stageCounts,
