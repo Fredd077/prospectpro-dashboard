@@ -32,7 +32,8 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${syne.variable} ${jetbrainsMono.variable} dark h-full`}
+      className={`${syne.variable} ${jetbrainsMono.variable} h-full`}
+      suppressHydrationWarning
     >
       <body className="h-full bg-background text-foreground antialiased">
         <Providers>{children}</Providers>

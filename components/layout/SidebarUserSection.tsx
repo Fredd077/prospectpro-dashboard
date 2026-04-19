@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { ThemeToggle } from './ThemeToggle'
 
 interface SidebarUserSectionProps {
   fullName: string | null
@@ -59,6 +60,9 @@ export function SidebarUserSection({ fullName, email, avatarUrl }: SidebarUserSe
           <p className="text-[10px] text-muted-foreground/70 truncate leading-tight">{email}</p>
         </div>
       </div>
+
+      {/* Theme toggle */}
+      <ThemeToggle />
 
       {/* Sign out */}
       <button
