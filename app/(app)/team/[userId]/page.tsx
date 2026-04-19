@@ -19,7 +19,7 @@ export const revalidate = 0
 
 export const metadata: Metadata = { title: 'Perfil de usuario — ProspectPro' }
 
-type PeriodOption = 'week' | 'last_week' | 'month' | 'last_month' | 'quarter' | 'custom'
+type PeriodOption = 'week' | 'last_week' | 'month' | 'last_month' | 'quarter' | 'year' | 'custom'
 
 interface Props {
   params:       Promise<{ userId: string }>
