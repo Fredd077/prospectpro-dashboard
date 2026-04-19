@@ -285,6 +285,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   const pipeRows   = pipelineRes.data ?? []
   const wonAmount  = pipeRows.filter(r => r.stage === 'Cierre' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
   const openAmount = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Reunión' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+  const lostAmount = pipeRows.filter(r => r.status === 'perdido' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
   const wonCount   = pipeRows.filter(r => r.stage === 'Cierre' && r.status === 'ganado').length
   const lostCount  = pipeRows.filter(r => r.status === 'perdido').length
   const openCount  = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Reunión').length
@@ -294,6 +295,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     stageCounts,
     wonAmount,
     openAmount,
+    lostAmount,
     wonCount,
     lostCount,
     openCount,
@@ -515,39 +517,41 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
 
           {/* ── Pipeline summary ───────────────────────────────────────────── */}
           {pipeRows.length > 0 && (
-            <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+            <div className="rounded-lg border border-border bg-card p-6 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <h3 className="text-sm font-semibold text-foreground">Pipeline — {periodDisplayLabel}</h3>
+                <h3 className="text-base font-semibold text-foreground">Pipeline — {periodDisplayLabel}</h3>
                 {dashPipeline.monthlyGoal > 0 && (
-                  <span className="text-xs text-muted-foreground">Meta: <span className="text-foreground font-semibold">${dashPipeline.monthlyGoal.toLocaleString('es-CO')}</span></span>
+                  <span className="text-sm text-muted-foreground">Meta: <span className="text-foreground font-bold">${dashPipeline.monthlyGoal.toLocaleString('es-CO')}</span></span>
                 )}
               </div>
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex flex-col items-center">
-                  <span className="text-emerald-400 font-bold tabular-nums text-lg">{dashPipeline.wonCount}</span>
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Ganados</span>
-                  {dashPipeline.wonAmount > 0 && (
-                    <span className="text-[10px] text-emerald-400/70">${dashPipeline.wonAmount.toLocaleString('es-CO')}</span>
-                  )}
+              <div className="flex items-start gap-8">
+                {/* Ganados */}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-3xl font-bold tabular-nums text-emerald-400">{dashPipeline.wonCount}</span>
+                  <span className="text-[11px] font-semibold text-emerald-400/60 uppercase tracking-wider">Ganados</span>
+                  <span className="text-sm font-semibold tabular-nums text-emerald-400/80">${dashPipeline.wonAmount.toLocaleString('es-CO')}</span>
                 </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-primary font-bold tabular-nums text-lg">{dashPipeline.openCount}</span>
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Abiertos</span>
-                  {dashPipeline.openAmount > 0 && (
-                    <span className="text-[10px] text-primary/70">${dashPipeline.openAmount.toLocaleString('es-CO')}</span>
-                  )}
+                {/* Abiertos */}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-3xl font-bold tabular-nums text-amber-400">{dashPipeline.openCount}</span>
+                  <span className="text-[11px] font-semibold text-amber-400/60 uppercase tracking-wider">Abiertos</span>
+                  <span className="text-sm font-semibold tabular-nums text-amber-400/80">${dashPipeline.openAmount.toLocaleString('es-CO')}</span>
                 </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-red-400 font-bold tabular-nums text-lg">{dashPipeline.lostCount}</span>
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Perdidos</span>
+                {/* Perdidos */}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-3xl font-bold tabular-nums text-red-400">{dashPipeline.lostCount}</span>
+                  <span className="text-[11px] font-semibold text-red-400/60 uppercase tracking-wider">Perdidos</span>
+                  {dashPipeline.lostAmount > 0 && (
+                    <span className="text-sm font-semibold tabular-nums text-red-400/80">${dashPipeline.lostAmount.toLocaleString('es-CO')}</span>
+                  )}
                 </div>
               </div>
               {Object.keys(dashPipeline.stageCounts).length > 0 && (
                 <div className="divide-y divide-border/50 pt-2 border-t border-border/50">
                   {Object.entries(dashPipeline.stageCounts).map(([stage, count]) => (
-                    <div key={stage} className="flex items-center justify-between py-1.5">
-                      <span className="text-xs text-muted-foreground">{stage}</span>
-                      <span className="text-sm font-bold tabular-nums text-foreground">{count}</span>
+                    <div key={stage} className="flex items-center justify-between py-2">
+                      <span className="text-sm text-muted-foreground">{stage}</span>
+                      <span className="text-base font-bold tabular-nums text-foreground">{count}</span>
                     </div>
                   ))}
                 </div>
