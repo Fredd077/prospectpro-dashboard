@@ -64,3 +64,30 @@ export async function updateUserManager(userId: string, managerId: string | null
   await service.from('profiles').update({ manager_id: managerId } as never).eq('id', userId)
   revalidatePath('/admin')
 }
+
+export async function deleteUser(userId: string) {
+  const caller = await assertAdmin()
+  if (caller.id === userId) throw new Error('No puedes eliminarte a ti mismo')
+
+  const service = getSupabaseServiceClient()
+
+  // Clear manager references pointing to this user
+  await service.from('profiles').update({ manager_id: null } as never).eq('manager_id', userId)
+
+  // Delete user data (FK cascades handle activity_logs→activities, goals→activities, recipe_actuals→recipe_scenarios)
+  await service.from('activities').delete().eq('user_id', userId)
+  await service.from('recipe_scenarios').delete().eq('user_id', userId)
+  await service.from('coach_messages').delete().eq('user_id', userId)
+  await service.from('pipeline_simple').delete().eq('user_id', userId)
+  await service.from('pipeline_entries').delete().eq('user_id', userId)
+  await service.from('deals').delete().eq('user_id', userId)
+  await service.from('profiles').delete().eq('id', userId)
+
+  // Remove from Supabase Auth (must be last)
+  const { error } = await service.auth.admin.deleteUser(userId)
+  if (error) throw new Error(`Error eliminando auth user: ${error.message}`)
+
+  revalidatePath('/admin')
+  revalidatePath('/team')
+  revalidatePath('/', 'layout')
+}

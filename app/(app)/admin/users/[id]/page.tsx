@@ -120,7 +120,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
               {/* Actions */}
               {profile.role !== 'admin' && (
                 <div className="pt-2">
-                  <UserActions user={profile} />
+                  <UserActions user={profile} redirectOnDelete />
                 </div>
               )}
             </div>
