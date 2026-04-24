@@ -51,6 +51,13 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  /* Design system raw semaphore tokens */
+  --color-sem-green: var(--sem-green);
+  --color-sem-yellow: var(--sem-yellow);
+  --color-sem-red: var(--sem-red);
+  /* Design system shadow tokens */
+  --shadow-card: var(--shadow-card-value);
+  --shadow-elevated: var(--shadow-elevated-value);
 }
 
 /* ─── Light mode (default) ───────────────────────────────────────────────── */
@@ -91,6 +98,15 @@
   --success-foreground: oklch(0.975 0.003 248);
   --warning: oklch(0.60 0.17 84);
   --warning-foreground: oklch(0.975 0.003 248);
+  /* Design system tokens — light */
+  --sem-green: oklch(0.54 0.20 155);
+  --sem-yellow: oklch(0.60 0.17 84);
+  --sem-red: oklch(0.52 0.23 15);
+  --shadow-card-value: 0 1px 3px oklch(0 0 0 / 10%), 0 1px 2px oklch(0 0 0 / 7%);
+  --shadow-elevated-value: 0 4px 12px oklch(0 0 0 / 12%), 0 2px 4px oklch(0 0 0 / 8%);
+  --bg-base: oklch(0.975 0.003 248);
+  --bg-card: oklch(1 0 0);
+  --bg-sidebar: oklch(0.955 0.006 248);
 }
 
 /* ─── Dark mode ──────────────────────────────────────────────────────────── */
@@ -130,6 +146,15 @@
   --success-foreground: oklch(0.065 0.008 264);
   --warning: oklch(0.78 0.17 84);
   --warning-foreground: oklch(0.065 0.008 264);
+  /* Design system tokens — dark */
+  --sem-green: oklch(0.82 0.22 155);
+  --sem-yellow: oklch(0.78 0.17 84);
+  --sem-red: oklch(0.65 0.23 15);
+  --shadow-card-value: 0 1px 3px oklch(0 0 0 / 40%), 0 1px 2px oklch(0 0 0 / 30%);
+  --shadow-elevated-value: 0 4px 16px oklch(0 0 0 / 55%), 0 2px 6px oklch(0 0 0 / 40%);
+  --bg-base: oklch(0.065 0.008 264);
+  --bg-card: oklch(0.1 0.008 264);
+  --bg-sidebar: oklch(0.078 0.008 264);
 }
 
 @layer base {
@@ -165,6 +190,38 @@ body::after {
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+}
+
+/* ─── ProspectPro typography scale ─── */
+.pp-kpi {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.pp-data {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.pp-label {
+  font-family: var(--font-syne), sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted-foreground);
+}
+.pp-caption {
+  font-family: var(--font-syne), sans-serif;
+  font-size: 0.625rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
 }
 
 /* ─── Cyan glow utilities ─── */
