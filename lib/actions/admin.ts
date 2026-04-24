@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
+import { sendUserActivatedWelcome } from '@/lib/utils/emails'
 
 async function assertAdmin() {
   const sb = await getSupabaseServerClient()
@@ -18,11 +19,25 @@ export async function activateUser(userId: string) {
   const admin = await getSupabaseServerClient()
   const { data: { user: currentUser } } = await admin.auth.getUser()
 
+  const { data: profile } = await service
+    .from('profiles')
+    .select('email, full_name, role')
+    .eq('id', userId)
+    .single()
+
   await service.from('profiles').update({
     role: 'active',
     activated_at: new Date().toISOString(),
     activated_by: currentUser?.id,
   }).eq('id', userId)
+
+  // Send welcome email only when transitioning to active (not already active)
+  if (profile && profile.role !== 'active' && profile.email) {
+    sendUserActivatedWelcome({
+      full_name: profile.full_name ?? null,
+      email:     profile.email,
+    }).catch((err) => console.error('[activateUser] welcome email failed:', err))
+  }
 
   revalidatePath('/admin')
 }

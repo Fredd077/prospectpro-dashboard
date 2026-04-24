@@ -63,6 +63,13 @@ export function RegisterForm({ errorParam }: RegisterFormProps) {
       return
     }
 
+    // Notify admin — fire and forget, never block the registration flow
+    fetch('/api/notify/new-user', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ full_name: fullName, email, company }),
+    }).catch(() => {})
+
     setSuccess(true)
     setLoading(false)
   }
