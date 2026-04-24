@@ -26,6 +26,27 @@ const STEPS: { state: LoadState; label: string }[] = [
   { state: 'sending',    label: 'Enviando al email...'            },
 ]
 
+function parseApiError(raw: string): string {
+  if (/credit balance is too low/i.test(raw))
+    return 'Saldo insuficiente en la API de Anthropic. Recarga créditos en console.anthropic.com → Billing.'
+  if (/rate.?limit/i.test(raw))
+    return 'Límite de solicitudes alcanzado. Espera unos minutos e intenta de nuevo.'
+  if (/invalid.?api.?key|authentication/i.test(raw))
+    return 'API key inválida. Verifica la variable ANTHROPIC_API_KEY en la configuración.'
+  if (/overloaded|529/i.test(raw))
+    return 'La API de Anthropic está sobrecargada en este momento. Intenta en unos minutos.'
+  // Try to extract a nested "message" field from JSON blobs like "400 {...}"
+  try {
+    const jsonStart = raw.indexOf('{')
+    if (jsonStart !== -1) {
+      const parsed = JSON.parse(raw.slice(jsonStart))
+      const msg = parsed?.error?.message ?? parsed?.message
+      if (typeof msg === 'string' && msg.length < 200) return msg
+    }
+  } catch { /* not JSON */ }
+  return raw.length > 200 ? raw.slice(0, 200) + '…' : raw
+}
+
 const MESES = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
@@ -480,8 +501,12 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
               {/* ── Error ───────────────────────────────────────────────── */}
               {loadState === 'error' && (
                 <div style={{ padding: '8px 0' }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: '#E24B4A', margin: '0 0 5px' }}>Error generando reporte</p>
-                  {errorMsg && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace', margin: 0 }}>{errorMsg}</p>}
+                  <p style={{ fontSize: 14, fontWeight: 600, color: '#E24B4A', margin: '0 0 8px' }}>Error generando reporte</p>
+                  {errorMsg && (
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, margin: 0 }}>
+                      {parseApiError(errorMsg)}
+                    </p>
+                  )}
                 </div>
               )}
 
