@@ -33,10 +33,14 @@ export async function activateUser(userId: string) {
 
   // Send welcome email only when transitioning to active (not already active)
   if (profile && profile.role !== 'active' && profile.email) {
-    sendUserActivatedWelcome({
-      full_name: profile.full_name ?? null,
-      email:     profile.email,
-    }).catch((err) => console.error('[activateUser] welcome email failed:', err))
+    try {
+      await sendUserActivatedWelcome({
+        full_name: profile.full_name ?? null,
+        email:     profile.email,
+      })
+    } catch (err) {
+      console.error('[activateUser] welcome email failed:', err)
+    }
   }
 
   revalidatePath('/admin')
