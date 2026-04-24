@@ -74,7 +74,6 @@ export async function updateUserOrgRole(userId: string, orgRole: 'member' | 'man
   if (error) throw error
   revalidatePath('/admin')
   revalidatePath('/team')
-  revalidatePath('/', 'layout')
 }
 
 export async function updateUserManager(userId: string, managerId: string | null) {
@@ -108,5 +107,4 @@ export async function deleteUser(userId: string) {
 
   revalidatePath('/admin')
   revalidatePath('/team')
-  revalidatePath('/', 'layout')
 }

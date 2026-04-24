@@ -11,24 +11,20 @@ export async function Sidebar() {
 
   let profile: { full_name: string | null; email: string; avatar_url: string | null; role: string } | null = null
   let isManager = false
+  let unreadCoachCount = 0
 
   if (user) {
-    const { data } = await sb
-      .from('profiles')
-      .select('full_name, email, avatar_url, role, org_role')
-      .eq('id', user.id)
-      .single()
+    const [{ data }, { count }] = await Promise.all([
+      sb.from('profiles').select('full_name, email, avatar_url, role, org_role').eq('id', user.id).single(),
+      sb.from('coach_messages').select('id', { count: 'exact', head: true }).eq('is_read', false),
+    ])
     profile = data as { full_name: string | null; email: string; avatar_url: string | null; role: string } | null
     isManager = (data as { org_role?: string | null } | null)?.org_role === 'manager'
+    unreadCoachCount = count ?? 0
   }
 
   const isAdmin = profile?.role === 'admin'
   const email = profile?.email ?? user?.email ?? ''
-
-  const { count: unreadCoachCount } = await sb
-    .from('coach_messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('is_read', false)
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-16 flex-col border-r border-border bg-sidebar transition-all lg:w-60">
@@ -50,7 +46,7 @@ export async function Sidebar() {
       </div>
 
       {/* Nav */}
-      <SidebarNav isAdmin={isAdmin} isManager={isManager} unreadCoachCount={unreadCoachCount ?? 0} />
+      <SidebarNav isAdmin={isAdmin} isManager={isManager} unreadCoachCount={unreadCoachCount} />
 
       {/* User + sign-out */}
       {user && (

@@ -6,7 +6,12 @@
       "Bash(ls -la \"/c/Users/fd1056la/.gemini/antigravity/brain/1ca7c225-8144-4b9c-9f18-f9b89178d5c1/app_recetario/app/\\(app\\)/\")",
       "Bash(grep -n \"company\" \"/c/Users/fd1056la/.gemini/antigravity/brain/1ca7c225-8144-4b9c-9f18-f9b89178d5c1/app_recetario/supabase/migrations\"/*.sql)",
       "Bash(find \"/c/Users/fd1056la/.gemini/antigravity/brain/1ca7c225-8144-4b9c-9f18-f9b89178d5c1/app_recetario/app/\\(app\\)\" -maxdepth 1 -type d)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(npx tsc *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "WebFetch(domain:api.anthropic.com)"
     ]
   }
 }

@@ -34,23 +34,13 @@ export default async function CoachPage({ searchParams }: PageProps) {
     query = query.gte('period_date', start).lte('period_date', end)
   }
 
-  const { data: messages } = await query
+  const [{ data: messages }, { data: allMonths }, { count: unreadCount }] = await Promise.all([
+    query,
+    sb.from('coach_messages').select('period_date').order('period_date', { ascending: false }),
+    sb.from('coach_messages').select('id', { count: 'exact', head: true }).eq('is_read', false),
+  ])
 
-  // Available months for filter dropdown
-  const { data: allMonths } = await sb
-    .from('coach_messages')
-    .select('period_date')
-    .order('period_date', { ascending: false })
-
-  const uniqueMonths = [...new Set(
-    (allMonths ?? []).map((m) => m.period_date.slice(0, 7))
-  )]
-
-  // Unread count (mark-as-read happens client-side)
-  const { count: unreadCount } = await sb
-    .from('coach_messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('is_read', false)
+  const uniqueMonths = [...new Set((allMonths ?? []).map((m) => m.period_date.slice(0, 7)))]
 
   return (
     <div className="flex flex-col h-full">
