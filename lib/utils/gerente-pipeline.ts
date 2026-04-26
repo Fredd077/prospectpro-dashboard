@@ -227,7 +227,9 @@ export async function fetchTeamPipeline(
     const avgTicket = ticketByUser[p.id] ?? teamAvgTicket
 
     const open  = repDeals.filter((d) => d.status === 'abierto')
-    const won   = repDeals.filter((d) => d.status === 'ganado')
+    // Only Cierre-stage deals count as won revenue — Propuesta records auto-marked
+    // 'ganado' when advanced to Cierre are workflow state, not revenue events.
+    const won   = repDeals.filter((d) => d.status === 'ganado' && d.stage === 'Cierre')
     const lost  = repDeals.filter((d) => d.status === 'perdido')
 
     // Actual revenue (no fallback for confirmed deals)
@@ -248,7 +250,8 @@ export async function fetchTeamPipeline(
 
     // Per-week breakdown (actual amounts only for won/lost)
     const weeklyWon  = weekBuckets.map(({ start, end }) =>
-      won.filter((d) => d.entryDate >= start && d.entryDate <= end).reduce((s, d) => s + (d.amount ?? 0), 0)
+      won.filter((d) => d.entryDate >= start && d.entryDate <= end)
+         .reduce((s, d) => s + (d.amount ?? 0), 0)
     )
     const weeklyLost = weekBuckets.map(({ start, end }) =>
       lost.filter((d) => d.entryDate >= start && d.entryDate <= end).reduce((s, d) => s + (d.amount ?? 0), 0)
@@ -280,8 +283,11 @@ export async function fetchTeamPipeline(
   const teamOpenValue = byRep.reduce((s, r) => s + r.openValue, 0)
   const teamWonValue  = byRep.reduce((s, r) => s + r.wonValue, 0)
 
-  const teamClosed  = deals.filter((d) => d.status !== 'abierto').length
-  const teamWon     = deals.filter((d) => d.status === 'ganado').length
+  // Won = Cierre-ganado only. Lost = any-perdido. Propuesta-ganado records are
+  // workflow state (advanced to Cierre), not terminal outcomes — exclude from win rate.
+  const teamWon     = deals.filter((d) => d.status === 'ganado' && d.stage === 'Cierre').length
+  const teamLost    = deals.filter((d) => d.status === 'perdido').length
+  const teamClosed  = teamWon + teamLost
   const teamWinRate = teamClosed > 0 ? Math.round((teamWon / teamClosed) * 100) : 0
 
   const teamClosedWithAmt = deals.filter((d) => d.status !== 'abierto' && d.amount !== null)
