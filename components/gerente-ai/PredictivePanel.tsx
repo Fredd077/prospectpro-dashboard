@@ -6,13 +6,14 @@ import {
   BarChart, Bar, Cell, RadialBarChart, RadialBar, Legend,
 } from 'recharts'
 import type { TeamPipelineAnalytics } from '@/lib/utils/gerente-pipeline'
-import type { GerenteAnalytics } from '@/lib/utils/gerente-ai'
+import type { GerenteAnalytics, RepAnalytics } from '@/lib/utils/gerente-ai'
 import { TrendingUp, TrendingDown, AlertTriangle, Target, Zap, ArrowUpRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  pipeline: TeamPipelineAnalytics
-  activity: GerenteAnalytics
+  pipeline:     TeamPipelineAnalytics
+  activity:     GerenteAnalytics
+  visibleReps?: RepAnalytics[]
 }
 
 function fmt(n: number) {
@@ -54,7 +55,9 @@ const ScatterTooltip = ({ active, payload }: any) => {
   )
 }
 
-export function PredictivePanel({ pipeline, activity }: Props) {
+export function PredictivePanel({ pipeline, activity, visibleReps }: Props) {
+  // Use the filtered activity reps if provided (from rep filter selection)
+  const repsToShow = visibleReps ?? activity.reps
   const { summary } = activity
   const goalPct = pipeline.revenueGoal
     ? Math.min(150, Math.round((pipeline.projectedRevenue / pipeline.revenueGoal) * 100))
@@ -253,7 +256,7 @@ export function PredictivePanel({ pipeline, activity }: Props) {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {pipeline.byRep.map((rep) => {
-            const actRep = activity.reps.find((r) => r.userId === rep.userId)
+            const actRep = repsToShow.find((r) => r.userId === rep.userId)
             const riskColors = {
               low:    { bg: 'bg-emerald-500/5', border: 'border-emerald-500/20', text: 'text-emerald-400', label: 'Bajo riesgo',   dot: 'bg-emerald-400' },
               medium: { bg: 'bg-amber-500/5',   border: 'border-amber-500/20',   text: 'text-amber-400',   label: 'Riesgo medio', dot: 'bg-amber-400'   },

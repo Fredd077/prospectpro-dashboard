@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import type { GerenteAnalytics, RepAnalytics } from '@/lib/utils/gerente-ai'
 import type { TeamPipelineAnalytics } from '@/lib/utils/gerente-pipeline'
+import { filterPipeline } from '@/lib/utils/gerente-pipeline'
 import { GerenteChat } from './GerenteChat'
 import { PipelinePanel } from './PipelinePanel'
 import { PredictivePanel } from './PredictivePanel'
@@ -76,10 +77,16 @@ export function GerenteDashboard({ analytics, pipeline, allReps, startISO, endIS
 
   const { summary, reps, teamTrend } = analytics
 
-  const visibleReps: RepAnalytics[] = useMemo(() => {
-    if (selectedRepIds.length === 0) return reps
-    return reps.filter((r) => selectedRepIds.includes(r.userId))
-  }, [reps, selectedRepIds])
+  const visibleReps: RepAnalytics[] = useMemo(
+    () => selectedRepIds.length === 0 ? reps : reps.filter((r) => selectedRepIds.includes(r.userId)),
+    [reps, selectedRepIds],
+  )
+
+  // Pipeline filtered client-side — no server round-trip
+  const filteredPipeline = useMemo(
+    () => filterPipeline(pipeline, selectedRepIds),
+    [pipeline, selectedRepIds],
+  )
 
   function toggleRep(id: string) {
     setSelectedRepIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
@@ -353,10 +360,10 @@ export function GerenteDashboard({ analytics, pipeline, allReps, startISO, endIS
             )}
 
             {/* ── PIPELINE TAB ─────────────────────────────────────── */}
-            {activeTab === 'pipeline' && <PipelinePanel pipeline={pipeline} />}
+            {activeTab === 'pipeline' && <PipelinePanel pipeline={filteredPipeline} />}
 
             {/* ── PREDICTIONS TAB ──────────────────────────────────── */}
-            {activeTab === 'predictions' && <PredictivePanel pipeline={pipeline} activity={analytics} />}
+            {activeTab === 'predictions' && <PredictivePanel pipeline={filteredPipeline} activity={analytics} visibleReps={visibleReps} />}
 
             {/* ── MATRIX TAB ───────────────────────────────────────── */}
             {activeTab === 'matrix' && (
