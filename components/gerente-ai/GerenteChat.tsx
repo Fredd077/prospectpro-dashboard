@@ -11,7 +11,8 @@ interface Message {
 
 interface Props {
   userIds: string[]
-  weeksBack: number
+  startISO: string
+  endISO: string
 }
 
 const SUGGESTIONS = [
@@ -22,7 +23,7 @@ const SUGGESTIONS = [
   '¿Cuál ha sido la mejor semana del equipo?',
 ]
 
-export function GerenteChat({ userIds, weeksBack }: Props) {
+export function GerenteChat({ userIds, startISO, endISO }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput]       = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -51,7 +52,8 @@ export function GerenteChat({ userIds, weeksBack }: Props) {
         body: JSON.stringify({
           messages: newHistory,
           userIds,
-          weeksBack,
+          startISO,
+          endISO,
         }),
       })
 

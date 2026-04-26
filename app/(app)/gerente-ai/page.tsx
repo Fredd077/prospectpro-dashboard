@@ -1,13 +1,21 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
-import { fetchGerenteAnalytics } from '@/lib/utils/gerente-ai'
+import { fetchGerenteAnalytics, presetRange } from '@/lib/utils/gerente-ai'
 import { TopBar } from '@/components/layout/TopBar'
 import { GerenteDashboard } from '@/components/gerente-ai/GerenteDashboard'
+import { PeriodFilter } from '@/components/gerente-ai/PeriodFilter'
 
 export const metadata: Metadata = { title: 'Gerente AI — ProspectPro' }
 
-export default async function GerenteAIPage() {
+interface Props {
+  searchParams: Promise<{ start?: string; end?: string; preset?: string }>
+}
+
+const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
+
+export default async function GerenteAIPage({ searchParams }: Props) {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) redirect('/login')
@@ -22,11 +30,10 @@ export default async function GerenteAIPage() {
 
   const isAdmin   = profile?.role === 'admin'
   const isManager = profile?.org_role === 'manager'
-
   if (!isAdmin && !isManager) redirect('/dashboard')
 
   // Fetch team members
-  let q = service.from('profiles').select('id,full_name,email,company').in('role', ['active', 'admin'])
+  let q = service.from('profiles').select('id,full_name,email').in('role', ['active', 'admin'])
   if (isManager && !isAdmin) {
     q = q.eq('company', profile!.company as string).neq('id', user.id)
   }
@@ -38,30 +45,52 @@ export default async function GerenteAIPage() {
     email: m.email,
   }))
 
-  // Player-coach: include manager themselves
   if (isManager && profile?.is_player_coach && !allReps.some((r) => r.id === user.id)) {
-    allReps = [
-      { id: user.id, name: profile.full_name ?? profile.email, email: profile.email },
-      ...allReps,
-    ]
+    allReps = [{ id: user.id, name: profile.full_name ?? profile.email, email: profile.email }, ...allReps]
   }
 
-  const userIds = allReps.map((r) => r.id)
-  const weeksBack = 12
+  // Resolve date range from searchParams
+  const params = await searchParams
+  const preset = (['week', 'month', 'quarter', 'year', 'custom'] as const).includes(params.preset as any)
+    ? params.preset as 'week' | 'month' | 'quarter' | 'year' | 'custom'
+    : 'month'
 
-  const analytics = await fetchGerenteAnalytics(service, userIds, weeksBack)
+  let startISO: string
+  let endISO: string
+
+  if (preset === 'custom' && params.start && ISO_RE.test(params.start) && params.end && ISO_RE.test(params.end)) {
+    startISO = params.start
+    endISO   = params.end
+  } else {
+    const range = presetRange(preset)
+    startISO    = range.start
+    endISO      = range.end
+  }
+
+  const analytics = await fetchGerenteAnalytics(service, allReps.map((r) => r.id), startISO, endISO)
 
   return (
     <div className="flex flex-col h-full">
       <TopBar
         title="Gerente AI"
-        description={`Analítica de alto nivel${profile?.company ? ` · ${profile.company}` : ''}`}
+        description={`Analítica de equipo${profile?.company ? ` · ${profile.company}` : ''}`}
       />
+      {/* Period filter bar */}
+      <div className="flex items-center gap-3 px-6 py-2.5 border-b border-border bg-muted/10 shrink-0">
+        <Suspense>
+          <PeriodFilter
+            currentStart={startISO}
+            currentEnd={endISO}
+            currentPreset={preset}
+          />
+        </Suspense>
+      </div>
       <div className="flex-1 overflow-hidden">
         <GerenteDashboard
           analytics={analytics}
           allReps={allReps}
-          weeksBack={weeksBack}
+          startISO={startISO}
+          endISO={endISO}
           company={profile?.company ?? undefined}
         />
       </div>

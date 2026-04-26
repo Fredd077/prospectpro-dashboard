@@ -7,13 +7,14 @@ import {
 } from 'recharts'
 import type { GerenteAnalytics, RepAnalytics } from '@/lib/utils/gerente-ai'
 import { GerenteChat } from './GerenteChat'
-import { TrendingUp, Users, Target, AlertTriangle, Activity, ChevronDown } from 'lucide-react'
+import { TrendingUp, Users, Target, AlertTriangle, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
   analytics: GerenteAnalytics
   allReps: { id: string; name: string; email: string }[]
-  weeksBack: number
+  startISO: string
+  endISO: string
   company?: string
 }
 
@@ -37,9 +38,16 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   )
 }
 
-export function GerenteDashboard({ analytics, allReps, weeksBack: initialWeeks, company }: Props) {
+// Determine a reasonable XAxis tick interval based on number of data points
+function xInterval(count: number): number {
+  if (count <= 8)  return 0
+  if (count <= 16) return 1
+  if (count <= 32) return 3
+  return Math.ceil(count / 12) - 1
+}
+
+export function GerenteDashboard({ analytics, allReps, startISO, endISO, company }: Props) {
   const [selectedRepIds, setSelectedRepIds] = useState<string[]>([])
-  const [weeksBack, setWeeksBack]           = useState(initialWeeks)
   const [activeTab, setActiveTab]           = useState<'charts' | 'matrix'>('charts')
 
   const { summary, reps, teamTrend } = analytics
@@ -55,7 +63,6 @@ export function GerenteDashboard({ analytics, allReps, weeksBack: initialWeeks, 
     )
   }
 
-  // All unique activities across visible reps
   const allActivities = useMemo(() => {
     const map = new Map<string, string>()
     for (const rep of visibleReps) {
@@ -66,19 +73,16 @@ export function GerenteDashboard({ analytics, allReps, weeksBack: initialWeeks, 
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
   }, [visibleReps])
 
-  // Rep compliance bar chart data
   const repBarData = visibleReps.map((r) => ({
-    name: r.name.split(' ')[0],
+    name:     r.name.split(' ')[0],
     fullName: r.name,
-    pct: r.avgCompliance,
+    pct:      r.avgCompliance,
   }))
 
-  // Weekly trend line chart data — team + up to 3 selected reps
+  // Weekly trend line chart — team avg + up to 3 highlighted reps
   const trendLineData = teamTrend.map((t, i) => {
     const point: Record<string, any> = { label: t.label, 'Equipo': t.avgPct }
-    const highlighted = selectedRepIds.length > 0
-      ? visibleReps.slice(0, 3)
-      : []
+    const highlighted = selectedRepIds.length > 0 ? visibleReps.slice(0, 3) : []
     for (const rep of highlighted) {
       point[rep.name.split(' ')[0]] = rep.weeklyTrend[i]?.pct ?? 0
     }
@@ -86,64 +90,41 @@ export function GerenteDashboard({ analytics, allReps, weeksBack: initialWeeks, 
   })
 
   const repLineColors = ['#22d3ee', '#a78bfa', '#fb923c', '#34d399']
+  const tickInterval  = xInterval(teamTrend.length)
 
   return (
     <div className="flex flex-col h-full">
-      {/* ── Filters bar */}
-      <div className="flex flex-wrap items-center gap-3 px-6 py-3 border-b border-border bg-muted/20">
-        {/* Period selector */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Período</span>
-          {[4, 8, 12].map((w) => (
+      {/* Rep filter bar */}
+      <div className="flex flex-wrap items-center gap-2 px-6 py-2.5 border-b border-border bg-muted/10 shrink-0">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Vendedor</span>
+        {allReps.map((rep) => {
+          const active = selectedRepIds.includes(rep.id)
+          return (
             <button
-              key={w}
-              onClick={() => setWeeksBack(w)}
+              key={rep.id}
+              onClick={() => toggleRep(rep.id)}
               className={cn(
-                'px-2.5 py-1 rounded text-xs font-medium transition-colors',
-                weeksBack === w
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                'px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all border',
+                active
+                  ? 'border-violet-400 bg-violet-400/10 text-violet-300'
+                  : 'border-border text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground'
               )}
             >
-              {w}s
+              {rep.name.split(' ')[0]}
             </button>
-          ))}
-        </div>
-
-        <div className="h-4 w-px bg-border" />
-
-        {/* Rep filter */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Vendedor</span>
-          {allReps.map((rep) => {
-            const active = selectedRepIds.includes(rep.id)
-            return (
-              <button
-                key={rep.id}
-                onClick={() => toggleRep(rep.id)}
-                className={cn(
-                  'px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border',
-                  active
-                    ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
-                    : 'border-border text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground'
-                )}
-              >
-                {rep.name.split(' ')[0]}
-              </button>
-            )
-          })}
-          {selectedRepIds.length > 0 && (
-            <button
-              onClick={() => setSelectedRepIds([])}
-              className="text-[10px] text-muted-foreground hover:text-foreground underline"
-            >
-              limpiar
-            </button>
-          )}
-        </div>
+          )
+        })}
+        {selectedRepIds.length > 0 && (
+          <button
+            onClick={() => setSelectedRepIds([])}
+            className="text-[10px] text-muted-foreground hover:text-foreground underline"
+          >
+            limpiar
+          </button>
+        )}
       </div>
 
-      {/* ── Main body: scrollable */}
+      {/* Main body */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: analytics */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -151,10 +132,10 @@ export function GerenteDashboard({ analytics, allReps, weeksBack: initialWeeks, 
           {/* KPI row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { icon: Users,         label: 'Vendedores',         value: `${summary.totalReps}`,             sub: 'en el equipo',       accent: 'border-t-primary/50'     },
-              { icon: TrendingUp,    label: 'Cumplimiento prom.',  value: `${summary.avgCompliance}%`,        sub: `últ. ${weeksBack}s`,  accent: 'border-t-cyan-500/50'    },
-              { icon: Target,        label: 'En meta',             value: `${summary.onTrackCount}`,          sub: '≥ 70%',              accent: 'border-t-emerald-500/50' },
-              { icon: AlertTriangle, label: 'Críticos',            value: `${summary.criticalCount}`,         sub: '< 40%',              accent: 'border-t-red-500/50'     },
+              { icon: Users,         label: 'Vendedores',         value: `${summary.totalReps}`,       sub: 'en el equipo',   accent: 'border-t-primary/50'     },
+              { icon: TrendingUp,    label: 'Cumplimiento prom.',  value: `${summary.avgCompliance}%`,  sub: 'en el período',  accent: 'border-t-cyan-500/50'    },
+              { icon: Target,        label: 'En meta',             value: `${summary.onTrackCount}`,    sub: '≥ 70%',         accent: 'border-t-emerald-500/50' },
+              { icon: AlertTriangle, label: 'Críticos',            value: `${summary.criticalCount}`,   sub: '< 40%',         accent: 'border-t-red-500/50'     },
             ].map(({ icon: Icon, label, value, sub, accent }) => (
               <div key={label} className={`rounded-xl border bg-card p-4 border-t-2 ${accent}`}>
                 <div className="flex items-start justify-between">
@@ -198,8 +179,20 @@ export function GerenteDashboard({ analytics, allReps, weeksBack: initialWeeks, 
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={trendLineData} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'rgb(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'rgb(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: 'rgba(148,163,184,0.7)' }}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={tickInterval}
+                    />
+                    <YAxis
+                      domain={[0, 100]}
+                      tick={{ fontSize: 10, fill: 'rgba(148,163,184,0.7)' }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => `${v}%`}
+                    />
                     <Tooltip content={<CustomTooltip />} />
                     <Line dataKey="Equipo" stroke="#22d3ee" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                     {selectedRepIds.length > 0 && visibleReps.slice(0, 3).map((rep, i) => (
@@ -213,11 +206,7 @@ export function GerenteDashboard({ analytics, allReps, weeksBack: initialWeeks, 
                         activeDot={{ r: 3 }}
                       />
                     ))}
-                    <Legend
-                      iconType="line"
-                      iconSize={12}
-                      wrapperStyle={{ fontSize: 10, paddingTop: 8 }}
-                    />
+                    <Legend iconType="line" iconSize={12} wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -231,8 +220,22 @@ export function GerenteDashboard({ analytics, allReps, weeksBack: initialWeeks, 
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={repBarData} layout="vertical" margin={{ top: 0, right: 24, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'rgb(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'rgb(var(--muted-foreground))' }} tickLine={false} axisLine={false} width={52} />
+                    <XAxis
+                      type="number"
+                      domain={[0, 100]}
+                      tick={{ fontSize: 10, fill: 'rgba(148,163,184,0.7)' }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => `${v}%`}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{ fontSize: 10, fill: 'rgba(148,163,184,0.7)' }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={52}
+                    />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="pct" name="Cumplimiento" radius={[0, 4, 4, 0]} maxBarSize={20}>
                       {repBarData.map((entry, i) => (
@@ -262,10 +265,10 @@ export function GerenteDashboard({ analytics, allReps, weeksBack: initialWeeks, 
 
                     {/* Mini sparkline */}
                     <div className="flex items-end gap-0.5 h-8">
-                      {rep.weeklyTrend.slice(-8).map((w, i) => (
+                      {rep.weeklyTrend.slice(-12).map((w, i) => (
                         <div
                           key={i}
-                          className="flex-1 rounded-sm min-w-[4px]"
+                          className="flex-1 rounded-sm min-w-[3px]"
                           style={{
                             height: `${Math.max(4, (w.pct / 100) * 32)}px`,
                             backgroundColor: compColor(w.pct),
@@ -362,23 +365,25 @@ export function GerenteDashboard({ analytics, allReps, weeksBack: initialWeeks, 
         <div className="hidden xl:flex w-[380px] flex-col border-l border-border shrink-0">
           <GerenteChat
             userIds={selectedRepIds.length > 0 ? selectedRepIds : allReps.map((r) => r.id)}
-            weeksBack={weeksBack}
+            startISO={startISO}
+            endISO={endISO}
           />
         </div>
       </div>
 
-      {/* Mobile chat button — shown below xl */}
-      <div className="xl:hidden border-t border-border p-3">
+      {/* Mobile chat */}
+      <div className="xl:hidden border-t border-border p-3 shrink-0">
         <MobileChatDrawer
           userIds={selectedRepIds.length > 0 ? selectedRepIds : allReps.map((r) => r.id)}
-          weeksBack={weeksBack}
+          startISO={startISO}
+          endISO={endISO}
         />
       </div>
     </div>
   )
 }
 
-function MobileChatDrawer({ userIds, weeksBack }: { userIds: string[]; weeksBack: number }) {
+function MobileChatDrawer({ userIds, startISO, endISO }: { userIds: string[]; startISO: string; endISO: string }) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -399,7 +404,7 @@ function MobileChatDrawer({ userIds, weeksBack }: { userIds: string[]; weeksBack
               <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground text-lg">×</button>
             </div>
             <div className="flex-1 overflow-hidden">
-              <GerenteChat userIds={userIds} weeksBack={weeksBack} />
+              <GerenteChat userIds={userIds} startISO={startISO} endISO={endISO} />
             </div>
           </div>
         </div>

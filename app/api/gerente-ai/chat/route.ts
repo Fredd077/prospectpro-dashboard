@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
-import { fetchGerenteAnalytics, buildGerenteContext } from '@/lib/utils/gerente-ai'
+import { fetchGerenteAnalytics, buildGerenteContext, presetRange } from '@/lib/utils/gerente-ai'
 
 export const maxDuration = 60
 
@@ -22,16 +22,26 @@ export async function POST(req: Request) {
   const isManager = profile?.org_role === 'manager'
   if (!isAdmin && !isManager) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+  const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
   let messages: { role: 'user' | 'assistant'; content: string }[] = []
   let userIds: string[] = []
-  let weeksBack = 12
+  let startISO: string
+  let endISO: string
 
   try {
     const body = await req.json()
     if (Array.isArray(body.messages)) messages = body.messages
     if (Array.isArray(body.userIds) && body.userIds.length > 0) userIds = body.userIds
-    if (typeof body.weeksBack === 'number' && body.weeksBack > 0) weeksBack = body.weeksBack
+    if (typeof body.startISO === 'string' && ISO_RE.test(body.startISO)) startISO = body.startISO
+    if (typeof body.endISO   === 'string' && ISO_RE.test(body.endISO))   endISO   = body.endISO
   } catch { /* defaults */ }
+
+  // Default to current month if not provided
+  if (!startISO! || !endISO!) {
+    const r = presetRange('month')
+    startISO = r.start
+    endISO   = r.end
+  }
 
   const service = getSupabaseServiceClient()
 
@@ -43,7 +53,7 @@ export async function POST(req: Request) {
     userIds = (members ?? []).map((m) => m.id)
   }
 
-  const analytics = await fetchGerenteAnalytics(service, userIds, weeksBack)
+  const analytics = await fetchGerenteAnalytics(service, userIds, startISO!, endISO!)
   const context   = buildGerenteContext(analytics, isManager ? profile!.company ?? undefined : undefined)
 
   const systemPrompt = `Eres el Gerente Virtual AI de ProspectPro, un asistente especializado en análisis de equipos de ventas. Tu rol es ayudar a los managers a entender el desempeño de su equipo, identificar patrones, y tomar decisiones basadas en datos.
