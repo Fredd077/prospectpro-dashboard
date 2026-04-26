@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { fetchGerenteAnalytics, buildGerenteContext, presetRange } from '@/lib/utils/gerente-ai'
+import { fetchTeamPipeline, buildPipelineContext } from '@/lib/utils/gerente-pipeline'
 
 export const maxDuration = 60
 
 const client = new Anthropic()
+
+const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export async function POST(req: Request) {
   const sb = await getSupabaseServerClient()
@@ -22,11 +25,10 @@ export async function POST(req: Request) {
   const isManager = profile?.org_role === 'manager'
   if (!isAdmin && !isManager) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
   let messages: { role: 'user' | 'assistant'; content: string }[] = []
   let userIds: string[] = []
-  let startISO: string
-  let endISO: string
+  let startISO = ''
+  let endISO   = ''
 
   try {
     const body = await req.json()
@@ -36,8 +38,7 @@ export async function POST(req: Request) {
     if (typeof body.endISO   === 'string' && ISO_RE.test(body.endISO))   endISO   = body.endISO
   } catch { /* defaults */ }
 
-  // Default to current month if not provided
-  if (!startISO! || !endISO!) {
+  if (!startISO || !endISO) {
     const r = presetRange('month')
     startISO = r.start
     endISO   = r.end
@@ -45,7 +46,6 @@ export async function POST(req: Request) {
 
   const service = getSupabaseServiceClient()
 
-  // If no userIds provided, fetch all team members
   if (userIds.length === 0) {
     let q = service.from('profiles').select('id').in('role', ['active', 'admin'])
     if (isManager && !isAdmin) q = q.eq('company', profile!.company as string)
@@ -53,27 +53,35 @@ export async function POST(req: Request) {
     userIds = (members ?? []).map((m) => m.id)
   }
 
-  const analytics = await fetchGerenteAnalytics(service, userIds, startISO!, endISO!)
-  const context   = buildGerenteContext(analytics, isManager ? profile!.company ?? undefined : undefined)
+  // Fetch activity + pipeline in parallel for richer AI context
+  const [analytics, pipeline] = await Promise.all([
+    fetchGerenteAnalytics(service, userIds, startISO, endISO),
+    fetchTeamPipeline(service, userIds, [], startISO, endISO),
+  ])
 
-  const systemPrompt = `Eres el Gerente Virtual AI de ProspectPro, un asistente especializado en análisis de equipos de ventas. Tu rol es ayudar a los managers a entender el desempeño de su equipo, identificar patrones, y tomar decisiones basadas en datos.
+  const actContext      = buildGerenteContext(analytics, isManager ? profile!.company ?? undefined : undefined)
+  const pipelineContext = buildPipelineContext(pipeline)
 
-Responde siempre en español, de forma concisa, directa y accionable. Usa emojis con moderación para resaltar puntos clave. Cuando identifiques problemas, sugiere acciones concretas.
+  const systemPrompt = `Eres el Gerente Virtual AI de ProspectPro — el asistente de inteligencia comercial más avanzado para equipos de ventas. Tu misión es ayudar a los managers a tomar decisiones basadas en datos, identificar patrones ocultos, predecir resultados y dar recomendaciones accionables.
 
-DATOS ACTUALES DEL EQUIPO:
-${context}
+Responde siempre en español. Sé conciso, directo y usa datos reales. Cuando identifiques problemas, da recomendaciones específicas. Usa emojis con moderación para puntos clave.
 
-Instrucciones:
-- Basa todas tus respuestas en los datos reales del equipo mostrados arriba
-- Si te preguntan sobre un vendedor específico, da datos precisos de esa persona
-- Identifica patrones de comportamiento, no solo números
-- Sé proactivo: si ves algo preocupante en los datos, mencionalo
-- Cuando hagas comparaciones, usa los datos reales de cumplimiento
-- Si no tienes datos suficientes para responder algo, dilo claramente`
+${actContext}
+
+${pipelineContext}
+
+INSTRUCCIONES DE ANÁLISIS:
+- Combina datos de actividad Y pipeline para dar una visión completa
+- Identifica correlaciones: ¿Los reps con mayor actividad tienen mejor win rate?
+- Si un rep tiene buen momentum de actividad pero mal pipeline, investiga qué está pasando
+- Si la proyección de ingresos está por debajo de la meta, sugiere acciones concretas
+- Identifica patrones temporales: ¿Hay semanas con caída sistemática?
+- Cuando un rep esté "en riesgo", da un plan de coaching específico
+- Basa todas las respuestas en los datos reales mostrados arriba`
 
   const stream = await client.messages.create({
     model:      'claude-sonnet-4-6',
-    max_tokens: 1024,
+    max_tokens: 1500,
     system:     systemPrompt,
     messages,
     stream:     true,
