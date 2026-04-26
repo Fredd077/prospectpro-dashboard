@@ -6,7 +6,7 @@ import {
   Cell, ComposedChart, Area, Line, Legend,
 } from 'recharts'
 import type { TeamPipelineAnalytics } from '@/lib/utils/gerente-pipeline'
-import { DollarSign, TrendingUp, BarChart2, LayoutList } from 'lucide-react'
+import { DollarSign, TrendingUp, BarChart2, LayoutList, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type ChartType = 'revenue' | 'stacked' | 'funnel'
@@ -56,6 +56,14 @@ export function PipelinePanel({ pipeline }: Props) {
   return (
     <div className="space-y-6 p-6">
 
+      {/* Methodology note */}
+      <div className="flex items-start gap-2 rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-[11px] text-blue-400/90">
+        <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+        <span>
+          <strong>Ganado (real)</strong>: solo montos confirmados en deals cerrados. <strong>Abierto (estimado)</strong>: usa ticket promedio del recetario para deals sin monto. El win rate aquí es ganados/cerrados — diferente a la tasa de conversión por stage de Mi Pipeline.
+        </span>
+      </div>
+
       {/* KPI row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {pipeline.byRep.slice(0, 4).map((rep) => (
@@ -63,7 +71,7 @@ export function PipelinePanel({ pipeline }: Props) {
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">{rep.name.split(' ')[0]}</p>
             <p className="mt-1.5 text-xl font-bold font-mono text-foreground">{fmt(rep.wonValue)}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
-              {rep.wonCount} ganados · {rep.openCount} abiertos
+              {rep.wonCount} ganado{rep.wonCount !== 1 ? 's' : ''} (real) · {rep.openCount} abiertos (est.)
             </p>
             <div className="mt-2 h-1 rounded-full bg-muted overflow-hidden">
               <div

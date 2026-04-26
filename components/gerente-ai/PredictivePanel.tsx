@@ -78,14 +78,23 @@ export function PredictivePanel({ pipeline, activity, visibleReps }: Props) {
   return (
     <div className="space-y-6 p-6">
 
+      {/* ── Scope note ──────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-400/90">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+        <span>
+          Estas métricas son <strong>agregados del equipo completo</strong>. Para ver datos individuales, selecciona un vendedor en el filtro de arriba.
+          Los montos <em>ganados</em> son reales confirmados; el <em>pipeline abierto</em> usa ticket promedio como estimado.
+        </span>
+      </div>
+
       {/* ── Top KPI row ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           {
             icon:  Target,
-            label: 'Proyección de ingresos',
+            label: 'Proyección equipo',
             value: fmt(pipeline.projectedRevenue),
-            sub:   pipeline.revenueGoal ? `Meta: ${fmt(pipeline.revenueGoal)}` : 'Sin meta configurada',
+            sub:   pipeline.revenueGoal ? `Meta total equipo: ${fmt(pipeline.revenueGoal)}` : 'Sin meta configurada',
             accent:'border-t-cyan-500/60',
             extra: goalPct != null ? (
               <span className={cn('text-xs font-bold', goalPct >= 100 ? 'text-emerald-400' : goalPct >= 70 ? 'text-amber-400' : 'text-red-400')}>
@@ -95,16 +104,16 @@ export function PredictivePanel({ pipeline, activity, visibleReps }: Props) {
           },
           {
             icon:  Zap,
-            label: 'Pipeline abierto',
+            label: 'Pipeline abierto (estimado)',
             value: fmt(pipeline.teamOpenValue),
-            sub:   `${pipeline.byRep.reduce((s,r) => s + r.openCount, 0)} deals activos`,
+            sub:   `${pipeline.byRep.reduce((s,r) => s + r.openCount, 0)} deals · todos los stages`,
             accent:'border-t-violet-500/60',
           },
           {
             icon:  TrendingUp,
-            label: 'Win rate del equipo',
+            label: 'Win rate general',
             value: `${pipeline.teamWinRate}%`,
-            sub:   `Ticket prom. ${fmt(pipeline.teamAvgDealSize)}`,
+            sub:   `ganados / (ganados+perdidos) · ticket prom. ${fmt(pipeline.teamAvgDealSize)}`,
             accent:'border-t-emerald-500/60',
           },
           {
@@ -136,7 +145,8 @@ export function PredictivePanel({ pipeline, activity, visibleReps }: Props) {
             <div>
               <p className="text-sm font-semibold text-foreground">Progreso hacia meta de ingresos</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                {fmt(pipeline.teamWonValue)} ganados · {fmt(pipeline.projectedRevenue - pipeline.teamWonValue)} en proyección de pipeline abierto
+                <span className="text-emerald-400 font-medium">{fmt(pipeline.teamWonValue)} reales confirmados</span>
+                {' '}· <span className="text-cyan-400/80">{fmt(Math.max(0, pipeline.projectedRevenue - pipeline.teamWonValue))} proyectado del pipeline abierto</span>
               </p>
             </div>
             <span className={cn('text-xl font-bold font-mono', pctColor(goalPct))}>
@@ -159,10 +169,13 @@ export function PredictivePanel({ pipeline, activity, visibleReps }: Props) {
             />
           </div>
           <div className="flex items-center gap-4 mt-2 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-400 inline-block"/>Ganado</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-cyan-400/60 inline-block"/>Proyección pipeline</span>
-            <span className="ml-auto">Meta: {fmt(pipeline.revenueGoal)}</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-400 inline-block"/>Ganado (real)</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-cyan-400/60 inline-block"/>Proyección (estimado)</span>
+            <span className="ml-auto">Meta total equipo: {fmt(pipeline.revenueGoal)}</span>
           </div>
+          <p className="text-[10px] text-muted-foreground/50 mt-1.5 italic">
+            Proyección = deals abiertos × probabilidad de cierre por stage (modelo compuesto). Diferente a Mi Pipeline que muestra conversión stage por stage.
+          </p>
         </div>
       )}
 
