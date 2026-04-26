@@ -630,9 +630,33 @@ function buildTeamReportEmail(p: {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>Reporte Semanal ProspectPro</title>
+  <title>Reporte ${isMonthly ? 'Mensual' : 'Semanal'} ProspectPro</title>
+  <style>
+    #pp-download-bar { position:fixed; top:0; left:0; right:0; z-index:9999; display:flex; align-items:center; justify-content:space-between; padding:10px 24px; background:#0f0f0f; border-bottom:1px solid #1e1e1e; box-shadow:0 2px 12px rgba(0,0,0,0.6); }
+    #pp-download-bar span { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:13px; color:#64748b; }
+    #pp-download-bar strong { color:#ffffff; }
+    #pp-btn-pdf { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; display:inline-flex; align-items:center; gap:8px; padding:8px 20px; background:#00D9FF; color:#0a0a0a; border:none; border-radius:7px; font-size:13px; font-weight:700; cursor:pointer; letter-spacing:-0.01em; transition:opacity 0.15s; }
+    #pp-btn-pdf:hover { opacity:0.85; }
+    #pp-btn-pdf svg { flex-shrink:0; }
+    body { padding-top:56px; }
+    @media print {
+      #pp-download-bar { display:none !important; }
+      body { padding-top:0 !important; background:#ffffff !important; }
+      * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    }
+  </style>
 </head>
 <body style="margin:0; padding:0; background:#0a0a0a; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;">
+
+<!-- ── DOWNLOAD BAR ──────────────────────────────────────────────────────── -->
+<div id="pp-download-bar">
+  <span>ProspectPro &nbsp;·&nbsp; <strong>Reporte ${isMonthly ? 'Mensual' : 'Semanal'}</strong> &nbsp;·&nbsp; ${isMonthly ? weekLabel : `${weekLabel} – ${weekEndLabel}`}</span>
+  <button id="pp-btn-pdf" onclick="window.print()">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Descargar PDF
+  </button>
+</div>
+
 <div style="background:#0a0a0a; padding:32px 16px;">
 <div style="max-width:660px; margin:0 auto;">
 
