@@ -203,6 +203,14 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
     setLoadState('collecting')
     setErrorMsg(null)
     setSentTo(null)
+
+    // Open the tab immediately (synchronous, before any await) so browsers don't block it as popup
+    const tab = window.open('about:blank', '_blank')
+    if (tab) {
+      tab.document.write('<html><body style="background:#0a0a0a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><p>Generando reporte...</p></body></html>')
+      tab.document.close()
+    }
+
     try {
       const res = await fetch('/api/reports/manual', {
         method:  'POST',
@@ -211,15 +219,17 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
       })
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
+        if (tab) tab.close()
         throw new Error((json as { error?: string }).error ?? 'Error generando reporte')
       }
       const html = await res.text()
-      // Open HTML in new tab — user can Ctrl+P / Cmd+P to save as PDF
-      const blob = new Blob([html], { type: 'text/html' })
-      const url  = URL.createObjectURL(blob)
-      const tab  = window.open(url, '_blank')
-      if (tab) tab.focus()
-      URL.revokeObjectURL(url)
+      // Write the report HTML into the already-open tab
+      if (tab) {
+        tab.document.open()
+        tab.document.write(html)
+        tab.document.close()
+        tab.focus()
+      }
       setLoadState('done')
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Error generando reporte')
