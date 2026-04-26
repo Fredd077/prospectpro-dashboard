@@ -85,6 +85,8 @@ export interface TeamReportOptions {
   recipientEmail?: string
   /** When filtering by a specific member, their display name for subject/header */
   memberName?: string
+  /** When true, skip email and DB save — return HTML directly for PDF download */
+  downloadOnly?: boolean
 }
 
 export interface TeamReportResult {
@@ -92,6 +94,8 @@ export interface TeamReportResult {
   sentTo: string
   generatedAt: string
   id: string | null
+  /** Populated only when downloadOnly=true */
+  html?: string
 }
 
 interface UserSummary {
@@ -156,7 +160,7 @@ export async function generateTeamReport(
 ): Promise<TeamReportResult> {
   const { scope, adminUserId, adminEmail, triggeredBy,
           filterUserIds, filterCompany, threshold = 70,
-          recipientEmail, memberName } = opts
+          recipientEmail, memberName, downloadOnly } = opts
   const intendedEmail = recipientEmail ?? adminEmail
   const toEmail = intendedEmail
 
@@ -374,8 +378,14 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
     memberName,
   })
 
-  // 8. Save to coach_messages first — ensures analysis is persisted even if email fails
   const generatedAt = new Date().toISOString()
+
+  // downloadOnly mode: return HTML directly, skip DB + email
+  if (downloadOnly) {
+    return { success: true, sentTo: '', generatedAt, id: null, html }
+  }
+
+  // 8. Save to coach_messages first — ensures analysis is persisted even if email fails
   let savedId: string | null = null
   try {
     const { data } = await sb

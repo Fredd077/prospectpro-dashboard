@@ -51,6 +51,7 @@ export async function POST(req: Request) {
   let periodDate: string | undefined
   let memberId: string | undefined
   let memberName: string | undefined
+  let downloadOnly = false
   try {
     const body = await req.json()
     if (body?.scope === 'at_risk') scope = 'at_risk'
@@ -63,6 +64,7 @@ export async function POST(req: Request) {
     }
     if (typeof body?.memberId === 'string' && body.memberId) memberId = body.memberId
     if (typeof body?.memberName === 'string' && body.memberName) memberName = body.memberName
+    if (body?.download === true) downloadOnly = true
   } catch {
     // defaults fine
   }
@@ -100,9 +102,18 @@ export async function POST(req: Request) {
         filterUserIds: effectiveFilterUserIds,
         threshold,
         memberName,
+        downloadOnly,
       },
       service,
     )
+
+    // Download mode: return HTML as text/html so browser can open it directly
+    if (downloadOnly && result.html) {
+      return new NextResponse(result.html, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      })
+    }
+
     return NextResponse.json(result)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

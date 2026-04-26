@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Send, RefreshCw, CheckCircle2, AlertTriangle, Users, Clock, X } from 'lucide-react'
+import { Send, RefreshCw, CheckCircle2, AlertTriangle, Users, Clock, X, Download } from 'lucide-react'
 import { Calendar } from '@/components/ui/calendar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { format, startOfWeek, endOfWeek, parseISO, formatDistanceToNow } from 'date-fns'
@@ -10,6 +10,7 @@ import { es } from 'date-fns/locale'
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'quarterly'
 type Scope      = 'team' | 'at_risk'
 type LoadState  = 'idle' | 'collecting' | 'analyzing' | 'sending' | 'done' | 'error'
+type DownloadState = 'idle' | 'loading' | 'done' | 'error'
 
 interface ReportRecord {
   id: string
@@ -20,10 +21,16 @@ interface ReportRecord {
   created_at: string
 }
 
-const STEPS: { state: LoadState; label: string }[] = [
+const STEPS_EMAIL: { state: LoadState; label: string }[] = [
   { state: 'collecting', label: 'Recopilando datos del equipo...' },
   { state: 'analyzing',  label: 'Analizando equipo con IA...'     },
   { state: 'sending',    label: 'Enviando al email...'            },
+]
+
+const STEPS_DOWNLOAD: { state: LoadState; label: string }[] = [
+  { state: 'collecting', label: 'Recopilando datos del equipo...' },
+  { state: 'analyzing',  label: 'Analizando equipo con IA...'     },
+  { state: 'sending',    label: 'Preparando PDF...'               },
 ]
 
 function parseApiError(raw: string): string {
@@ -116,9 +123,10 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
   )
 
   // Loading
-  const [loadState, setLoadState] = useState<LoadState>('idle')
-  const [errorMsg,  setErrorMsg]  = useState<string | null>(null)
-  const [sentTo,    setSentTo]    = useState<string | null>(null)
+  const [loadState,    setLoadState]    = useState<LoadState>('idle')
+  const [errorMsg,     setErrorMsg]     = useState<string | null>(null)
+  const [sentTo,       setSentTo]       = useState<string | null>(null)
+  const [downloadMode, setDownloadMode] = useState(false)
 
   // History
   const [reports, setReports] = useState<ReportRecord[]>([])
@@ -135,6 +143,8 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
 
   useEffect(() => { fetchHistory() }, [fetchHistory])
 
+  const STEPS = downloadMode ? STEPS_DOWNLOAD : STEPS_EMAIL
+
   // Step ticker
   useEffect(() => {
     if (loadState === 'idle' || loadState === 'done' || loadState === 'error') return
@@ -145,16 +155,29 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
       if (next) setLoadState(next.state)
     }, 3000)
     return () => clearTimeout(timer)
-  }, [loadState])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadState, downloadMode])
 
   function handleClose() {
     setOpen(false)
-    setTimeout(() => { setLoadState('idle'); setErrorMsg(null) }, 300)
+    setTimeout(() => { setLoadState('idle'); setErrorMsg(null); setDownloadMode(false) }, 300)
+  }
+
+  function buildRequestBody(extra?: Record<string, unknown>) {
+    const periodDate = getPeriodDate(periodType, selectedDate, selectedMonth, year, selectedQuarter)
+    const memberObj  = selectedMember !== 'all' ? members.find((m) => m.id === selectedMember) : null
+    return {
+      scope:       scope === 'at_risk' ? 'at_risk' : 'team',
+      period_type: periodType,
+      period_date: periodDate,
+      ...(showCompanyFilter && selectedCompany ? { company: selectedCompany } : {}),
+      ...(memberObj ? { memberId: memberObj.id, memberName: memberObj.name, memberEmail: memberObj.email } : {}),
+      ...extra,
+    }
   }
 
   async function handleGenerate() {
-    const periodDate    = getPeriodDate(periodType, selectedDate, selectedMonth, year, selectedQuarter)
-    const memberObj     = selectedMember !== 'all' ? members.find((m) => m.id === selectedMember) : null
+    setDownloadMode(false)
     setLoadState('collecting')
     setErrorMsg(null)
     setSentTo(null)
@@ -162,19 +185,42 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
       const res = await fetch('/api/reports/manual', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scope:       scope === 'at_risk' ? 'at_risk' : 'team',
-          period_type: periodType,
-          period_date: periodDate,
-          ...(showCompanyFilter && selectedCompany ? { company: selectedCompany } : {}),
-          ...(memberObj ? { memberId: memberObj.id, memberName: memberObj.name, memberEmail: memberObj.email } : {}),
-        }),
+        body: JSON.stringify(buildRequestBody()),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Error desconocido')
       setSentTo(json.sentTo)
       setLoadState('done')
       fetchHistory()
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Error generando reporte')
+      setLoadState('error')
+    }
+  }
+
+  async function handleDownload() {
+    setDownloadMode(true)
+    setLoadState('collecting')
+    setErrorMsg(null)
+    setSentTo(null)
+    try {
+      const res = await fetch('/api/reports/manual', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildRequestBody({ download: true })),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error((json as { error?: string }).error ?? 'Error generando reporte')
+      }
+      const html = await res.text()
+      // Open HTML in new tab — user can Ctrl+P / Cmd+P to save as PDF
+      const blob = new Blob([html], { type: 'text/html' })
+      const url  = URL.createObjectURL(blob)
+      const tab  = window.open(url, '_blank')
+      if (tab) tab.focus()
+      URL.revokeObjectURL(url)
+      setLoadState('done')
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Error generando reporte')
       setLoadState('error')
@@ -492,8 +538,17 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
                   <CheckCircle2 style={{ width: 22, height: 22, color: '#1D9E75', flexShrink: 0 }} />
                   <div>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: '#1D9E75', margin: 0 }}>Reporte enviado</p>
-                    {sentTo && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '3px 0 0' }}>a {sentTo}</p>}
+                    <p style={{ fontSize: 14, fontWeight: 600, color: '#1D9E75', margin: 0 }}>
+                      {downloadMode ? 'Reporte abierto en nueva pestaña' : 'Reporte enviado'}
+                    </p>
+                    {!downloadMode && sentTo && (
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '3px 0 0' }}>a {sentTo}</p>
+                    )}
+                    {downloadMode && (
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '3px 0 0' }}>
+                        Usa Ctrl+P / Cmd+P para guardar como PDF
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -519,9 +574,13 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
                   <button onClick={handleClose} style={{ fontSize: 13, padding: '8px 16px', borderRadius: 7, background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.45)', cursor: 'pointer', transition: 'all 0.15s' }} className="hover:border-white/25 hover:text-white/70">
                     Cancelar
                   </button>
+                  <button onClick={handleDownload} style={{ fontSize: 13, fontWeight: 600, padding: '8px 16px', borderRadius: 7, cursor: 'pointer', background: 'transparent', color: '#00D9FF', border: '1px solid rgba(0,217,255,0.35)', display: 'inline-flex', alignItems: 'center', gap: 7, transition: 'all 0.15s' }} className="hover:bg-[rgba(0,217,255,0.08)]">
+                    <Download style={{ width: 13, height: 13 }} />
+                    Descargar
+                  </button>
                   <button onClick={handleGenerate} style={{ fontSize: 13, fontWeight: 600, padding: '8px 20px', borderRadius: 7, cursor: 'pointer', background: '#00D9FF', color: '#0a0a0a', border: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, transition: 'opacity 0.15s' }} className="hover:opacity-85">
                     <Send style={{ width: 13, height: 13 }} />
-                    Enviar reporte →
+                    Enviar →
                   </button>
                 </>
               )}
