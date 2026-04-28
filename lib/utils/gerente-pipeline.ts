@@ -174,10 +174,28 @@ function buildWeekBuckets(startISO: string, endISO: string) {
 
 // ── Main fetch ────────────────────────────────────────────────────────────────
 
+/** Apply momentum scores from activity analytics onto an already-fetched pipeline.
+ *  Allows fetchTeamPipeline and fetchGerenteAnalytics to run in parallel. */
+export function mergeMomentumScores(
+  pipeline: TeamPipelineAnalytics,
+  activityReps: RepAnalytics[],
+): TeamPipelineAnalytics {
+  if (activityReps.length === 0) return pipeline
+  const actRepMap = Object.fromEntries(activityReps.map((r) => [r.userId, r]))
+  const byRep = pipeline.byRep.map((rep) => {
+    const actRep = actRepMap[rep.userId]
+    if (!actRep) return rep
+    const mScore = momentumScore(actRep, { wonCount: rep.wonCount, openCount: rep.openCount, winRate: rep.winRate })
+    return { ...rep, momentumScore: mScore, riskLevel: riskLevel(mScore) }
+  })
+  byRep.sort((a, b) => b.momentumScore - a.momentumScore)
+  return { ...pipeline, byRep }
+}
+
 export async function fetchTeamPipeline(
   service: SupabaseClient,
   userIds: string[],
-  activityReps: RepAnalytics[],
+  activityReps: RepAnalytics[] = [],
   startISO: string,
   endISO: string,
 ): Promise<TeamPipelineAnalytics> {

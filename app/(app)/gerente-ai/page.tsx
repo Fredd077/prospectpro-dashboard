@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { fetchGerenteAnalytics, presetRange } from '@/lib/utils/gerente-ai'
-import { fetchTeamPipeline } from '@/lib/utils/gerente-pipeline'
+import { fetchTeamPipeline, mergeMomentumScores } from '@/lib/utils/gerente-pipeline'
 import { TopBar } from '@/components/layout/TopBar'
 import { GerenteDashboard } from '@/components/gerente-ai/GerenteDashboard'
 import { PeriodFilter } from '@/components/gerente-ai/PeriodFilter'
@@ -70,9 +70,13 @@ export default async function GerenteAIPage({ searchParams }: Props) {
 
   const userIds = allReps.map((r) => r.id)
 
-  // Activity analytics first (needed for momentum scoring in pipeline)
-  const analytics = await fetchGerenteAnalytics(service, userIds, startISO, endISO)
-  const pipelineWithMomentum = await fetchTeamPipeline(service, userIds, analytics.reps, startISO, endISO)
+  // Run both fetches in parallel — pipeline DB queries don't depend on analytics
+  const [analytics, pipelineRaw] = await Promise.all([
+    fetchGerenteAnalytics(service, userIds, startISO, endISO),
+    fetchTeamPipeline(service, userIds, [], startISO, endISO),
+  ])
+  // Merge momentum scores after both resolve (needs analytics.reps)
+  const pipelineWithMomentum = mergeMomentumScores(pipelineRaw, analytics.reps)
 
   return (
     <div className="flex flex-col h-full">

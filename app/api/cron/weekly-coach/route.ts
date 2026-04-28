@@ -40,47 +40,48 @@ export async function GET(req: Request) {
     return Response.json({ error: error.message }, { status: 500 })
   }
 
-  let generated = 0, skipped = 0
+  const allUsers = users ?? []
+  const userIds  = allUsers.map((u) => u.id)
+
+  // ── Bulk pre-fetch all skip checks (2 queries instead of N×2) ─────────────
+  const [doneRes, logsRes] = await Promise.all([
+    sb.from('coach_messages').select('user_id').eq('type', 'weekly').eq('period_date', thisMonday).in('user_id', userIds),
+    sb.from('activity_logs').select('user_id,log_date').gte('log_date', thisMonday).lte('log_date', today).in('user_id', userIds),
+  ])
+
+  const alreadyDone = new Set((doneRes.data ?? []).map((r) => r.user_id))
+  const daysByUser  = new Map<string, Set<string>>()
+  for (const log of logsRes.data ?? []) {
+    if (!daysByUser.has(log.user_id)) daysByUser.set(log.user_id, new Set())
+    daysByUser.get(log.user_id)!.add(log.log_date as string)
+  }
+
+  const eligible = allUsers.filter((u) =>
+    !alreadyDone.has(u.id) && (daysByUser.get(u.id)?.size ?? 0) >= 2
+  )
+
+  let generated = 0
+  const skipped = allUsers.length - eligible.length
   const errors: string[] = []
 
-  for (const user of users ?? []) {
-    try {
-      // Skip if already generated for this Monday
-      const { data: existing } = await sb
-        .from('coach_messages')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('type', 'weekly')
-        .eq('period_date', thisMonday)
-        .maybeSingle()
-
-      if (existing) { skipped++; continue }
-
-      // Skip if fewer than 2 check-in days this week
-      const { data: checkInDays } = await sb
-        .from('activity_logs')
-        .select('log_date')
-        .eq('user_id', user.id)
-        .gte('log_date', thisMonday)
-        .lte('log_date', today)
-
-      const uniqueDays = new Set((checkInDays ?? []).map((l) => l.log_date)).size
-      if (uniqueDays < 2) { skipped++; continue }
-
-      const ctx = await buildWeeklyContextForCron(user.id, thisMonday, sb)
-      const result = await generateAndSaveCoachMessage(ctx, 'weekly', thisMonday, sb)
-
-      if (result.id) {
-        await sb.from('coach_messages').update({ user_id: user.id } as never).eq('id', result.id)
+  const BATCH_SIZE = 5
+  for (let i = 0; i < eligible.length; i += BATCH_SIZE) {
+    const batch = eligible.slice(i, i + BATCH_SIZE)
+    await Promise.all(batch.map(async (user) => {
+      try {
+        const ctx    = await buildWeeklyContextForCron(user.id, thisMonday, sb)
+        const result = await generateAndSaveCoachMessage(ctx, 'weekly', thisMonday, sb)
+        if (result.id) {
+          await sb.from('coach_messages').update({ user_id: user.id } as never).eq('id', result.id)
+        }
+        generated++
+        console.log(`[cron/weekly-coach] Generated for ${user.id} (${user.full_name ?? 'unknown'})`)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        errors.push(`${user.id}: ${msg}`)
+        console.error(`[cron/weekly-coach] Error for ${user.id}:`, msg)
       }
-
-      generated++
-      console.log(`[cron/weekly-coach] Generated for user ${user.id} (${user.full_name ?? 'unknown'})`)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      errors.push(`${user.id}: ${msg}`)
-      console.error(`[cron/weekly-coach] Error for user ${user.id}:`, msg)
-    }
+    }))
   }
 
   const summary = { date: today, weekStart: thisMonday, generated, skipped, errors: errors.length ? errors : undefined }

@@ -1,35 +1,27 @@
-import { startOfWeek, parseISO } from 'date-fns'
+import { parseISO } from 'date-fns'
 import { getSupabaseServiceClient } from '@/lib/supabase/server'
-import { todayISO, toISODate } from '@/lib/utils/dates'
+import { todayISO } from '@/lib/utils/dates'
 import { buildDailyContextForCron } from '@/lib/utils/coach-context'
 import { generateAndSaveCoachMessage } from '@/lib/utils/coach-generator'
 
-export const maxDuration = 300 // Vercel Pro: up to 5 min for batch jobs
+export const maxDuration = 300
+
+const BATCH_SIZE = 5
 
 export async function GET(req: Request) {
-  // ── Auth ────────────────────────────────────────────────────────────────────
   const auth = req.headers.get('authorization') ?? ''
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const sb   = getSupabaseServiceClient()
+  const sb    = getSupabaseServiceClient()
   const today = todayISO()
 
-  // Solo ejecutar de lunes a viernes (Colombia UTC-5)
-  // parseISO(today) es seguro porque todayISO() ya devuelve la fecha
-  // correcta en timezone Colombia — getDay(): 0=Dom, 1=Lun, ..., 6=Sáb
   const dayOfWeek = parseISO(today).getDay()
   if (dayOfWeek === 0 || dayOfWeek === 6) {
-    return Response.json({
-      skipped: true,
-      reason: 'Weekend — daily coach only runs Mon–Fri',
-      today,
-      dayOfWeek,
-    })
+    return Response.json({ skipped: true, reason: 'Weekend — daily coach only runs Mon–Fri', today, dayOfWeek })
   }
 
-  // ── Fetch all active users ──────────────────────────────────────────────────
   const { data: users, error } = await sb
     .from('profiles')
     .select('id,full_name')
@@ -40,65 +32,49 @@ export async function GET(req: Request) {
     return Response.json({ error: error.message }, { status: 500 })
   }
 
-  let generated = 0, skipped = 0
+  const allUsers = users ?? []
+  const userIds  = allUsers.map((u) => u.id)
+
+  // ── Bulk pre-fetch all skip checks (3 queries instead of N×3) ─────────────
+  const [doneRes, actRes, logRes] = await Promise.all([
+    sb.from('coach_messages').select('user_id').eq('type', 'daily').eq('period_date', today).in('user_id', userIds),
+    sb.from('activities').select('user_id').eq('status', 'active').in('user_id', userIds),
+    sb.from('activity_logs').select('user_id').eq('log_date', today).in('user_id', userIds),
+  ])
+
+  const alreadyDone   = new Set((doneRes.data   ?? []).map((r) => r.user_id))
+  const hasActivities = new Set((actRes.data     ?? []).map((r) => r.user_id))
+  const loggedToday   = new Set((logRes.data     ?? []).map((r) => r.user_id))
+
+  const eligible = allUsers.filter((u) =>
+    !alreadyDone.has(u.id) && hasActivities.has(u.id) && loggedToday.has(u.id)
+  )
+
+  let generated = 0
+  const skipped = allUsers.length - eligible.length
   const errors: string[] = []
 
-  for (const user of users ?? []) {
-    try {
-      // Skip if already generated for today
-      const { data: existing } = await sb
-        .from('coach_messages')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('type', 'daily')
-        .eq('period_date', today)
-        .maybeSingle()
-
-      if (existing) { skipped++; continue }
-
-      // Skip if no active activities
-      const { count: actCount } = await sb
-        .from('activities')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-
-      if (!actCount || actCount === 0) { skipped++; continue }
-
-      // Skip if no logs today
-      const { count: logCount } = await sb
-        .from('activity_logs')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('log_date', today)
-
-      if (!logCount || logCount === 0) { skipped++; continue }
-
-      const ctx = await buildDailyContextForCron(user.id, today, sb)
-
-      // Insert with explicit user_id (service client bypasses RLS)
-      const result = await generateAndSaveCoachMessage(ctx, 'daily', today, sb)
-
-      // Fix user_id on the saved row (generateAndSaveCoachMessage uses DEFAULT auth.uid() which is null for service client)
-      if (result.id) {
-        await sb.from('coach_messages').update({ user_id: user.id } as never).eq('id', result.id)
+  // ── Process in batches of BATCH_SIZE ──────────────────────────────────────
+  for (let i = 0; i < eligible.length; i += BATCH_SIZE) {
+    const batch = eligible.slice(i, i + BATCH_SIZE)
+    await Promise.all(batch.map(async (user) => {
+      try {
+        const ctx    = await buildDailyContextForCron(user.id, today, sb)
+        const result = await generateAndSaveCoachMessage(ctx, 'daily', today, sb)
+        if (result.id) {
+          await sb.from('coach_messages').update({ user_id: user.id } as never).eq('id', result.id)
+        }
+        generated++
+        console.log(`[cron/daily-coach] Generated for ${user.id} (${user.full_name ?? 'unknown'})`)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        errors.push(`${user.id}: ${msg}`)
+        console.error(`[cron/daily-coach] Error for ${user.id}:`, msg)
       }
-
-      generated++
-      console.log(`[cron/daily-coach] Generated for user ${user.id} (${user.full_name ?? 'unknown'})`)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      errors.push(`${user.id}: ${msg}`)
-      console.error(`[cron/daily-coach] Error for user ${user.id}:`, msg)
-    }
+    }))
   }
 
-  const summary = {
-    date: today,
-    generated,
-    skipped,
-    errors: errors.length ? errors : undefined,
-  }
+  const summary = { date: today, generated, skipped, errors: errors.length ? errors : undefined }
   console.log('[cron/daily-coach]', JSON.stringify(summary))
   return Response.json(summary)
 }
