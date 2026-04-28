@@ -4,8 +4,7 @@
  * Falls back to hardcoded defaults if DB record doesn't exist yet.
  * In-memory cache with 5-minute TTL to avoid a DB round-trip on every request.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseClient = any
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { COACH_SYSTEM_PROMPT } from './coach-prompt'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -186,7 +185,7 @@ export async function getAiConfig(
   if (!defaults) throw new Error(`Unknown AI config section: ${sectionKey}`)
 
   try {
-    const { data } = await service
+    const { data } = await (service as any)
       .from('ai_prompt_configs')
       .select('*')
       .eq('section_key', sectionKey)
@@ -237,12 +236,12 @@ export function buildSystemPrompt(config: AiConfig, dataContext?: string): strin
 
 /** Fetch all section configs (for the admin editor). */
 export async function getAllAiConfigs(service: SupabaseClient): Promise<AiConfig[]> {
-  const { data } = await service
+  const { data } = await (service as any)
     .from('ai_prompt_configs')
     .select('*')
     .order('section_key')
 
-  const dbMap = new Map((data ?? []).map((r: any) => [r.section_key, r]))
+  const dbMap = new Map<string, any>((data ?? []).map((r: any) => [r.section_key as string, r]))
 
   return AI_SECTIONS.map(({ key }) => {
     const defaults = AI_CONFIG_DEFAULTS[key]!
