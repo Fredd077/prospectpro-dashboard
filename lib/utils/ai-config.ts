@@ -5,7 +5,7 @@
  * In-memory cache with 5-minute TTL to avoid a DB round-trip on every request.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { COACH_SYSTEM_PROMPT } from './coach-generator'
+import { COACH_SYSTEM_PROMPT } from './coach-prompt'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
