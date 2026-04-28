@@ -4,7 +4,8 @@
  * Falls back to hardcoded defaults if DB record doesn't exist yet.
  * In-memory cache with 5-minute TTL to avoid a DB round-trip on every request.
  */
-import type { SupabaseClient } from '@supabase/supabase-js'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClient = any
 import { COACH_SYSTEM_PROMPT } from './coach-prompt'
 
 // ── Types ─────────────────────────────────────────────────────────────────────

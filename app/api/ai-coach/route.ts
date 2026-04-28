@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   const service = getSupabaseServiceClient()
   const today   = todayISO()
 
-  const coachConfig   = await getAiConfig('coach', service)
+  const coachConfig   = await getAiConfig('coach', service as any)
   const systemPrompt  = buildSystemPrompt(coachConfig)
 
   // Cache key: always the "generation Monday" for weekly, first of month for monthly, today for daily

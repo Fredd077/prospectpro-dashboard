@@ -14,7 +14,7 @@ export default async function AiConfigPage() {
   const { data: profile } = await sb.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin') redirect('/admin')
 
-  const service = getSupabaseServiceClient()
+  const service = getSupabaseServiceClient() as any
   const configs = await getAllAiConfigs(service)
 
   return (

@@ -19,7 +19,7 @@ export async function GET() {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const service = getSupabaseServiceClient()
+  const service = getSupabaseServiceClient() as any
   const configs = await getAllAiConfigs(service)
   return NextResponse.json({ configs })
 }
@@ -49,7 +49,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: `Invalid tone: ${tone}` }, { status: 400 })
   }
 
-  const service = getSupabaseServiceClient()
+  const service = getSupabaseServiceClient() as any
   const section = AI_SECTIONS.find((s) => s.key === sectionKey)!
 
   const payload = {
@@ -88,7 +88,7 @@ export async function DELETE(req: Request) {
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
   const sectionKey = String(body.section_key ?? '')
-  const service = getSupabaseServiceClient()
+  const service = getSupabaseServiceClient() as any
 
   await service.from('ai_prompt_configs').delete().eq('section_key', sectionKey)
   invalidateAiConfigCache(sectionKey)

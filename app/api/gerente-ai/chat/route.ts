@@ -63,7 +63,7 @@ export async function POST(req: Request) {
   const actContext      = buildGerenteContext(analytics, isManager ? profile!.company ?? undefined : undefined)
   const pipelineContext = buildPipelineContext(pipeline)
 
-  const config = await getAiConfig('gerente_chat', service)
+  const config = await getAiConfig('gerente_chat', service as any)
   const dataContext = `${actContext}\n\n${pipelineContext}`
   const systemPrompt = buildSystemPrompt(config, dataContext)
 
