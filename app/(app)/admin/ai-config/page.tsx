@@ -23,7 +23,7 @@ export default async function AiConfigPage() {
         title="Configuración AI"
         description="Personaliza los prompts y parámetros de cada sección de IA"
       />
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-y-auto p-6">
         <AiConfigEditor initialConfigs={configs} />
       </div>
     </div>

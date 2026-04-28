@@ -142,11 +142,11 @@ export function AiConfigEditor({ initialConfigs }: Props) {
   ].filter(Boolean).join('\n\n')
 
   return (
-    <div className="flex gap-6 h-full min-h-0">
+    <div className="flex gap-8 items-start">
 
       {/* ── Section tabs (left) ───────────────────────────────────────── */}
-      <div className="w-56 shrink-0 space-y-1">
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/30 px-2 mb-3">Secciones</p>
+      <div className="w-64 shrink-0 space-y-1.5 sticky top-0">
+        <p className="text-xs font-bold uppercase tracking-[0.15em] text-white/30 px-2 mb-4">Secciones</p>
         {AI_SECTIONS.map((section) => {
           const Icon    = SECTION_ICONS[section.key] ?? Settings2
           const conf    = configs[section.key]
@@ -155,17 +155,17 @@ export function AiConfigEditor({ initialConfigs }: Props) {
           return (
             <button key={section.key} onClick={() => setActiveSection(section.key)}
               className={cn(
-                'w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-all border',
+                'w-full flex items-start gap-3 px-4 py-3 rounded-lg text-left transition-all border',
                 isActive
                   ? 'border-cyan-400/30 bg-cyan-400/10 text-white'
                   : 'border-white/[0.06] bg-white/[0.02] text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
               )}
             >
-              <Icon className={cn('h-4 w-4 mt-0.5 shrink-0', isActive ? 'text-cyan-400' : '')} />
+              <Icon className={cn('h-5 w-5 mt-0.5 shrink-0', isActive ? 'text-cyan-400' : '')} />
               <div className="min-w-0">
-                <p className={cn('text-[11px] font-bold leading-tight', isActive ? 'text-white' : '')}>{section.displayName}</p>
+                <p className={cn('text-sm font-bold leading-tight', isActive ? 'text-white' : '')}>{section.displayName}</p>
                 {hasCustom && (
-                  <span className="text-[8px] font-bold uppercase tracking-wider text-emerald-400 mt-0.5 block">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mt-1 block">
                     · Personalizado
                   </span>
                 )}
@@ -179,103 +179,103 @@ export function AiConfigEditor({ initialConfigs }: Props) {
       <div className="flex-1 min-w-0 space-y-5">
 
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              {(() => { const Icon = SECTION_ICONS[activeSection] ?? Settings2; return <Icon className="h-5 w-5 text-cyan-400" /> })()}
-              <h2 className="text-base font-black text-white">{current.displayName}</h2>
+            <div className="flex items-center gap-2.5">
+              {(() => { const Icon = SECTION_ICONS[activeSection] ?? Settings2; return <Icon className="h-6 w-6 text-cyan-400" /> })()}
+              <h2 className="text-xl font-black text-white">{current.displayName}</h2>
               {current.updatedAt && (
-                <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 px-2 py-0.5 rounded border border-emerald-400/30 bg-emerald-400/10">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 px-2.5 py-1 rounded border border-emerald-400/30 bg-emerald-400/10">
                   Personalizado
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-white/40 mt-0.5">{current.description}</p>
+            <p className="text-sm text-white/40 mt-1">{current.description}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button onClick={handleReset} disabled={!!resetting || !current.updatedAt}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-white/[0.08] text-[10px] font-bold uppercase tracking-wider text-white/30 hover:text-white/60 hover:border-white/20 disabled:opacity-30 transition-all">
-              {resetting === activeSection ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+              className="flex items-center gap-2 px-4 py-2 rounded border border-white/[0.08] text-xs font-bold uppercase tracking-wider text-white/40 hover:text-white/70 hover:border-white/20 disabled:opacity-30 transition-all">
+              {resetting === activeSection ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
               Restaurar
             </button>
             <button onClick={handleSave} disabled={!!saving}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded border border-cyan-400/40 bg-cyan-400/10 text-[10px] font-black uppercase tracking-wider text-cyan-300 hover:bg-cyan-400/20 disabled:opacity-50 transition-all shadow-[0_0_12px_rgba(34,211,238,0.1)]">
-              {saving === activeSection ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              className="flex items-center gap-2 px-5 py-2 rounded border border-cyan-400/40 bg-cyan-400/10 text-xs font-black uppercase tracking-wider text-cyan-300 hover:bg-cyan-400/20 disabled:opacity-50 transition-all shadow-[0_0_12px_rgba(34,211,238,0.1)]">
+              {saving === activeSection ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Guardar
             </button>
           </div>
         </div>
 
         {/* ── Tone selector ──────────────────────────────────────────── */}
-        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Type className="h-3.5 w-3.5 text-violet-400" />
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/50">Tonalidad de respuesta</p>
+        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Type className="h-4 w-4 text-violet-400" />
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-white/50">Tonalidad de respuesta</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2.5">
             {TONES.map((t) => (
               <button key={t.value} onClick={() => patch('tone', t.value)}
                 className={cn(
-                  'flex flex-col items-start px-3 py-2 rounded border text-left transition-all',
+                  'flex flex-col items-start px-4 py-2.5 rounded border text-left transition-all',
                   current.tone === t.value ? t.color : 'border-white/[0.08] text-white/30 hover:border-white/20 hover:text-white/60 bg-transparent',
                 )}>
-                <span className="text-[10px] font-black">{t.label}</span>
-                <span className="text-[8px] opacity-70">{t.description}</span>
+                <span className="text-xs font-black">{t.label}</span>
+                <span className="text-[11px] opacity-70 mt-0.5">{t.description}</span>
               </button>
             ))}
           </div>
         </div>
 
         {/* ── Max tokens ────────────────────────────────────────────── */}
-        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] p-4">
-          <div className="flex items-center justify-between mb-3">
+        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] p-5">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Sliders className="h-3.5 w-3.5 text-amber-400" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/50">Tokens máximos de respuesta</p>
+              <Sliders className="h-4 w-4 text-amber-400" />
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-white/50">Tokens máximos de respuesta</p>
             </div>
-            <span className="text-xl font-black font-mono text-amber-400">{current.maxTokens}</span>
+            <span className="text-2xl font-black font-mono text-amber-400">{current.maxTokens}</span>
           </div>
           <input type="range" min={100} max={4000} step={50}
             value={current.maxTokens}
             onChange={(e) => patch('maxTokens', Number(e.target.value))}
-            className="w-full h-1 rounded-full appearance-none bg-white/10 cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-400 [&::-webkit-slider-thumb]:cursor-pointer mb-3"
+            className="w-full h-1.5 rounded-full appearance-none bg-white/10 cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-400 [&::-webkit-slider-thumb]:cursor-pointer mb-4"
           />
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2.5">
             {MAX_TOKENS_PRESETS.map((p) => (
               <button key={p.value} onClick={() => patch('maxTokens', p.value)}
                 className={cn(
-                  'flex flex-col items-start px-2.5 py-1.5 rounded border text-[9px] transition-all',
+                  'flex flex-col items-start px-3 py-2 rounded border transition-all',
                   current.maxTokens === p.value
                     ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
                     : 'border-white/[0.08] text-white/30 hover:border-white/20 hover:text-white/60'
                 )}>
-                <span className="font-black font-mono">{p.label}</span>
-                <span className="opacity-60">{p.hint}</span>
+                <span className="text-xs font-black font-mono">{p.label}</span>
+                <span className="text-[11px] opacity-60 mt-0.5">{p.hint}</span>
               </button>
             ))}
           </div>
 
           {/* Coach per-frequency tokens */}
           {activeSection === 'coach' && (
-            <div className="mt-4 pt-4 border-t border-white/[0.06]">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-white/30 mb-3">
+            <div className="mt-5 pt-5 border-t border-white/[0.06]">
+              <p className="text-xs font-bold uppercase tracking-wider text-white/30 mb-3">
                 Tokens por frecuencia de reporte
               </p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-4">
                 {[
                   { key: 'daily_tokens',   label: 'Diario',   default: 300  },
                   { key: 'weekly_tokens',  label: 'Semanal',  default: 500  },
                   { key: 'monthly_tokens', label: 'Mensual',  default: 800  },
                 ].map(({ key, label, default: def }) => (
-                  <div key={key} className="rounded bg-white/[0.03] border border-white/[0.06] p-2.5">
-                    <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider mb-1.5">{label}</p>
+                  <div key={key} className="rounded bg-white/[0.03] border border-white/[0.06] p-3">
+                    <p className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">{label}</p>
                     <input
                       type="number" min={100} max={4000} step={50}
                       value={Number(current.settings[key] ?? def)}
                       onChange={(e) => patchSettings(key, Number(e.target.value))}
-                      className="w-full bg-transparent border-b border-white/10 text-amber-400 font-black font-mono text-base focus:outline-none focus:border-amber-400/50 pb-0.5"
+                      className="w-full bg-transparent border-b border-white/10 text-amber-400 font-black font-mono text-lg focus:outline-none focus:border-amber-400/50 pb-1"
                     />
-                    <p className="text-[8px] text-white/20 mt-1">tokens</p>
+                    <p className="text-xs text-white/25 mt-1.5">tokens</p>
                   </div>
                 ))}
               </div>
@@ -284,18 +284,18 @@ export function AiConfigEditor({ initialConfigs }: Props) {
         </div>
 
         {/* ── System prompt ─────────────────────────────────────────── */}
-        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] p-4">
-          <div className="flex items-center justify-between mb-3">
+        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] p-5">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Zap className="h-3.5 w-3.5 text-cyan-400" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/50">System prompt</p>
+              <Zap className="h-4 w-4 text-cyan-400" />
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-white/50">System prompt</p>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[9px] font-mono text-white/25">
+            <div className="flex items-center gap-4">
+              <span className="text-xs font-mono text-white/30">
                 {current.systemPrompt.length.toLocaleString()} caracteres
               </span>
               <button onClick={() => patch('systemPrompt', defaults.systemPrompt)}
-                className="text-[9px] text-white/25 hover:text-white/50 underline transition-colors">
+                className="text-xs text-white/30 hover:text-white/60 underline transition-colors">
                 Restaurar default
               </button>
             </div>
@@ -303,48 +303,48 @@ export function AiConfigEditor({ initialConfigs }: Props) {
           <textarea
             value={current.systemPrompt}
             onChange={(e) => patch('systemPrompt', e.target.value)}
-            rows={16}
+            rows={18}
             spellCheck={false}
-            className="w-full rounded bg-[#080b12] border border-white/[0.06] px-3 py-2.5 text-[11px] font-mono text-white/70 placeholder-white/20 focus:outline-none focus:border-cyan-400/30 resize-y leading-relaxed"
+            className="w-full rounded bg-[#080b12] border border-white/[0.06] px-4 py-3 text-sm font-mono text-white/70 placeholder-white/20 focus:outline-none focus:border-cyan-400/30 resize-y leading-relaxed"
             placeholder="Ingresa las instrucciones del sistema para este módulo de IA..."
           />
-          <div className="flex items-start gap-2 mt-2">
-            <Info className="h-3 w-3 text-white/20 shrink-0 mt-0.5" />
-            <p className="text-[9px] text-white/25">
+          <div className="flex items-start gap-2 mt-3">
+            <Info className="h-3.5 w-3.5 text-white/20 shrink-0 mt-0.5" />
+            <p className="text-xs text-white/30">
               El contexto de datos (actividades, pipeline, métricas) se inyecta automáticamente. Este prompt define la personalidad, estilo y reglas de comportamiento del AI.
             </p>
           </div>
         </div>
 
         {/* ── Extra instructions ────────────────────────────────────── */}
-        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Settings2 className="h-3.5 w-3.5 text-emerald-400" />
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/50">Instrucciones adicionales</p>
-            <span className="text-[8px] text-white/20 ml-1">(se agregan al final del system prompt)</span>
+        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings2 className="h-4 w-4 text-emerald-400" />
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-white/50">Instrucciones adicionales</p>
+            <span className="text-xs text-white/25 ml-1">(se agregan al final del system prompt)</span>
           </div>
           <textarea
             value={current.extraInstructions}
             onChange={(e) => patch('extraInstructions', e.target.value)}
-            rows={4}
+            rows={5}
             placeholder="Ejemplo: Menciona siempre el nombre de la empresa. No uses emojis. Formato bullet points..."
-            className="w-full rounded bg-[#080b12] border border-white/[0.06] px-3 py-2.5 text-[11px] font-mono text-white/70 placeholder-white/20 focus:outline-none focus:border-emerald-400/30 resize-y leading-relaxed"
+            className="w-full rounded bg-[#080b12] border border-white/[0.06] px-4 py-3 text-sm font-mono text-white/70 placeholder-white/20 focus:outline-none focus:border-emerald-400/30 resize-y leading-relaxed"
           />
         </div>
 
         {/* ── Preview prompt ────────────────────────────────────────── */}
         <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] overflow-hidden">
           <button onClick={() => setShowPreview((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-white/40 hover:text-white/70 hover:bg-white/[0.02] transition-all">
+            className="w-full flex items-center justify-between px-5 py-4 text-xs font-bold uppercase tracking-[0.12em] text-white/40 hover:text-white/70 hover:bg-white/[0.02] transition-all">
             <span className="flex items-center gap-2">
-              <Info className="h-3.5 w-3.5" />
+              <Info className="h-4 w-4" />
               Vista previa del prompt completo
             </span>
-            {showPreview ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {showPreview ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
           {showPreview && (
-            <div className="border-t border-white/[0.06] px-4 py-3">
-              <pre className="text-[10px] font-mono text-white/40 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+            <div className="border-t border-white/[0.06] px-5 py-4">
+              <pre className="text-xs font-mono text-white/40 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto">
                 {previewPrompt}
               </pre>
             </div>
@@ -353,7 +353,7 @@ export function AiConfigEditor({ initialConfigs }: Props) {
 
         {/* Metadata */}
         {current.updatedAt && (
-          <p className="text-[9px] text-white/20 font-mono text-right">
+          <p className="text-xs text-white/25 font-mono text-right pb-4">
             Última modificación: {new Date(current.updatedAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}
           </p>
         )}
@@ -362,7 +362,7 @@ export function AiConfigEditor({ initialConfigs }: Props) {
       {/* ── Toast ─────────────────────────────────────────────────────── */}
       {toast && (
         <div className={cn(
-          'fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-lg border px-4 py-3 text-[11px] font-bold shadow-xl transition-all',
+          'fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-lg border px-4 py-3 text-sm font-bold shadow-xl transition-all',
           toast.type === 'ok'
             ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
             : 'border-red-400/30 bg-red-400/10 text-red-300'
