@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { startOfWeek, startOfMonth, subWeeks, parseISO } from 'date-fns'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { todayISO, toISODate } from '@/lib/utils/dates'
 import {
   buildDailyContext,
@@ -8,28 +8,35 @@ import {
   buildMonthlyContext,
   formatContextForPrompt,
 } from '@/lib/utils/coach-context'
-import { COACH_SYSTEM_PROMPT } from '@/lib/utils/coach-generator'
+import { getAiConfig, buildSystemPrompt } from '@/lib/utils/ai-config'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-// Detect if the response needs extended tokens (summary/confirmation/monthly)
-function maxTokensForType(type: string, messages?: { role: string; content: string }[]): number {
-  if (type === 'monthly') return 500
-  if (type === 'weekly')  return 300
-  // For daily: check if last user message is a confirmation to save
+function maxTokensForType(
+  type: string,
+  settings: Record<string, unknown>,
+  messages?: { role: string; content: string }[],
+): number {
+  if (type === 'monthly') return Number(settings.monthly_tokens ?? 500)
+  if (type === 'weekly')  return Number(settings.weekly_tokens  ?? 300)
+  // For daily: extend tokens if user is confirming to save
   const lastUser = messages && [...messages].reverse().find((m) => m.role === 'user')
   if (lastUser) {
     const confirmWords = ['sí', 'si', 'guardar', 'guarda', 'confirmo', 'dale', 'ok', 'listo', 'yes', 'claro', 'adelante']
     if (confirmWords.some((w) => lastUser.content.toLowerCase().includes(w))) return 1024
   }
-  return 300
+  return Number(settings.daily_tokens ?? 300)
 }
 
 export async function POST(req: Request) {
   const { type } = await req.json() as { type: 'daily' | 'weekly' | 'monthly' }
 
-  const sb    = await getSupabaseServerClient()
-  const today = todayISO()
+  const sb      = await getSupabaseServerClient()
+  const service = getSupabaseServiceClient()
+  const today   = todayISO()
+
+  const coachConfig   = await getAiConfig('coach', service)
+  const systemPrompt  = buildSystemPrompt(coachConfig)
 
   // Cache key: always the "generation Monday" for weekly, first of month for monthly, today for daily
   const todayDate  = parseISO(today)
@@ -89,10 +96,10 @@ export async function POST(req: Request) {
         // ── Call Claude ─────────────────────────────────────────────────────
         let fullText = ''
         const claudeStream = client.messages.stream({
-          model: 'claude-sonnet-4-6',
-          max_tokens: maxTokensForType(type),
-          system: COACH_SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userContent }],
+          model:      'claude-sonnet-4-6',
+          max_tokens: maxTokensForType(type, coachConfig.settings),
+          system:     systemPrompt,
+          messages:   [{ role: 'user', content: userContent }],
         })
 
         for await (const event of claudeStream) {
