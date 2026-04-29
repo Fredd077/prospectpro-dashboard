@@ -19,9 +19,9 @@ interface Sections {
 
 function parseSections(raw: string): Partial<Sections> {
   const result: Partial<Sections> = {}
-  const sitMatch  = raw.match(/SITUACI[ÓO]N:\s*(.+?)(?=PIPELINE:|RECOMENDACI[ÓO]N:|$)/si)
-  const pipMatch  = raw.match(/PIPELINE:\s*(.+?)(?=SITUACI[ÓO]N:|RECOMENDACI[ÓO]N:|$)/si)
-  const recMatch  = raw.match(/RECOMENDACI[ÓO]N:\s*(.+?)$/si)
+  const sitMatch  = raw.match(/SITUACI[ÓO]N:\s*([^\n]+)/i)
+  const pipMatch  = raw.match(/PIPELINE:\s*([^\n]+)/i)
+  const recMatch  = raw.match(/RECOMENDACI[ÓO]N:\s*([^\n]+)/i)
   if (sitMatch?.[1]?.trim()) result.situacion     = sitMatch[1].trim()
   if (pipMatch?.[1]?.trim()) result.pipeline      = pipMatch[1].trim()
   if (recMatch?.[1]?.trim()) result.recomendacion = recMatch[1].trim()
