@@ -142,7 +142,7 @@ export function GerenteInsight({ startISO, endISO, selectedRepIds, allReps }: Pr
 
           {/* CTA when dirty (filters changed or never generated) */}
           {dirty && !loading && (
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-4 py-2">
               <p className="text-[11px] text-white/35 italic">
                 {hasContent ? 'Los filtros cambiaron — el análisis anterior ya no aplica.' : 'Genera un análisis de IA sobre el período y alcance seleccionados.'}
               </p>
