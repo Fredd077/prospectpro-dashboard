@@ -34,7 +34,7 @@ export function SidebarUserSection({ fullName, email, avatarUrl }: SidebarUserSe
     setLoading(true)
     const sb = getSupabaseBrowserClient()
     await sb.auth.signOut()
-    router.push('/login')
+    router.push('/')
     router.refresh()
   }
 
