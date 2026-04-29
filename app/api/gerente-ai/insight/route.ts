@@ -87,11 +87,11 @@ export async function POST(req: Request) {
     ? 'el equipo completo'
     : repNames.length === 1
       ? repNames[0]
-      : `${repNames.slice(0, -1).join(', ')} y ${repNames.at(-1)}`
+      : `los ${repNames.length} vendedores seleccionados`
 
   const insightPrompt = `${buildSystemPrompt(config)}
 
-Genera un análisis ejecutivo narrativo en español sobre el desempeño comercial.
+Genera un análisis ejecutivo estructurado en español sobre el desempeño comercial.
 
 PERÍODO: ${period}
 ALCANCE: ${scopeDesc}
@@ -100,12 +100,16 @@ ${actContext}
 
 ${pipelineContext}
 
-INSTRUCCIONES ESTRICTAS:
-- Comienza exactamente con: "Este reporte corresponde a ${scopeDesc} durante ${period}."
-- Segunda oración: el hallazgo más crítico (positivo o negativo), con número concreto
-- Tercera oración: identifica el cuello de botella o fortaleza principal en pipeline
-- Cuarta oración: UNA recomendación accionable específica y medible
-- Máximo 4 oraciones. Sin markdown, sin bullets, solo texto corrido.
+INSTRUCCIONES ESTRICTAS — responde EXACTAMENTE en este formato, sin ningún texto adicional antes ni después:
+
+SITUACIÓN: [Una oración con el hallazgo más crítico (positivo o negativo) con número concreto. Empieza con "${scopeDesc === 'el equipo completo' ? 'El equipo' : scopeDesc}"]
+PIPELINE: [Una oración sobre el cuello de botella o fortaleza principal del pipeline con número concreto]
+RECOMENDACIÓN: [Una acción específica, medible y accionable para la próxima semana]
+
+Reglas:
+- Cada sección: exactamente una oración
+- Sin markdown, sin bullets, sin texto extra fuera de los tres bloques
+- Números concretos obligatorios en SITUACIÓN y PIPELINE
 - Si el alcance es una persona, usa su nombre. Si es equipo, usa "el equipo"`
 
   const stream = await client.messages.create({

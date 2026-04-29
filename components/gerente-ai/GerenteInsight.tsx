@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { BrainCircuit, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { BrainCircuit, RefreshCw, ChevronDown, ChevronUp, TrendingUp, GitBranch, Zap, Play } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -11,13 +11,41 @@ interface Props {
   allReps:        { id: string; name: string; email: string }[]
 }
 
+interface Sections {
+  situacion:     string
+  pipeline:      string
+  recomendacion: string
+}
+
+function parseSections(raw: string): Partial<Sections> {
+  const result: Partial<Sections> = {}
+  const sitMatch  = raw.match(/SITUACI[ÓO]N:\s*(.+?)(?=PIPELINE:|RECOMENDACI[ÓO]N:|$)/si)
+  const pipMatch  = raw.match(/PIPELINE:\s*(.+?)(?=SITUACI[ÓO]N:|RECOMENDACI[ÓO]N:|$)/si)
+  const recMatch  = raw.match(/RECOMENDACI[ÓO]N:\s*(.+?)$/si)
+  if (sitMatch?.[1]?.trim()) result.situacion     = sitMatch[1].trim()
+  if (pipMatch?.[1]?.trim()) result.pipeline      = pipMatch[1].trim()
+  if (recMatch?.[1]?.trim()) result.recomendacion = recMatch[1].trim()
+  return result
+}
+
+const SECTION_META = [
+  { key: 'situacion'    as const, label: 'Situación',     Icon: TrendingUp, color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   border: 'border-cyan-500/20'   },
+  { key: 'pipeline'     as const, label: 'Pipeline',      Icon: GitBranch,  color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
+  { key: 'recomendacion'as const, label: 'Recomendación', Icon: Zap,        color: 'text-amber-400',  bg: 'bg-amber-500/10',  border: 'border-amber-500/20'  },
+]
+
 export function GerenteInsight({ startISO, endISO, selectedRepIds, allReps }: Props) {
-  const [text,       setText]       = useState('')
+  const [rawText,    setRawText]    = useState('')
   const [loading,    setLoading]    = useState(false)
   const [collapsed,  setCollapsed]  = useState(false)
-  const [generated,  setGenerated]  = useState(false)
+  const [dirty,      setDirty]      = useState(false)
   const abortRef = useRef<AbortController | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // When filters change: clear previous analysis and mark dirty
+  useEffect(() => {
+    setRawText('')
+    setDirty(true)
+  }, [startISO, endISO, selectedRepIds])
 
   const generate = useCallback(async () => {
     if (abortRef.current) abortRef.current.abort()
@@ -27,8 +55,9 @@ export function GerenteInsight({ startISO, endISO, selectedRepIds, allReps }: Pr
       ? allReps.filter((r) => selectedRepIds.includes(r.id)).map((r) => r.name)
       : []
 
-    setText('')
+    setRawText('')
     setLoading(true)
+    setDirty(false)
     setCollapsed(false)
 
     try {
@@ -47,26 +76,17 @@ export function GerenteInsight({ startISO, endISO, selectedRepIds, allReps }: Pr
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        setText((prev) => prev + decoder.decode(value, { stream: true }))
+        setRawText((prev) => prev + decoder.decode(value, { stream: true }))
       }
-      setGenerated(true)
     } catch (e: any) {
-      if (e?.name !== 'AbortError') setText('No se pudo generar el análisis. Intenta de nuevo.')
+      if (e?.name !== 'AbortError') setRawText('SITUACIÓN: No se pudo generar el análisis. Intenta de nuevo.')
     } finally {
       setLoading(false)
     }
   }, [startISO, endISO, selectedRepIds, allReps])
 
-  // Auto-generate when period or rep selection changes (debounced)
-  useEffect(() => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(generate, 600)
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-      abortRef.current?.abort()
-    }
-  }, [generate])
-
+  const sections = parseSections(rawText)
+  const hasContent = Object.keys(sections).length > 0
   const scopeLabel = selectedRepIds.length === 0
     ? 'Equipo completo'
     : selectedRepIds.length === 1
@@ -102,7 +122,7 @@ export function GerenteInsight({ startISO, endISO, selectedRepIds, allReps }: Pr
           )}
         </div>
         <div className="flex items-center gap-1">
-          {generated && !loading && (
+          {hasContent && !loading && (
             <button onClick={generate}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold text-white/30 hover:text-violet-300 hover:bg-violet-500/10 transition-all border border-transparent hover:border-violet-500/20">
               <RefreshCw className="h-3 w-3" />
@@ -118,22 +138,72 @@ export function GerenteInsight({ startISO, endISO, selectedRepIds, allReps }: Pr
 
       {/* Body */}
       {!collapsed && (
-        <div className="px-5 py-4 min-h-[60px]">
-          {loading && !text && (
-            <div className="space-y-2 animate-pulse">
-              <div className="h-3.5 bg-white/[0.06] rounded-full w-full" />
-              <div className="h-3.5 bg-white/[0.06] rounded-full w-5/6" />
-              <div className="h-3.5 bg-white/[0.06] rounded-full w-4/6" />
+        <div className="px-4 py-3">
+
+          {/* CTA when dirty (filters changed or never generated) */}
+          {dirty && !loading && (
+            <div className="flex items-center justify-between py-2">
+              <p className="text-[11px] text-white/35 italic">
+                {hasContent ? 'Los filtros cambiaron — el análisis anterior ya no aplica.' : 'Genera un análisis de IA sobre el período y alcance seleccionados.'}
+              </p>
+              <button
+                onClick={generate}
+                className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-violet-600/20 hover:bg-violet-600/35 border border-violet-500/30 hover:border-violet-400/50 text-violet-300 text-xs font-bold transition-all"
+              >
+                <Play className="h-3 w-3" />
+                Generar análisis
+              </button>
             </div>
           )}
-          {text && (
-            <p className="text-sm text-white/75 leading-relaxed tracking-wide">
-              {text}
-              {loading && (
-                <span className="inline-block w-0.5 h-4 bg-violet-400 ml-0.5 animate-pulse align-middle" />
-              )}
-            </p>
+
+          {/* Skeleton while first-load streaming */}
+          {loading && !rawText && (
+            <div className="space-y-3 py-1 animate-pulse">
+              {SECTION_META.map((s) => (
+                <div key={s.key} className="flex items-start gap-3">
+                  <div className="mt-0.5 h-6 w-6 rounded bg-white/[0.06] shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-2.5 bg-white/[0.06] rounded-full w-20" />
+                    <div className="h-3 bg-white/[0.06] rounded-full w-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
+
+          {/* Structured sections */}
+          {(hasContent || (loading && rawText)) && !dirty && (
+            <div className="space-y-2 py-1">
+              {SECTION_META.map(({ key, label, Icon, color, bg, border }) => {
+                const text = sections[key]
+                if (!text && !loading) return null
+                return (
+                  <div key={key} className={cn(
+                    'flex items-start gap-3 rounded-lg px-3 py-2.5 border',
+                    bg, border,
+                  )}>
+                    <div className={cn('mt-0.5 shrink-0 flex items-center justify-center h-6 w-6 rounded-md', bg, border)}>
+                      <Icon className={cn('h-3.5 w-3.5', color)} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={cn('text-[10px] font-bold uppercase tracking-[0.12em] mb-0.5', color)}>{label}</p>
+                      {text ? (
+                        <p className="text-[13px] text-white/80 leading-relaxed">
+                          {text}
+                          {loading && key === (Object.keys(sections).at(-1) as keyof Sections) && (
+                            <span className="inline-block w-0.5 h-3.5 bg-violet-400 ml-0.5 animate-pulse align-middle" />
+                          )}
+                        </p>
+                      ) : (
+                        <div className="h-3 bg-white/[0.06] rounded-full w-4/5 animate-pulse mt-1" />
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
         </div>
       )}
     </div>
