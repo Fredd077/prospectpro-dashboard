@@ -1,9 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
-import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { ThemeToggle } from './ThemeToggle'
 
 interface SidebarUserSectionProps {
@@ -27,13 +25,11 @@ function Initials({ name, email }: { name: string | null; email: string }) {
 }
 
 export function SidebarUserSection({ fullName, email, avatarUrl }: SidebarUserSectionProps) {
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  async function handleSignOut() {
+  function handleSignOut() {
     setLoading(true)
-    await fetch('/auth/signout', { method: 'POST' })
-    window.location.href = '/'
+    window.location.href = '/auth/signout'
   }
 
   return (
