@@ -384,7 +384,13 @@ html { scroll-behavior: smooth; font-size: 16px; }
 #pp-landing .pp-sem-item-desc { font-size: 11px; color: var(--pp-text-3); }
 
 /* ─── PRICING ──────────────────────────────────────────── */
-#pp-landing .pp-pricing-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+#pp-landing .pp-pricing-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 20px; max-width: 780px; margin: 0 auto; }
+/* ─── WHATSAPP FLOAT ────────────────────────────────────── */
+#pp-landing .pp-wa-float { position: fixed; bottom: 28px; right: 28px; z-index: 9999; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+#pp-landing .pp-wa-btn { width: 56px; height: 56px; border-radius: 50%; background: #25D366; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(37,211,102,0.45); transition: transform 200ms, box-shadow 200ms; flex-shrink: 0; }
+#pp-landing .pp-wa-btn:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(37,211,102,0.6); }
+#pp-landing .pp-wa-label { background: rgba(9,12,20,0.92); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); font-size: 12.5px; font-weight: 600; padding: 7px 13px; border-radius: 8px; white-space: nowrap; backdrop-filter: blur(8px); opacity: 0; transform: translateX(8px); transition: opacity 200ms, transform 200ms; pointer-events: none; }
+#pp-landing .pp-wa-float:hover .pp-wa-label { opacity: 1; transform: translateX(0); }
 #pp-landing .pp-pricing-card { background: #111827; border: 1px solid var(--pp-border); border-radius: 14px; padding: 32px; position: relative; transition: all 300ms; }
 #pp-landing .pp-pricing-card.featured { border-color: oklch(0.82 0.19 200 / 0.35); box-shadow: 0 0 40px oklch(0.82 0.19 200 / 0.08); background: linear-gradient(160deg, #111827 0%, #0F1821 100%); }
 #pp-landing .pp-pricing-badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--pp-cyan); color: #090C14; font-size: 10px; font-weight: 700; padding: 3px 14px; border-radius: 9999px; white-space: nowrap; }
@@ -882,17 +888,6 @@ export default function LandingPage() {
               <div className="pp-pricing-feature">Alertas de riesgo por vendedor</div>
               <a href="/login" className="pp-pricing-btn pp-pricing-btn-featured">Empezar prueba gratis</a>
             </div>
-            <div className="pp-pricing-card pp-reveal pp-reveal-delay-2">
-              <div className="pp-pricing-role">Admin / Owner</div>
-              <div className="pp-pricing-price">$0<span> incluido</span></div>
-              <div className="pp-pricing-desc">Incluido en toda cuenta activa. Sin costo adicional.</div>
-              <div className="pp-pricing-divider"></div>
-              <div className="pp-pricing-feature">Gestión de usuarios y roles</div>
-              <div className="pp-pricing-feature">Asignación de planes por usuario</div>
-              <div className="pp-pricing-feature">Panel de facturación</div>
-              <div className="pp-pricing-feature">Configuración de la empresa</div>
-              <a href="/login" className="pp-pricing-btn pp-pricing-btn-default" style={{ marginTop: 'auto' }}>Crear empresa gratis</a>
-            </div>
           </div>
           <div className="pp-pricing-footnote pp-reveal">Toda empresa requiere al menos un Manager que supervise al equipo de vendedores.</div>
         </div>
@@ -913,6 +908,14 @@ export default function LandingPage() {
           <div className="pp-cta-fine pp-reveal pp-reveal-delay-3">Sin tarjeta de crédito · 14 días gratis · Cancela cuando quieras · Soporte en español</div>
         </div>
       </section>
+
+      {/* WHATSAPP FLOAT */}
+      <a href="https://wa.me/573164283749" target="_blank" rel="noopener noreferrer" className="pp-wa-float" aria-label="Contactar por WhatsApp">
+        <span className="pp-wa-label">¿Tienes dudas? Escríbenos</span>
+        <div className="pp-wa-btn">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        </div>
+      </a>
 
       {/* FOOTER */}
       <footer>
