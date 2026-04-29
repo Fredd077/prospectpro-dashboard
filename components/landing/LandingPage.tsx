@@ -598,10 +598,6 @@ export default function LandingPage() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
                 Empezar gratis
               </a>
-              <a href="/login" className="pp-btn-hero-ghost">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polygon points="10 8 16 12 10 16 10 8" /></svg>
-                Ver demo
-              </a>
             </div>
             <div className="pp-hero-social">
               <span className="pp-hero-social-text">Para equipos de</span>
@@ -913,7 +909,6 @@ export default function LandingPage() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
               Crear mi cuenta gratis →
             </a>
-            <a href="/login" className="pp-btn-hero-ghost" style={{ fontSize: '15px', padding: '16px 28px' }}>Ver demo en vivo</a>
           </div>
           <div className="pp-cta-fine pp-reveal pp-reveal-delay-3">Sin tarjeta de crédito · 14 días gratis · Cancela cuando quieras · Soporte en español</div>
         </div>
