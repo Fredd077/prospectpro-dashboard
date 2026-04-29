@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { TrendingUp } from 'lucide-react'
+import Link from 'next/link'
+import { TrendingUp, ArrowLeft } from 'lucide-react'
 import { GoogleButton } from '@/components/auth/GoogleButton'
 import { LoginForm } from '@/components/auth/LoginForm'
 
@@ -14,6 +15,10 @@ export default async function LoginPage({ searchParams }: Props) {
 
   return (
     <div className="w-full max-w-sm space-y-6">
+      <Link href="/" className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors w-fit">
+        <ArrowLeft className="h-3 w-3" />
+        Volver a la página principal
+      </Link>
       {/* Brand */}
       <div className="text-center space-y-3">
         <div className="flex justify-center">
