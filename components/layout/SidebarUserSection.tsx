@@ -32,8 +32,7 @@ export function SidebarUserSection({ fullName, email, avatarUrl }: SidebarUserSe
 
   async function handleSignOut() {
     setLoading(true)
-    const sb = getSupabaseBrowserClient()
-    await sb.auth.signOut()
+    await fetch('/auth/signout', { method: 'POST' })
     window.location.href = '/'
   }
 
