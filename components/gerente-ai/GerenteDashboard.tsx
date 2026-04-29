@@ -9,6 +9,7 @@ import type { GerenteAnalytics, RepAnalytics } from '@/lib/utils/gerente-ai'
 import type { TeamPipelineAnalytics } from '@/lib/utils/gerente-pipeline'
 import { filterPipeline } from '@/lib/utils/gerente-pipeline'
 import { GerenteChat } from './GerenteChat'
+import { GerenteInsight } from './GerenteInsight'
 import { PipelinePanel } from './PipelinePanel'
 import { PredictivePanel } from './PredictivePanel'
 import {
@@ -202,6 +203,16 @@ export function GerenteDashboard({ analytics, pipeline, allReps, startISO, endIS
             × limpiar
           </button>
         )}
+      </div>
+
+      {/* ── AI Narrative Insight ───────────────────────────────────── */}
+      <div className="pt-3 bg-[#080b12] shrink-0">
+        <GerenteInsight
+          startISO={startISO}
+          endISO={endISO}
+          selectedRepIds={selectedRepIds}
+          allReps={allReps}
+        />
       </div>
 
       {/* ── Main body ──────────────────────────────────────────────── */}
