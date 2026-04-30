@@ -446,9 +446,12 @@ html { scroll-behavior: smooth; font-size: 16px; }
   #pp-landing .pp-footer-links { flex-wrap: wrap; justify-content: center; }
 }
 @media (max-width: 600px) {
-  #pp-landing .pp-nav-inner { padding: 0 16px; }
-  #pp-landing .pp-btn-nav-ghost { display: none; }
-  #pp-landing .pp-btn-nav-primary { font-size: 12px; padding: 7px 14px; }
+  #pp-landing .pp-nav-inner { padding: 0 16px; gap: 8px; }
+  #pp-landing .pp-nav-wordmark { display: none; }
+  #pp-landing .pp-nav-logo { margin-right: 0; }
+  #pp-landing .pp-nav-actions { gap: 8px; margin-left: auto; }
+  #pp-landing .pp-btn-nav-ghost { font-size: 12px; padding: 6px 12px; }
+  #pp-landing .pp-btn-nav-primary { font-size: 12px; padding: 6px 12px; }
   #pp-landing .pp-container { padding: 0 20px; }
   #pp-landing .pp-section { padding: 64px 0; }
   #pp-landing .pp-hero { padding: 100px 0 60px; }
