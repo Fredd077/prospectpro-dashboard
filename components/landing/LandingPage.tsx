@@ -442,6 +442,22 @@ html { scroll-behavior: smooth; font-size: 16px; }
   #pp-landing .pp-sem-callout { flex-direction: column; gap: 28px; }
   #pp-landing .pp-nav .pp-nav-links { display: none; }
   #pp-landing .pp-stats-inner { flex-direction: column; gap: 32px; align-items: center; }
+  #pp-landing .pp-footer-inner { flex-direction: column; gap: 20px; text-align: center; }
+  #pp-landing .pp-footer-links { flex-wrap: wrap; justify-content: center; }
+}
+@media (max-width: 600px) {
+  #pp-landing .pp-nav-inner { padding: 0 16px; }
+  #pp-landing .pp-btn-nav-ghost { display: none; }
+  #pp-landing .pp-btn-nav-primary { font-size: 12px; padding: 7px 14px; }
+  #pp-landing .pp-container { padding: 0 20px; }
+  #pp-landing .pp-section { padding: 64px 0; }
+  #pp-landing .pp-hero { padding: 100px 0 60px; }
+  #pp-landing .pp-hero-h1 { font-size: clamp(32px, 9vw, 56px); }
+  #pp-landing .pp-hero-sub { font-size: 15px; }
+  #pp-landing .pp-cta-h2 { font-size: clamp(28px, 8vw, 48px); }
+  #pp-landing .pp-pricing-grid { grid-template-columns: 1fr; }
+  #pp-landing .pp-wa-float { bottom: 18px; right: 18px; }
+  #pp-landing .pp-wa-btn { width: 48px; height: 48px; }
 }
 `
 
