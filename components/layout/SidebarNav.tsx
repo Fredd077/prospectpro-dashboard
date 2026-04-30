@@ -13,6 +13,7 @@ import {
   TrendingUp,
   BrainCircuit,
   SlidersHorizontal,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +24,7 @@ const navItems = [
   { href: '/coach',     label: 'Reportes Coach IA', icon: Bot             },
   { href: '/activities',label: 'Actividades',       icon: ListChecks      },
   { href: '/recipe',    label: 'Recetario',          icon: FlaskConical    },
+  { href: '/guide',     label: 'Guía de uso',        icon: BookOpen        },
 ] as const
 
 interface SidebarNavProps {

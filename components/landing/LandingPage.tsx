@@ -602,6 +602,7 @@ export default function LandingPage() {
             <a href="#pp-como-funciona">Cómo funciona</a>
             <a href="#pp-caracteristicas">Características</a>
             <a href="#pp-precios">Precios</a>
+            <a href="/guide">Guía de uso</a>
           </div>
           <div className="pp-nav-actions">
             <button id="pp-theme-toggle" aria-label="Cambiar modo" style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 200ms', fontSize: 16, lineHeight: 1, flexShrink: 0, cursor: 'pointer' }}>🌙</button>

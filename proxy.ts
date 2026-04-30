@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 // Routes accessible without authentication
-const PUBLIC_ROUTES = ['/', '/login', '/register', '/pending', '/auth/callback', '/auth/signout']
+const PUBLIC_ROUTES = ['/', '/login', '/register', '/pending', '/auth/callback', '/auth/signout', '/guide']
 
 // Routes accessible only to admin role
 const ADMIN_PREFIX = '/admin'
