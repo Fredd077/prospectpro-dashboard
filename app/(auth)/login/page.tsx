@@ -14,8 +14,18 @@ export default async function LoginPage({ searchParams }: Props) {
 
   return (
     <div className="w-full max-w-sm space-y-6">
-      <a href="/" className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors w-fit">
-        <ArrowLeft className="h-3 w-3" />
+      <a
+        href="/"
+        className="flex items-center gap-1.5 w-fit transition-all"
+        style={{
+          fontSize: '14px',
+          fontWeight: 600,
+          color: 'oklch(0.82 0.19 200)',
+          textShadow: '0 0 12px oklch(0.82 0.19 200 / 0.7)',
+          textDecoration: 'none',
+        }}
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
         Volver a la página principal
       </a>
       {/* Brand */}
