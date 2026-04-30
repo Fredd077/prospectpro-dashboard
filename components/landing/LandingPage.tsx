@@ -615,9 +615,9 @@ export default function LandingPage() {
       <section className="pp-hero">
         <div className="pp-hero-inner">
           <div className="pp-hero-left">
-            <div className="pp-hero-badge"><span className="pp-hero-badge-dot"></span>IA para ventas B2B · LATAM</div>
-            <h1 className="pp-hero-h1">Tu equipo de ventas<br />con <em>superpoderes</em><br />de IA</h1>
-            <p className="pp-hero-sub">ProspectPro convierte tus actividades de prospección en un sistema predecible. Cada vendedor sabe exactamente qué hacer hoy. Cada gerente ve el equipo en tiempo real.</p>
+            <div className="pp-hero-badge"><span className="pp-hero-badge-dot"></span>⚡ Para equipos B2B que quieren resultados, no excusas</div>
+            <h1 className="pp-hero-h1">Deja de adivinar.<br /><em>Empieza a dirigir.</em></h1>
+            <p className="pp-hero-sub">Tu equipo llega al lunes sin saber qué hacer. Tú llegas al viernes sin saber qué pasó. ProspectPro convierte esa ansiedad en claridad — cada vendedor recibe feedback diario de un Gerente IA que lo guía hacia su meta, mientras tú recibes reportes semanales y mensuales automáticos. Cero adivinanzas.</p>
             <div className="pp-hero-actions">
               <a href="/register" className="pp-btn-hero-primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
