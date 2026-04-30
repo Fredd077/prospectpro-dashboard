@@ -587,7 +587,7 @@ export default function LandingPage() {
           <div className="pp-nav-actions">
             <button id="pp-theme-toggle" aria-label="Cambiar modo" style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 200ms', fontSize: 16, lineHeight: 1, flexShrink: 0, cursor: 'pointer' }}>🌙</button>
             <a href="/login" className="pp-btn-nav-ghost">Iniciar sesión</a>
-            <a href="/login" className="pp-btn-nav-primary">Empezar gratis</a>
+            <a href="/register" className="pp-btn-nav-primary">Empezar gratis</a>
           </div>
         </div>
       </nav>
@@ -600,7 +600,7 @@ export default function LandingPage() {
             <h1 className="pp-hero-h1">Tu equipo de ventas<br />con <em>superpoderes</em><br />de IA</h1>
             <p className="pp-hero-sub">ProspectPro convierte tus actividades de prospección en un sistema predecible. Cada vendedor sabe exactamente qué hacer hoy. Cada gerente ve el equipo en tiempo real.</p>
             <div className="pp-hero-actions">
-              <a href="/login" className="pp-btn-hero-primary">
+              <a href="/register" className="pp-btn-hero-primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
                 Empezar gratis
               </a>
@@ -867,7 +867,7 @@ export default function LandingPage() {
               <div className="pp-pricing-feature">Check-in diario en 2 min</div>
               <div className="pp-pricing-feature">Coach IA diario y semanal</div>
               <div className="pp-pricing-feature">Pipeline de negocios</div>
-              <a href="/login" className="pp-pricing-btn pp-pricing-btn-default">Empezar prueba gratis</a>
+              <a href="/register" className="pp-pricing-btn pp-pricing-btn-default">Empezar prueba gratis</a>
             </div>
             <div className="pp-pricing-card featured pp-reveal pp-reveal-delay-1">
               <div className="pp-pricing-badge">Más valor por equipo</div>
@@ -886,7 +886,7 @@ export default function LandingPage() {
               <div className="pp-pricing-feature">Reportes automáticos semanales</div>
               <div className="pp-pricing-feature">Proyecciones y momentum score</div>
               <div className="pp-pricing-feature">Alertas de riesgo por vendedor</div>
-              <a href="/login" className="pp-pricing-btn pp-pricing-btn-featured">Empezar prueba gratis</a>
+              <a href="/register" className="pp-pricing-btn pp-pricing-btn-featured">Empezar prueba gratis</a>
             </div>
           </div>
           <div className="pp-pricing-footnote pp-reveal">Toda empresa requiere al menos un Manager que supervise al equipo de vendedores.</div>
@@ -900,7 +900,7 @@ export default function LandingPage() {
           <h2 className="pp-cta-h2 pp-reveal">Empieza a prospectar<br />con <em>sistema</em> hoy</h2>
           <p className="pp-cta-sub pp-reveal pp-reveal-delay-1">Los equipos que usan ProspectPro cierran más — porque saben exactamente qué hacer cada día para cumplir su cuota.</p>
           <div className="pp-cta-actions pp-reveal pp-reveal-delay-2">
-            <a href="/login" className="pp-btn-hero-primary" style={{ fontSize: '16px', padding: '16px 36px' }}>
+            <a href="/register" className="pp-btn-hero-primary" style={{ fontSize: '16px', padding: '16px 36px' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
               Crear mi cuenta gratis →
             </a>
