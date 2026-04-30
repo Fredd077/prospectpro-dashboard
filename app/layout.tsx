@@ -21,7 +21,12 @@ export const metadata: Metadata = {
     default: 'ProspectPro',
     template: '%s — ProspectPro',
   },
-  description: 'Seguimiento profesional de actividades de prospección comercial',
+  description: 'Coach IA diario, pipeline en tiempo real y reportes automáticos para equipos de ventas B2B en LATAM.',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 }
 
 export default function RootLayout({
