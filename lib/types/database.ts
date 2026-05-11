@@ -454,6 +454,73 @@ export interface Database {
           }
         ]
       }
+      integrations: {
+        Row: {
+          id: string
+          company_name: string
+          admin_user_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_name: string
+          admin_user_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string
+          admin_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      integration_api_keys: {
+        Row: {
+          id: string
+          company_name: string
+          key_hash: string
+          label: string | null
+          created_at: string
+          last_used_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_name: string
+          key_hash: string
+          label?: string | null
+          created_at?: string
+          last_used_at?: string | null
+        }
+        Update: {
+          last_used_at?: string | null
+          label?: string | null
+        }
+        Relationships: []
+      }
+      webhook_logs: {
+        Row: {
+          id: string
+          company_name: string
+          payload: Json | null
+          headers: Json | null
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_name: string
+          payload?: Json | null
+          headers?: Json | null
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          status?: string
+        }
+        Relationships: []
+      }
       pipeline_simple: {
         Row: {
           id: string
@@ -562,3 +629,7 @@ export type DealUpdate = Database['public']['Tables']['deals']['Update']
 export type PipelineSimple = Database['public']['Tables']['pipeline_simple']['Row']
 export type PipelineSimpleInsert = Database['public']['Tables']['pipeline_simple']['Insert']
 export type PipelineSimpleUpdate = Database['public']['Tables']['pipeline_simple']['Update']
+
+export type Integration = Database['public']['Tables']['integrations']['Row']
+export type IntegrationApiKey = Database['public']['Tables']['integration_api_keys']['Row']
+export type WebhookLog = Database['public']['Tables']['webhook_logs']['Row']

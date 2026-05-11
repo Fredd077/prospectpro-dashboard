@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import {
-  Building2, UserCheck, Clock, Activity, TrendingUp, ExternalLink,
+  Building2, UserCheck, Clock, Activity, TrendingUp, ExternalLink, Webhook,
 } from 'lucide-react'
 import { formatDistanceToNow, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -328,6 +328,29 @@ export default async function AdminPage({ searchParams }: Props) {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* ── SECCIÓN: Herramientas */}
+        <div className="space-y-3">
+          <SectionHeader>Herramientas</SectionHeader>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Link
+              href="/admin/integrations"
+              className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 hover:bg-muted/20 transition-colors group"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-cyan-500/10 text-cyan-400">
+                <Webhook className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                  Integraciones
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Webhooks y API keys para CRMs externos
+                </p>
+              </div>
+            </Link>
           </div>
         </div>
 

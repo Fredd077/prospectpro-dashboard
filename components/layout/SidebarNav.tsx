@@ -14,6 +14,7 @@ import {
   BrainCircuit,
   SlidersHorizontal,
   BookOpen,
+  Webhook,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -44,8 +45,9 @@ export function SidebarNav({ isAdmin, isManager = false, unreadCoachCount }: Sid
       { href: '/gerente-ai'  as const, label: 'Gerente AI',  icon: BrainCircuit  },
     ] : []),
     ...(isAdmin ? [
-      { href: '/admin'          as const, label: 'Admin Panel',    icon: ShieldCheck       },
-      { href: '/admin/ai-config' as const, label: 'Config AI',      icon: SlidersHorizontal },
+      { href: '/admin'              as const, label: 'Admin Panel',    icon: ShieldCheck       },
+      { href: '/admin/ai-config'    as const, label: 'Config AI',      icon: SlidersHorizontal },
+      { href: '/admin/integrations' as const, label: 'Integraciones',  icon: Webhook           },
     ] : []),
   ]
 
@@ -95,10 +97,11 @@ export function SidebarNav({ isAdmin, isManager = false, unreadCoachCount }: Sid
                   isActive
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
-                  href === '/admin'           && !isActive && 'text-warning/70 hover:text-warning',
-                  href === '/admin/ai-config' && !isActive && 'text-warning/60 hover:text-warning',
-                  href === '/team'            && !isActive && 'text-cyan-500/70 hover:text-cyan-400',
-                  href === '/gerente-ai'      && !isActive && 'text-violet-400/70 hover:text-violet-400',
+                  href === '/admin'                && !isActive && 'text-warning/70 hover:text-warning',
+                  href === '/admin/ai-config'     && !isActive && 'text-warning/60 hover:text-warning',
+                  href === '/admin/integrations'  && !isActive && 'text-cyan-500/60 hover:text-cyan-400',
+                  href === '/team'                && !isActive && 'text-cyan-500/70 hover:text-cyan-400',
+                  href === '/gerente-ai'          && !isActive && 'text-violet-400/70 hover:text-violet-400',
                 )}
               >
                 {isActive && (
