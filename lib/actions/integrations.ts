@@ -4,21 +4,23 @@ import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabas
 import { hashKey } from '@/lib/utils/crypto'
 import type { IntegrationApiKey, WebhookLog } from '@/lib/types/database'
 
-async function assertAdmin() {
+async function assertManagerOrAdmin() {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const { data: profile } = await sb
     .from('profiles')
-    .select('role, company')
+    .select('role, org_role, company')
     .eq('id', user.id)
     .single()
-  if (profile?.role !== 'admin') throw new Error('Not authorized')
+  const isAdmin   = profile?.role === 'admin'
+  const isManager = profile?.role === 'active' && profile?.org_role === 'manager'
+  if (!isAdmin && !isManager) throw new Error('Not authorized')
   return { user, profile }
 }
 
 export async function generateIntegrationApiKey(label?: string): Promise<{ plaintext: string }> {
-  const { user, profile } = await assertAdmin()
+  const { user, profile } = await assertManagerOrAdmin()
   const company = profile.company
   if (!company) throw new Error('Admin profile has no company assigned')
 
@@ -54,7 +56,7 @@ export async function getIntegrationStatus(): Promise<{
   logs: WebhookLog[]
   existingKey: IntegrationApiKey | null
 }> {
-  const { profile } = await assertAdmin()
+  const { profile } = await assertManagerOrAdmin()
   const company = profile.company ?? ''
 
   const service = getSupabaseServiceClient()

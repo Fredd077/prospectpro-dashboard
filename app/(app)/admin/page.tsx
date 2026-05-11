@@ -336,7 +336,7 @@ export default async function AdminPage({ searchParams }: Props) {
           <SectionHeader>Herramientas</SectionHeader>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Link
-              href="/admin/integrations"
+              href="/integrations"
               className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 hover:bg-muted/20 transition-colors group"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-cyan-500/10 text-cyan-400">

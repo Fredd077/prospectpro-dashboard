@@ -33,7 +33,7 @@ export default async function IntegrationsPage() {
     <div className="flex flex-col h-full">
       <TopBar
         title="Integraciones"
-        description="Conecta CRMs y sistemas externos vía webhook"
+        description="Conecta tu CRM o sistema externo vía webhook"
       />
       <div className="flex-1 overflow-y-auto p-8 space-y-10 max-w-3xl">
 
