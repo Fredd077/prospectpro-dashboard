@@ -459,6 +459,9 @@ export interface Database {
           id: string
           company_name: string
           admin_user_id: string | null
+          crm_name: string | null
+          crm_api_key: string | null
+          crm_base_url: string | null
           created_at: string
           updated_at: string
         }
@@ -466,12 +469,18 @@ export interface Database {
           id?: string
           company_name: string
           admin_user_id?: string | null
+          crm_name?: string | null
+          crm_api_key?: string | null
+          crm_base_url?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           company_name?: string
           admin_user_id?: string | null
+          crm_name?: string | null
+          crm_api_key?: string | null
+          crm_base_url?: string | null
           updated_at?: string
         }
         Relationships: []

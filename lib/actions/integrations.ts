@@ -2,7 +2,7 @@
 
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { hashKey } from '@/lib/utils/crypto'
-import type { IntegrationApiKey, WebhookLog } from '@/lib/types/database'
+import type { Integration, IntegrationApiKey, WebhookLog } from '@/lib/types/database'
 
 async function assertManagerOrAdmin() {
   const sb = await getSupabaseServerClient()
@@ -55,13 +55,14 @@ export async function getIntegrationStatus(): Promise<{
   lastUsedAt: string | null
   logs: WebhookLog[]
   existingKey: IntegrationApiKey | null
+  crmConfig: Pick<Integration, 'crm_name' | 'crm_api_key' | 'crm_base_url'> | null
 }> {
   const { profile } = await assertManagerOrAdmin()
   const company = profile.company ?? ''
 
   const service = getSupabaseServiceClient()
 
-  const [{ data: keyRow }, { data: logs }] = await Promise.all([
+  const [{ data: keyRow }, { data: logs }, { data: integration }] = await Promise.all([
     service
       .from('integration_api_keys')
       .select('*')
@@ -73,6 +74,11 @@ export async function getIntegrationStatus(): Promise<{
       .eq('company_name', company)
       .order('created_at', { ascending: false })
       .limit(20),
+    service
+      .from('integrations')
+      .select('crm_name, crm_api_key, crm_base_url')
+      .eq('company_name', company)
+      .maybeSingle(),
   ])
 
   return {
@@ -81,5 +87,30 @@ export async function getIntegrationStatus(): Promise<{
     lastUsedAt: keyRow?.last_used_at ?? null,
     logs: (logs ?? []) as WebhookLog[],
     existingKey: keyRow as IntegrationApiKey | null,
+    crmConfig: integration ?? null,
   }
+}
+
+export async function saveCrmConfig(data: {
+  crm_name: string
+  crm_api_key: string
+  crm_base_url: string
+}): Promise<void> {
+  const { user } = await assertManagerOrAdmin()
+  const sb = await getSupabaseServerClient()
+  const { data: profile } = await sb.from('profiles').select('company').eq('id', user.id).single()
+  const company = profile?.company
+  if (!company) throw new Error('No company assigned to this user')
+
+  const service = getSupabaseServiceClient()
+  await service.from('integrations').upsert(
+    {
+      company_name:  company,
+      admin_user_id: user.id,
+      crm_name:      data.crm_name.trim()     || null,
+      crm_api_key:   data.crm_api_key.trim()  || null,
+      crm_base_url:  data.crm_base_url.trim() || null,
+    },
+    { onConflict: 'company_name' }
+  )
 }

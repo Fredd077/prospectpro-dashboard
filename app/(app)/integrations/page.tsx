@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { Webhook, Link2, KeyRound, Activity } from 'lucide-react'
+import { Webhook, Link2, KeyRound, Activity, Database } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
 import { CopyButton } from '@/components/admin/CopyButton'
 import { IntegrationsKeyManager } from '@/components/admin/IntegrationsKeyManager'
+import { CrmConfigForm } from '@/components/admin/CrmConfigForm'
 import { getIntegrationStatus } from '@/lib/actions/integrations'
 
 export const metadata: Metadata = { title: 'Integraciones — ProspectPro' }
@@ -58,9 +59,18 @@ export default async function IntegrationsPage() {
           </div>
         </div>
 
-        {/* API Key */}
+        {/* CRM Config */}
         <div className="space-y-3">
-          <SectionHeader icon={KeyRound}>API Key</SectionHeader>
+          <SectionHeader icon={Database}>Credenciales de tu CRM</SectionHeader>
+          <p className="text-xs text-muted-foreground">
+            Registra aquí la API key que tu CRM te entregó. ProspectPro la usará para enviarle datos de vuelta.
+          </p>
+          <CrmConfigForm initial={status.crmConfig} />
+        </div>
+
+        {/* API Key (inbound) */}
+        <div className="space-y-3">
+          <SectionHeader icon={KeyRound}>API Key de ProspectPro</SectionHeader>
           <p className="text-xs text-muted-foreground">
             Solo existe una clave activa por empresa. Al regenerar, la anterior queda inválida de inmediato.
           </p>
