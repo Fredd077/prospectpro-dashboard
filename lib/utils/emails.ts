@@ -1,7 +1,7 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? ''
-const APP_URL        = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://prospectpro-dashboard.vercel.app'
+const APP_URL        = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://app.prospectpro.cloud'
 const ADMIN_EMAIL    = 'freddy.g84@gmail.com'
-const FROM_ADDRESS   = 'ProspectPro <onboarding@resend.dev>'
+const FROM_ADDRESS   = 'ProspectPro <hola@prospectpro.cloud>'
 
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   const res = await fetch('https://api.resend.com/emails', {
@@ -128,70 +128,91 @@ export async function sendUserActivatedWelcome(user: {
     <body style="margin:0;padding:0;background:#0a0a0a;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:40px 20px;">
         <tr><td align="center">
-          <table width="480" cellpadding="0" cellspacing="0" style="background:#111;border-radius:12px;border:1px solid rgba(0,217,255,0.15);overflow:hidden;">
-            <!-- Header with glow -->
+          <table width="500" cellpadding="0" cellspacing="0" style="background:#111;border-radius:12px;border:1px solid rgba(0,217,255,0.15);overflow:hidden;">
+
+            <!-- Header -->
             <tr>
-              <td style="background:linear-gradient(135deg,#031a1f 0%,#0a1520 50%,#0a0a0a 100%);padding:40px 36px 32px;border-bottom:1px solid rgba(0,217,255,0.12);text-align:center;">
-                <div style="display:inline-block;background:#00D9FF;width:52px;height:52px;border-radius:12px;line-height:52px;text-align:center;font-size:24px;margin-bottom:20px;">✓</div>
-                <p style="margin:0;font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.03em;">
-                  ¡Bienvenido, ${firstName}!
+              <td style="background:linear-gradient(135deg,#031a1f 0%,#0a1520 60%,#0a0a0a 100%);padding:44px 40px 36px;border-bottom:1px solid rgba(0,217,255,0.12);text-align:center;">
+                <table cellpadding="0" cellspacing="0" align="center" style="margin-bottom:24px;">
+                  <tr>
+                    <td style="background:#00D9FF;width:44px;height:44px;border-radius:10px;text-align:center;vertical-align:middle;">
+                      <span style="font-size:22px;font-weight:900;color:#0a0a0a;line-height:44px;">↗</span>
+                    </td>
+                    <td style="padding-left:12px;vertical-align:middle;">
+                      <span style="font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">ProspectPro</span>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.03em;line-height:1.2;">
+                  ${firstName}, tu acceso<br/>está listo. 🎯
                 </p>
-                <p style="margin:10px 0 0;font-size:15px;color:#00D9FF;font-weight:500;">
-                  Tu cuenta en ProspectPro está activa
+                <p style="margin:14px 0 0;font-size:15px;color:#00D9FF;font-weight:500;">
+                  Es hora de ir por tu meta.
                 </p>
               </td>
             </tr>
+
             <!-- Body -->
             <tr>
-              <td style="padding:32px 36px;">
-                <p style="margin:0 0 20px;font-size:15px;color:rgba(255,255,255,0.75);line-height:1.7;">
-                  Hola <strong style="color:#ffffff;">${firstName}</strong>, tu solicitud de acceso fue aprobada.
-                  Ya puedes ingresar a ProspectPro y comenzar a gestionar tus actividades comerciales,
-                  hacer check-ins diarios y ver tu progreso en tiempo real.
+              <td style="padding:36px 40px 28px;">
+                <p style="margin:0 0 24px;font-size:15px;color:rgba(255,255,255,0.72);line-height:1.75;">
+                  Hola <strong style="color:#ffffff;">${firstName}</strong> — tu cuenta fue activada y ya tienes acceso completo a ProspectPro.
+                  <br/><br/>
+                  Tu equipo espera resultados. Esta herramienta existe para que sepas exactamente qué hacer cada día, midas tu avance en tiempo real y llegues a tu meta <strong style="color:#ffffff;">antes de lo esperado</strong>.
                 </p>
 
-                <!-- Feature highlights -->
-                <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+                <!-- Steps -->
+                <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px;border:1px solid rgba(255,255,255,0.07);border-radius:10px;overflow:hidden;">
+                  <tr style="background:rgba(0,217,255,0.05);">
+                    <td colspan="2" style="padding:12px 20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.3);">
+                      Empieza aquí — 3 pasos
+                    </td>
+                  </tr>
                   ${[
-                    ['📊', 'Dashboard en tiempo real', 'Visualiza tu cumplimiento y proyecciones'],
-                    ['✅', 'Check-in diario', 'Registra tus actividades Inbound y Outbound'],
-                    ['🎯', 'Recetario comercial', 'Calcula cuántas actividades necesitas para tu meta'],
-                  ].map(([icon, title, desc]) => `
-                  <tr>
-                    <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
-                      <table cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td style="font-size:20px;width:36px;vertical-align:top;padding-top:2px;">${icon}</td>
-                          <td style="padding-left:12px;">
-                            <p style="margin:0;font-size:13px;font-weight:600;color:#ffffff;">${title}</p>
-                            <p style="margin:2px 0 0;font-size:12px;color:rgba(255,255,255,0.4);">${desc}</p>
-                          </td>
-                        </tr>
-                      </table>
+                    ['1', 'Configura tu Recetario', 'Define tu meta de ingresos y descubre cuántas actividades necesitas por día.'],
+                    ['2', 'Haz tu primer Check-in', 'Registra tus actividades de hoy. Un minuto al día, claridad total.'],
+                    ['3', 'Revisa tu Dashboard', 'Ve tu ritmo, tu cumplimiento y si vas en camino a cerrar el mes.'],
+                  ].map(([num, title, desc]) => `
+                  <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:16px 20px;vertical-align:top;width:36px;">
+                      <div style="width:26px;height:26px;border-radius:50%;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);text-align:center;line-height:26px;font-size:12px;font-weight:700;color:#00D9FF;">${num}</div>
+                    </td>
+                    <td style="padding:16px 20px 16px 0;vertical-align:top;">
+                      <p style="margin:0;font-size:13px;font-weight:700;color:#ffffff;">${title}</p>
+                      <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.42);line-height:1.5;">${desc}</p>
                     </td>
                   </tr>`).join('')}
                 </table>
 
-                <div style="text-align:center;">
-                  <a href="${APP_URL}/login"
-                     style="display:inline-block;background:#00D9FF;color:#0a0a0a;padding:15px 36px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:700;letter-spacing:-0.01em;">
+                <!-- CTA -->
+                <div style="text-align:center;margin-bottom:28px;">
+                  <a href="${APP_URL}"
+                     style="display:inline-block;background:#00D9FF;color:#0a0a0a;padding:16px 44px;border-radius:9px;text-decoration:none;font-size:15px;font-weight:800;letter-spacing:-0.01em;">
                     Entrar a ProspectPro →
                   </a>
+                  <p style="margin:14px 0 0;font-size:12px;color:rgba(255,255,255,0.25);">
+                    ${APP_URL}
+                  </p>
                 </div>
 
-                <p style="margin:24px 0 0;font-size:13px;color:rgba(255,255,255,0.35);text-align:center;line-height:1.6;">
-                  ¿Tienes preguntas? Responde este correo y con gusto te ayudamos.
+                <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.3);text-align:center;line-height:1.7;">
+                  ¿Tienes dudas? Escríbenos a
+                  <a href="mailto:hola@prospectpro.cloud" style="color:#00D9FF;text-decoration:none;">hola@prospectpro.cloud</a>
+                  y te ayudamos de inmediato.
                 </p>
               </td>
             </tr>
+
             <!-- Footer -->
             <tr>
-              <td style="padding:20px 36px;border-top:1px solid rgba(255,255,255,0.05);">
-                <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.2);text-align:center;">
-                  ProspectPro · ${APP_URL}
+              <td style="padding:18px 40px;border-top:1px solid rgba(255,255,255,0.05);">
+                <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.18);text-align:center;line-height:1.6;">
+                  ProspectPro · Tu Command Center comercial<br/>
+                  <a href="${APP_URL}" style="color:rgba(0,217,255,0.4);text-decoration:none;">${APP_URL}</a>
                 </p>
               </td>
             </tr>
+
           </table>
         </td></tr>
       </table>
@@ -199,5 +220,5 @@ export async function sendUserActivatedWelcome(user: {
     </html>
   `
 
-  await sendEmail(user.email, '¡Tu cuenta en ProspectPro está activa! Bienvenido 🎉', html)
+  await sendEmail(user.email, `${firstName}, tu acceso a ProspectPro está listo — empieza hoy`, html)
 }
