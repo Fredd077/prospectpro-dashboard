@@ -46,26 +46,26 @@ export async function GET(request: NextRequest) {
       // Notify admin if this is a brand-new registration (profile created within last 2 min)
       const userId = sessionData.user?.id
       if (userId) {
-        supabase
-          .from('profiles')
-          .select('email, full_name, company, role, created_at')
-          .eq('id', userId)
-          .single()
-          .then(({ data: profile }) => {
-            if (!profile || profile.role !== 'pending') return
-            const ageMs = Date.now() - new Date(profile.created_at).getTime()
-            if (ageMs > 2 * 60 * 1000) return // older than 2 min → returning pending user, skip
-            fetch(`${origin}/api/notify/new-user`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email:     profile.email,
-                full_name: profile.full_name,
-                company:   profile.company,
-              }),
-            }).catch((err) => console.error('[auth/callback] notify failed:', err))
-          })
-          .catch(() => {}) // fire-and-forget, never block the redirect
+        Promise.resolve(
+          supabase
+            .from('profiles')
+            .select('email, full_name, company, role, created_at')
+            .eq('id', userId)
+            .single()
+        ).then(({ data: profile }) => {
+          if (!profile || profile.role !== 'pending') return
+          const ageMs = Date.now() - new Date(profile.created_at).getTime()
+          if (ageMs > 2 * 60 * 1000) return
+          fetch(`${origin}/api/notify/new-user`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email:     profile.email,
+              full_name: profile.full_name,
+              company:   profile.company,
+            }),
+          }).catch((err) => console.error('[auth/callback] notify failed:', err))
+        }).catch(() => {})
       }
 
       // proxy.ts handles role-based redirect from /dashboard
