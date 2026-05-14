@@ -4,6 +4,12 @@ import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabas
 import { hashKey } from '@/lib/utils/crypto'
 import type { Integration, IntegrationApiKey, WebhookLog } from '@/lib/types/database'
 
+export type PipedriveStageConfig = {
+  reunion_stage: string
+  propuesta_stage: string
+  cierre_stage: string
+}
+
 async function assertManagerOrAdmin() {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
@@ -26,20 +32,16 @@ export async function generateIntegrationApiKey(label?: string): Promise<{ plain
 
   const service = getSupabaseServiceClient()
 
-  // Delete all existing keys for this company
   await service.from('integration_api_keys').delete().eq('company_name', company)
 
-  // Generate new key
   const plaintext = `pp_live_${crypto.randomUUID().replace(/-/g, '')}`
   const hash = await hashKey(plaintext)
 
-  // Upsert the integrations anchor row
   await service.from('integrations').upsert(
     { company_name: company, admin_user_id: user.id },
     { onConflict: 'company_name' }
   )
 
-  // Insert hashed key
   await service.from('integration_api_keys').insert({
     company_name: company,
     key_hash: hash,
@@ -56,6 +58,7 @@ export async function getIntegrationStatus(): Promise<{
   logs: WebhookLog[]
   existingKey: IntegrationApiKey | null
   crmConfig: Pick<Integration, 'crm_name' | 'crm_api_key' | 'crm_base_url'> | null
+  pipedriveConfig: PipedriveStageConfig | null
 }> {
   const { profile } = await assertManagerOrAdmin()
   const company = profile.company ?? ''
@@ -76,18 +79,22 @@ export async function getIntegrationStatus(): Promise<{
       .limit(20),
     service
       .from('integrations')
-      .select('crm_name, crm_api_key, crm_base_url')
+      .select('crm_name, crm_api_key, crm_base_url, config')
       .eq('company_name', company)
       .maybeSingle(),
   ])
 
+  const rawConfig = integration?.config as Record<string, unknown> | null
+  const pdConfig  = rawConfig?.['pipedrive'] as PipedriveStageConfig | null | undefined
+
   return {
     company,
-    hasKey: !!keyRow,
-    lastUsedAt: keyRow?.last_used_at ?? null,
-    logs: (logs ?? []) as WebhookLog[],
-    existingKey: keyRow as IntegrationApiKey | null,
-    crmConfig: integration ?? null,
+    hasKey:          !!keyRow,
+    lastUsedAt:      keyRow?.last_used_at ?? null,
+    logs:            (logs ?? []) as WebhookLog[],
+    existingKey:     keyRow as IntegrationApiKey | null,
+    crmConfig:       integration ?? null,
+    pipedriveConfig: pdConfig ?? null,
   }
 }
 
@@ -111,6 +118,31 @@ export async function saveCrmConfig(data: {
       crm_api_key:   data.crm_api_key.trim()  || null,
       crm_base_url:  data.crm_base_url.trim() || null,
     },
+    { onConflict: 'company_name' }
+  )
+}
+
+export async function savePipedriveConfig(data: PipedriveStageConfig): Promise<void> {
+  const { user } = await assertManagerOrAdmin()
+  const sb = await getSupabaseServerClient()
+  const { data: profile } = await sb.from('profiles').select('company').eq('id', user.id).single()
+  const company = profile?.company
+  if (!company) throw new Error('No company assigned to this user')
+
+  const service = getSupabaseServiceClient()
+
+  // Read current config to merge
+  const { data: existing } = await service
+    .from('integrations')
+    .select('config')
+    .eq('company_name', company)
+    .maybeSingle()
+
+  const currentConfig = (existing?.config as Record<string, unknown> | null) ?? {}
+  const newConfig = { ...currentConfig, pipedrive: data }
+
+  await service.from('integrations').upsert(
+    { company_name: company, admin_user_id: user.id, config: newConfig },
     { onConflict: 'company_name' }
   )
 }

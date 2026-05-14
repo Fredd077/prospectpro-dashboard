@@ -462,6 +462,7 @@ export interface Database {
           crm_name: string | null
           crm_api_key: string | null
           crm_base_url: string | null
+          config: Json
           created_at: string
           updated_at: string
         }
@@ -472,6 +473,7 @@ export interface Database {
           crm_name?: string | null
           crm_api_key?: string | null
           crm_base_url?: string | null
+          config?: Json
           created_at?: string
           updated_at?: string
         }
@@ -481,6 +483,7 @@ export interface Database {
           crm_name?: string | null
           crm_api_key?: string | null
           crm_base_url?: string | null
+          config?: Json
           updated_at?: string
         }
         Relationships: []
@@ -515,6 +518,8 @@ export interface Database {
           payload: Json | null
           headers: Json | null
           status: string
+          processed_at: string | null
+          error_message: string | null
           created_at: string
         }
         Insert: {
@@ -523,10 +528,14 @@ export interface Database {
           payload?: Json | null
           headers?: Json | null
           status?: string
+          processed_at?: string | null
+          error_message?: string | null
           created_at?: string
         }
         Update: {
           status?: string
+          processed_at?: string | null
+          error_message?: string | null
         }
         Relationships: []
       }
@@ -542,6 +551,8 @@ export interface Database {
           prospect_name: string | null
           amount_usd: number | null
           notes: string | null
+          external_id: string | null
+          integration_source: string | null
           created_at: string
           updated_at: string
         }
@@ -556,6 +567,8 @@ export interface Database {
           prospect_name?: string | null
           amount_usd?: number | null
           notes?: string | null
+          external_id?: string | null
+          integration_source?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -568,6 +581,8 @@ export interface Database {
           prospect_name?: string | null
           amount_usd?: number | null
           notes?: string | null
+          external_id?: string | null
+          integration_source?: string | null
           updated_at?: string
         }
         Relationships: []

@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { Webhook, Link2, KeyRound, Activity, Database } from 'lucide-react'
+import { Webhook, Link2, KeyRound, Activity, Database, Settings2 } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
 import { CopyButton } from '@/components/admin/CopyButton'
 import { IntegrationsKeyManager } from '@/components/admin/IntegrationsKeyManager'
 import { CrmConfigForm } from '@/components/admin/CrmConfigForm'
+import { PipedriveConfigForm } from '@/components/admin/PipedriveConfigForm'
 import { getIntegrationStatus } from '@/lib/actions/integrations'
 
 export const metadata: Metadata = { title: 'Integraciones — ProspectPro' }
@@ -29,6 +30,7 @@ export default async function IntegrationsPage() {
   }
 
   const webhookUrl = `https://app.prospectpro.cloud/api/webhooks/inbound/${encodeURIComponent(status.company)}`
+  const isPipedrive = status.crmConfig?.crm_name?.toLowerCase() === 'pipedrive'
 
   return (
     <div className="flex flex-col h-full">
@@ -67,6 +69,18 @@ export default async function IntegrationsPage() {
           </p>
           <CrmConfigForm initial={status.crmConfig} />
         </div>
+
+        {/* Pipedrive-specific config — only shown when CRM is Pipedrive */}
+        {isPipedrive && (
+          <div className="space-y-3">
+            <SectionHeader icon={Settings2}>Configuración de Pipedrive</SectionHeader>
+            <p className="text-xs text-muted-foreground">
+              Mapea las etapas de tu pipeline en Pipedrive con las etapas de ProspectPro.
+              Los deals que lleguen por webhook se sincronizarán automáticamente.
+            </p>
+            <PipedriveConfigForm initial={status.pipedriveConfig} />
+          </div>
+        )}
 
         {/* API Key (inbound) */}
         <div className="space-y-3">
@@ -111,15 +125,21 @@ export default async function IntegrationsPage() {
                       </td>
                       <td className="px-4 py-2.5">
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                          log.status === 'received'
+                          log.status === 'processed' || log.status === 'received'
                             ? 'bg-emerald-500/10 text-emerald-400'
+                            : log.status === 'skipped'
+                            ? 'bg-amber-500/10 text-amber-400'
                             : 'bg-red-500/10 text-red-400'
                         }`}>
                           {log.status}
                         </span>
                       </td>
                       <td className="px-4 py-2.5 font-mono text-muted-foreground/60 max-w-xs truncate hidden md:table-cell">
-                        {log.payload ? JSON.stringify(log.payload).slice(0, 80) : '—'}
+                        {log.error_message
+                          ? <span className="text-red-400/70">{log.error_message}</span>
+                          : log.payload
+                          ? JSON.stringify(log.payload).slice(0, 80)
+                          : '—'}
                       </td>
                     </tr>
                   ))}

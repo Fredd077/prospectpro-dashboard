@@ -148,6 +148,11 @@ function EntryCard({
             {entry.status}
           </span>
         )}
+        {entry.integration_source && (
+          <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
+            {entry.integration_source}
+          </span>
+        )}
       </div>
 
       {(entry.company_name || entry.prospect_name) && (
