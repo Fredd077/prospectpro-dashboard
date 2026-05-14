@@ -8,6 +8,7 @@ export type PipedriveStageConfig = {
   reunion_stage: string
   propuesta_stage: string
   cierre_stage: string
+  owner_id?: string
 }
 
 async function assertManagerOrAdmin() {

@@ -4,6 +4,7 @@ type PipedriveStageConfig = {
   reunion_stage?: string
   propuesta_stage?: string
   cierre_stage?: string
+  owner_id?: string
 }
 
 type PipedriveDeal = {
@@ -14,6 +15,7 @@ type PipedriveDeal = {
   status?: 'open' | 'won' | 'lost' | 'deleted'
   person_name?: string
   org_name?: string
+  user_id?: number
 }
 
 type PipedrivePayload = {
@@ -73,6 +75,13 @@ export async function processPipedriveEvent(
 
   if (!adminId) {
     return { action: 'skipped', message: 'No admin_user_id on integration' }
+  }
+
+  // Filter by owner if configured
+  if (config.owner_id && deal.user_id !== undefined) {
+    if (String(deal.user_id) !== config.owner_id) {
+      return { action: 'skipped', message: `Deal ${dealId} belongs to user ${deal.user_id}, not owner ${config.owner_id}` }
+    }
   }
 
   let entryStatus: 'abierto' | 'perdido' | 'ganado' = 'abierto'

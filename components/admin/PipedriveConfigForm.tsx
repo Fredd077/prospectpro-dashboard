@@ -13,6 +13,7 @@ export function PipedriveConfigForm({ initial }: Props) {
   const [reunionStage,   setReunionStage]   = useState(initial?.reunion_stage   ?? '')
   const [propuestaStage, setPropuestaStage] = useState(initial?.propuesta_stage ?? '')
   const [cierreStage,    setCierreStage]    = useState(initial?.cierre_stage    ?? '')
+  const [ownerId,        setOwnerId]        = useState(initial?.owner_id        ?? '')
   const [saved,    setSaved]    = useState(false)
   const [error,    setError]    = useState<string | null>(null)
   const [pending,  startTransition] = useTransition()
@@ -26,6 +27,7 @@ export function PipedriveConfigForm({ initial }: Props) {
           reunion_stage:   reunionStage.trim(),
           propuesta_stage: propuestaStage.trim(),
           cierre_stage:    cierreStage.trim(),
+          owner_id:        ownerId.trim() || undefined,
         })
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)
@@ -40,25 +42,7 @@ export function PipedriveConfigForm({ initial }: Props) {
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-4">
-      {/* Instructions */}
-      <div className="rounded border border-border bg-muted/10 p-3 space-y-1.5 text-xs text-muted-foreground">
-        <p className="font-semibold text-foreground/70">Cómo obtener los IDs de etapa</p>
-        <p>
-          En Pipedrive ve a <span className="font-mono text-primary/80">Configuración → Etapas del pipeline</span>.
-          Haz clic en cada etapa y copia el número al final de la URL.
-          Por ejemplo: <span className="font-mono text-primary/80">/stage/<strong>12</strong></span>
-        </p>
-        <a
-          href="https://app.pipedrive.com/settings/pipelines"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-primary/70 hover:text-primary transition-colors"
-        >
-          Abrir Pipedrive
-          <ExternalLink className="h-3 w-3" />
-        </a>
-      </div>
-
+      {/* Stage mapping */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label className={labelClass}>ID etapa — Reunión</label>
@@ -66,7 +50,7 @@ export function PipedriveConfigForm({ initial }: Props) {
             type="text"
             value={reunionStage}
             onChange={(e) => setReunionStage(e.target.value)}
-            placeholder="ej: 12"
+            placeholder="ej: 26"
             className={inputClass}
           />
         </div>
@@ -76,7 +60,7 @@ export function PipedriveConfigForm({ initial }: Props) {
             type="text"
             value={propuestaStage}
             onChange={(e) => setPropuestaStage(e.target.value)}
-            placeholder="ej: 15"
+            placeholder="ej: 4"
             className={inputClass}
           />
         </div>
@@ -86,10 +70,28 @@ export function PipedriveConfigForm({ initial }: Props) {
             type="text"
             value={cierreStage}
             onChange={(e) => setCierreStage(e.target.value)}
-            placeholder="ej: 18"
+            placeholder="ej: 5"
             className={inputClass}
           />
         </div>
+      </div>
+
+      {/* Owner filter */}
+      <div>
+        <label className={labelClass}>
+          Tu ID de usuario en Pipedrive
+          <span className="ml-1 normal-case font-normal text-muted-foreground/60">(opcional — filtra solo tus deals)</span>
+        </label>
+        <input
+          type="text"
+          value={ownerId}
+          onChange={(e) => setOwnerId(e.target.value)}
+          placeholder="ej: 24658977"
+          className={`${inputClass} sm:max-w-[180px]`}
+        />
+        <p className="mt-1 text-[10px] text-muted-foreground/60">
+          Encuéntralo en la URL cuando abres tu pipeline: <span className="font-mono">/pipeline/1/user/<strong>XXXXXXXX</strong></span>
+        </p>
       </div>
 
       {error && (
@@ -102,7 +104,7 @@ export function PipedriveConfigForm({ initial }: Props) {
           disabled={pending}
           className="flex items-center gap-1.5 rounded-md bg-primary/15 border border-primary/30 px-4 py-1.5 text-xs font-semibold text-primary hover:bg-primary/25 transition-colors disabled:opacity-50"
         >
-          {pending ? 'Guardando...' : 'Guardar mapeo de etapas'}
+          {pending ? 'Guardando...' : 'Guardar configuración'}
         </button>
         {saved && (
           <span className="flex items-center gap-1 text-xs text-emerald-400">
@@ -116,12 +118,21 @@ export function PipedriveConfigForm({ initial }: Props) {
       <div className="rounded border border-border bg-muted/10 p-3 space-y-1.5 text-xs text-muted-foreground">
         <p className="font-semibold text-foreground/70">Configurar webhook en Pipedrive</p>
         <ol className="list-decimal list-inside space-y-1">
-          <li>Ve a <span className="font-mono text-primary/80">Configuración → Webhooks → + Agregar webhook</span></li>
-          <li>URL del evento: pega la URL del endpoint que aparece arriba en esta página</li>
-          <li>Versión: <span className="font-mono text-primary/80">1.0</span></li>
-          <li>Objeto: <span className="font-mono text-primary/80">deal</span> — Eventos: <span className="font-mono text-primary/80">all</span></li>
-          <li>Header personalizado: <span className="font-mono text-primary/80">x-prospectpro-key</span> con tu API Key de ProspectPro</li>
+          <li>Ve a <span className="font-mono text-primary/80">Herramientas → Webhooks → Crear nuevo webhook</span></li>
+          <li><strong>Acción de evento:</strong> <span className="font-mono text-primary/80">*</span> (todos)</li>
+          <li><strong>Event objects:</strong> <span className="font-mono text-primary/80">deal</span></li>
+          <li><strong>URL de punto de término:</strong> copia la URL del endpoint de arriba y agrega al final <span className="font-mono text-primary/80">?key=TU_API_KEY</span></li>
+          <li>Deja los campos de autenticación HTTP vacíos y haz clic en <strong>Guardar</strong></li>
         </ol>
+        <a
+          href="https://sandlerdanmacias.pipedrive.com/settings/webhooks/create"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-primary/70 hover:text-primary transition-colors mt-1"
+        >
+          Abrir creación de webhook en Pipedrive
+          <ExternalLink className="h-3 w-3" />
+        </a>
       </div>
     </div>
   )
