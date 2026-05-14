@@ -8,7 +8,7 @@ import type { RepAnalytics } from './gerente-ai'
 export interface PipelineDeal {
   id: string
   userId: string
-  stage: 'Reunión' | 'Propuesta' | 'Cierre'
+  stage: 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
   status: 'abierto' | 'perdido' | 'ganado'
   prospectType: 'inbound' | 'outbound'
   entryDate: string
@@ -115,7 +115,7 @@ function stddev(values: number[]): number {
 }
 
 function computeStages(deals: PipelineDeal[], avgTicket: number): StageBreakdown[] {
-  return (['Reunión', 'Propuesta', 'Cierre'] as const).map((stage) => {
+  return (['Primera reu ejecutada/Propuesta en preparación', 'Propuesta Presentada', 'Por facturar/cobrar'] as const).map((stage) => {
     const sd    = deals.filter((d) => d.stage === stage)
     const open  = sd.filter((d) => d.status === 'abierto')
     const won   = sd.filter((d) => d.status === 'ganado')
@@ -136,9 +136,9 @@ function computeStages(deals: PipelineDeal[], avgTicket: number): StageBreakdown
 function projectRevenue(openDeals: PipelineDeal[], stages: StageBreakdown[], avgTicket: number): number {
   const rateMap = Object.fromEntries(stages.map((s) => [s.stage, s.winRate / 100]))
   const stageProb: Record<string, number> = {
-    'Reunión':   (rateMap['Reunión']  || 0.3) * (rateMap['Propuesta'] || 0.5) * (rateMap['Cierre'] || 0.6),
-    'Propuesta': (rateMap['Propuesta']|| 0.5) * (rateMap['Cierre']    || 0.6),
-    'Cierre':    (rateMap['Cierre']   || 0.6),
+    'Primera reu ejecutada/Propuesta en preparación': (rateMap['Primera reu ejecutada/Propuesta en preparación'] || 0.3) * (rateMap['Propuesta Presentada'] || 0.5) * (rateMap['Por facturar/cobrar'] || 0.6),
+    'Propuesta Presentada': (rateMap['Propuesta Presentada'] || 0.5) * (rateMap['Por facturar/cobrar'] || 0.6),
+    'Por facturar/cobrar':  (rateMap['Por facturar/cobrar']  || 0.6),
   }
   return openDeals.reduce((sum, d) => sum + (d.amount ?? avgTicket) * (stageProb[d.stage] ?? 0.3), 0)
 }
@@ -247,7 +247,7 @@ export async function fetchTeamPipeline(
     const open  = repDeals.filter((d) => d.status === 'abierto')
     // Only Cierre-stage deals count as won revenue — Propuesta records auto-marked
     // 'ganado' when advanced to Cierre are workflow state, not revenue events.
-    const won   = repDeals.filter((d) => d.status === 'ganado' && d.stage === 'Cierre')
+    const won   = repDeals.filter((d) => d.status === 'ganado' && d.stage === 'Por facturar/cobrar')
     const lost  = repDeals.filter((d) => d.status === 'perdido')
 
     // Actual revenue (no fallback for confirmed deals)
@@ -303,7 +303,7 @@ export async function fetchTeamPipeline(
 
   // Won = Cierre-ganado only. Lost = any-perdido. Propuesta-ganado records are
   // workflow state (advanced to Cierre), not terminal outcomes — exclude from win rate.
-  const teamWon     = deals.filter((d) => d.status === 'ganado' && d.stage === 'Cierre').length
+  const teamWon     = deals.filter((d) => d.status === 'ganado' && d.stage === 'Por facturar/cobrar').length
   const teamLost    = deals.filter((d) => d.status === 'perdido').length
   const teamClosed  = teamWon + teamLost
   const teamWinRate = teamClosed > 0 ? Math.round((teamWon / teamClosed) * 100) : 0

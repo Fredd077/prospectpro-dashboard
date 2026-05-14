@@ -196,7 +196,7 @@ export function PipelinePanel({ pipeline }: Props) {
               <thead>
                 <tr className="border-b border-white/[0.06] bg-[#0a0e17]">
                   <th className="text-left px-4 py-2.5 text-[9px] font-bold text-white/30 uppercase tracking-[0.12em]">Vendedor</th>
-                  {['Reunión','Propuesta','Cierre'].map((s) => (
+                  {['1ra Reunión','Prop. Presentada','Facturación'].map((s) => (
                     <th key={s} colSpan={3} className="px-3 py-2.5 text-[9px] font-bold text-white/30 uppercase tracking-wider text-center border-l border-white/[0.06]">
                       {s}
                     </th>
@@ -207,7 +207,7 @@ export function PipelinePanel({ pipeline }: Props) {
                 </tr>
                 <tr className="border-b border-white/[0.04]">
                   <th className="px-4 py-1.5" />
-                  {['Reunión','Propuesta','Cierre'].map((s) => (
+                  {['1ra Reunión','Prop. Presentada','Facturación'].map((s) => (
                     <>
                       <th key={`${s}-o`} className="px-2 py-1.5 text-[8px] text-cyan-400/50 text-center border-l border-white/[0.04]">Abier.</th>
                       <th key={`${s}-w`} className="px-2 py-1.5 text-[8px] text-emerald-400/50 text-center">Gan.</th>

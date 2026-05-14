@@ -60,9 +60,9 @@ const TAB_LABELS: { value: TabType; label: string }[] = [
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function FunnelChart({ entries }: { entries: PipelineSimple[] }) {
-  const countR = entries.filter(e => e.stage === 'Reunión').length
-  const countP = entries.filter(e => e.stage === 'Propuesta').length
-  const countC = entries.filter(e => e.stage === 'Cierre').length
+  const countR = entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length
+  const countP = entries.filter(e => e.stage === 'Propuesta Presentada').length
+  const countC = entries.filter(e => e.stage === 'Por facturar/cobrar').length
   const maxCount = Math.max(countR, countP, countC, 1)
 
   const bars = [
@@ -111,9 +111,9 @@ function FunnelChart({ entries }: { entries: PipelineSimple[] }) {
 }
 
 function ConversionChart({ entries, activeScenario }: { entries: PipelineSimple[]; activeScenario: ActiveScenario }) {
-  const countR = entries.filter(e => e.stage === 'Reunión').length
-  const countP = entries.filter(e => e.stage === 'Propuesta').length
-  const countC = entries.filter(e => e.stage === 'Cierre').length
+  const countR = entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length
+  const countP = entries.filter(e => e.stage === 'Propuesta Presentada').length
+  const countC = entries.filter(e => e.stage === 'Por facturar/cobrar').length
 
   let metaR = 0, metaP = 0, metaC = 0
   if (activeScenario) {
@@ -159,9 +159,9 @@ function TrendChart({ entries, period }: { entries: PipelineSimple[]; period: st
     const group = buckets[k]!
     return {
       fecha:      k,
-      Reuniones:  group.filter(e => e.stage === 'Reunión').length,
-      Propuestas: group.filter(e => e.stage === 'Propuesta').length,
-      Cierres:    group.filter(e => e.stage === 'Cierre').length,
+      Reuniones:  group.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length,
+      Propuestas: group.filter(e => e.stage === 'Propuesta Presentada').length,
+      Cierres:    group.filter(e => e.stage === 'Por facturar/cobrar').length,
     }
   })
 

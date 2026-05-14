@@ -16,16 +16,16 @@ export async function PipelineMiniCard() {
 
   if (!rows?.length) return null
 
-  const reuniones  = rows.filter(r => r.stage === 'Reunión').length
-  const propuestas = rows.filter(r => r.stage === 'Propuesta').length
-  const cierres    = rows.filter(r => r.stage === 'Cierre').length
+  const reuniones  = rows.filter(r => r.stage === 'Primera reu ejecutada/Propuesta en preparación').length
+  const propuestas = rows.filter(r => r.stage === 'Propuesta Presentada').length
+  const cierres    = rows.filter(r => r.stage === 'Por facturar/cobrar').length
 
   const enPropuesta = rows
-    .filter(r => r.stage === 'Propuesta' && r.status === 'abierto')
+    .filter(r => r.stage === 'Propuesta Presentada' && r.status === 'abierto')
     .reduce((s, r) => s + (r.amount_usd ?? 0), 0)
 
   const cerrado = rows
-    .filter(r => r.stage === 'Cierre')
+    .filter(r => r.stage === 'Por facturar/cobrar')
     .reduce((s, r) => s + (r.amount_usd ?? 0), 0)
 
   return (

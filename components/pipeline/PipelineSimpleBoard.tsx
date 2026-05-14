@@ -19,10 +19,20 @@ import {
 import { PipelineSimpleCharts } from '@/components/pipeline/PipelineSimpleCharts'
 import type { PipelineSimple } from '@/lib/types/database'
 
-const STAGES = ['Reunión', 'Propuesta', 'Cierre'] as const
+const STAGES = [
+  'Primera reu ejecutada/Propuesta en preparación',
+  'Propuesta Presentada',
+  'Por facturar/cobrar',
+] as const
 type Stage = (typeof STAGES)[number]
 type Status = 'abierto' | 'perdido' | 'ganado'
 type ProspectType = 'inbound' | 'outbound'
+
+const STAGE_SHORT: Record<Stage, string> = {
+  'Primera reu ejecutada/Propuesta en preparación': '1ra Reunión',
+  'Propuesta Presentada': 'Prop. Presentada',
+  'Por facturar/cobrar':  'Por facturar',
+}
 
 type ActiveScenario = {
   funnel_stages: string[]
@@ -34,9 +44,9 @@ type ActiveScenario = {
 // ── Stage config ──────────────────────────────────────────────────────────────
 
 const STAGE_COLOR: Record<Stage, { border: string; label: string; badge: string }> = {
-  'Reunión':  { border: 'border-t-cyan-500/50',    label: 'text-cyan-400',    badge: 'bg-cyan-400/10 text-cyan-400'       },
-  'Propuesta':{ border: 'border-t-amber-500/50',   label: 'text-amber-400',   badge: 'bg-amber-400/10 text-amber-400'     },
-  'Cierre':   { border: 'border-t-emerald-500/50', label: 'text-emerald-400', badge: 'bg-emerald-400/10 text-emerald-400' },
+  'Primera reu ejecutada/Propuesta en preparación': { border: 'border-t-cyan-500/50',    label: 'text-cyan-400',    badge: 'bg-cyan-400/10 text-cyan-400'       },
+  'Propuesta Presentada':                           { border: 'border-t-amber-500/50',   label: 'text-amber-400',   badge: 'bg-amber-400/10 text-amber-400'     },
+  'Por facturar/cobrar':                            { border: 'border-t-emerald-500/50', label: 'text-emerald-400', badge: 'bg-emerald-400/10 text-emerald-400' },
 }
 
 // ── Toggle button ─────────────────────────────────────────────────────────────
@@ -143,7 +153,7 @@ function EntryCard({
         <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border ${origenBadge}`}>
           {entry.prospect_type}
         </span>
-        {entry.stage === 'Propuesta' && (
+        {entry.stage === 'Propuesta Presentada' && (
           <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border ${estadoBadge}`}>
             {entry.status}
           </span>
@@ -245,11 +255,11 @@ function FilterBar({
       {/* Etapa */}
       <div className="flex items-center gap-1">
         <span className="text-muted-foreground/60 mr-1 uppercase tracking-widest">Etapa</span>
-        {(['all', 'Reunión', 'Propuesta', 'Cierre'] as const).map((v) => (
-          <button key={v} onClick={() => setFilterEtapa(v)}
+        {(['all', ...STAGES] as const).map((v) => (
+          <button key={v} onClick={() => setFilterEtapa(v as 'all' | Stage)}
             className={cn(btnBase, filterEtapa === v ? active : inactive)}
           >
-            {v === 'all' ? 'Todas' : v}
+            {v === 'all' ? 'Todas' : STAGE_SHORT[v as Stage]}
           </button>
         ))}
       </div>
@@ -293,7 +303,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   const [filterEtapa,  setFilterEtapa]  = useState<'all' | Stage>('all')
 
   // Form state
-  const [formStage,       setFormStage]       = useState<Stage>('Reunión')
+  const [formStage,       setFormStage]       = useState<Stage>('Primera reu ejecutada/Propuesta en preparación')
   const [formStatus,      setFormStatus]      = useState<Status>('abierto')
   const [formProspectType, setFormProspectType] = useState<ProspectType>('outbound')
   const [formDate,        setFormDate]        = useState(today)
@@ -311,14 +321,14 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   })
 
   // Derived metrics (on filtered data)
-  const countReunion   = filtered.filter(e => e.stage === 'Reunión').length
-  const countPropuesta = filtered.filter(e => e.stage === 'Propuesta').length
-  const pipelineValue  = filtered.filter(e => e.stage === 'Propuesta' && e.status === 'abierto').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+  const countReunion   = filtered.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length
+  const countPropuesta = filtered.filter(e => e.stage === 'Propuesta Presentada').length
+  const pipelineValue  = filtered.filter(e => e.stage === 'Propuesta Presentada' && e.status === 'abierto').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
   const perdidoValue   = filtered.filter(e => e.status === 'perdido').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-  const closedValue    = filtered.filter(e => e.stage === 'Cierre').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+  const closedValue    = filtered.filter(e => e.stage === 'Por facturar/cobrar').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
 
   const convRP = countReunion > 0   ? Math.round(countPropuesta / countReunion * 100)   : 0
-  const countCierre = filtered.filter(e => e.stage === 'Cierre').length
+  const countCierre = filtered.filter(e => e.stage === 'Por facturar/cobrar').length
   const convPC = countPropuesta > 0 ? Math.round(countCierre / countPropuesta * 100) : 0
   const minConv = Math.min(convRP, convPC)
   const convColor = minConv >= 70 ? 'emerald' : minConv >= 40 ? 'amber' : 'red'
@@ -326,7 +336,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  function resetForm(stage: Stage = 'Reunión', source?: PipelineSimple) {
+  function resetForm(stage: Stage = 'Primera reu ejecutada/Propuesta en preparación', source?: PipelineSimple) {
     setFormStage(source?.stage ?? stage)
     setFormStatus(source?.status ?? 'abierto')
     setFormProspectType(source?.prospect_type ?? 'outbound')
@@ -337,7 +347,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
     setFormNotes(source?.notes ?? '')
   }
 
-  function openCreate(stage: Stage = 'Reunión') {
+  function openCreate(stage: Stage = 'Primera reu ejecutada/Propuesta en preparación') {
     setEditingEntry(null)
     setModalMode('create')
     setSourceEntryId(null)
@@ -367,15 +377,15 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
     setModalMode('duplicate')
     setSourceEntryId(entry.id)
     setSourceEntryStage(entry.stage)
-    resetForm('Reunión', entry)
+    resetForm('Primera reu ejecutada/Propuesta en preparación', entry)
     setShowForm(true)
   }
 
   // Auto-set status when stage changes in the modal
   function handleFormStageChange(s: Stage) {
     setFormStage(s)
-    if (s === 'Cierre')   setFormStatus('ganado')
-    if (s === 'Reunión')  setFormStatus('abierto')
+    if (s === 'Por facturar/cobrar')                                setFormStatus('ganado')
+    if (s === 'Primera reu ejecutada/Propuesta en preparación')    setFormStatus('abierto')
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -383,7 +393,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   async function handleSave() {
     setSaving(true)
     try {
-      const derivedStatus: Status = formStage === 'Cierre' ? 'ganado' : formStage === 'Reunión' ? 'abierto' : formStatus
+      const derivedStatus: Status = formStage === 'Por facturar/cobrar' ? 'ganado' : formStage === 'Primera reu ejecutada/Propuesta en preparación' ? 'abierto' : formStatus
       const payload = {
         stage:         formStage,
         status:        derivedStatus,
@@ -399,7 +409,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
         toast.success('Entrada actualizada ✓')
       } else if (modalMode === 'duplicate' || modalMode === 'create') {
         await createPipelineSimple(payload)
-        if (modalMode === 'duplicate' && sourceEntryId && sourceEntryStage === 'Propuesta' && formStage === 'Cierre') {
+        if (modalMode === 'duplicate' && sourceEntryId && sourceEntryStage === 'Propuesta Presentada' && formStage === 'Por facturar/cobrar') {
           await updatePipelineSimpleStatus(sourceEntryId, 'ganado')
           toast.success('Propuesta marcada como Ganada automáticamente')
         } else {
@@ -469,7 +479,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
             <div key={stage} className="flex flex-col gap-3 min-w-[240px] max-w-[240px]">
               {/* Column header */}
               <div className="flex items-center gap-2 mb-2">
-                <span className={cn('text-xs font-bold uppercase tracking-widest', col.label)}>{stage}</span>
+                <span className={cn('text-xs font-bold', col.label)}>{STAGE_SHORT[stage]}</span>
                 <span className={cn('text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center', col.badge)}>
                   {stageEntries.length}
                 </span>
@@ -530,7 +540,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
                     onChange={e => handleFormStageChange(e.target.value as Stage)}
                     className={inputClass}
                   >
-                    {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                    {STAGES.map(s => <option key={s} value={s}>{STAGE_SHORT[s]}</option>)}
                   </select>
                 </div>
                 {/* Fecha */}
@@ -554,7 +564,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
               </div>
 
               {/* Estado — only for Propuesta */}
-              {formStage === 'Propuesta' && (
+              {formStage === 'Propuesta Presentada' && (
                 <div>
                   <label className={labelClass}>Estado</label>
                   <ToggleGroup<Status>

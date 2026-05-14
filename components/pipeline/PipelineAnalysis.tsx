@@ -115,9 +115,9 @@ function GoalBar({ value, goal }: { value: number; goal: number }) {
 
 export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: Props) {
   const stats = useMemo(() => {
-    const reuniones  = entries.filter(e => e.stage === 'Reunión')
-    const propuestas = entries.filter(e => e.stage === 'Propuesta')
-    const cierres    = entries.filter(e => e.stage === 'Cierre')
+    const reuniones  = entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación')
+    const propuestas = entries.filter(e => e.stage === 'Propuesta Presentada')
+    const cierres    = entries.filter(e => e.stage === 'Por facturar/cobrar')
 
     const propAbiertas = propuestas.filter(e => e.status === 'abierto')
     const propGanadas  = propuestas.filter(e => e.status === 'ganado')

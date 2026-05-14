@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
-type Stage = 'Reunión' | 'Propuesta' | 'Cierre'
+type Stage = 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
 type Status = 'abierto' | 'perdido' | 'ganado'
 type ProspectType = 'inbound' | 'outbound'
 

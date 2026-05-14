@@ -283,12 +283,12 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
 
   // ── Pipeline ─────────────────────────────────────────────────────────────
   const pipeRows   = pipelineRes.data ?? []
-  const wonAmount  = pipeRows.filter(r => r.stage === 'Cierre' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
-  const openAmount = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Reunión' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+  const wonAmount  = pipeRows.filter(r => r.stage === 'Por facturar/cobrar' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+  const openAmount = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
   const lostAmount = pipeRows.filter(r => r.status === 'perdido' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
-  const wonCount   = pipeRows.filter(r => r.stage === 'Cierre' && r.status === 'ganado').length
+  const wonCount   = pipeRows.filter(r => r.stage === 'Por facturar/cobrar' && r.status === 'ganado').length
   const lostCount  = pipeRows.filter(r => r.status === 'perdido').length
-  const openCount  = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Reunión').length
+  const openCount  = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación').length
   const stageCounts: Record<string, number> = {}
   for (const r of pipeRows) { stageCounts[r.stage] = (stageCounts[r.stage] ?? 0) + 1 }
   const dashPipeline = {

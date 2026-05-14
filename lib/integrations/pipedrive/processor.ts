@@ -45,13 +45,13 @@ function resolveStage(
   stageId: number | undefined,
   dealStatus: string | undefined,
   config: PipedriveStageConfig,
-): 'Reunión' | 'Propuesta' | 'Cierre' | null {
-  if (dealStatus === 'won') return 'Cierre'
+): 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar' | null {
+  if (dealStatus === 'won') return 'Por facturar/cobrar'
   if (!stageId) return null
   const sid = String(stageId)
-  if (config.cierre_stage    && sid === config.cierre_stage)    return 'Cierre'
-  if (config.propuesta_stage && sid === config.propuesta_stage) return 'Propuesta'
-  if (config.reunion_stage   && sid === config.reunion_stage)   return 'Reunión'
+  if (config.cierre_stage    && sid === config.cierre_stage)    return 'Por facturar/cobrar'
+  if (config.propuesta_stage && sid === config.propuesta_stage) return 'Propuesta Presentada'
+  if (config.reunion_stage   && sid === config.reunion_stage)   return 'Primera reu ejecutada/Propuesta en preparación'
   return null
 }
 
@@ -97,7 +97,7 @@ export async function processPipedriveEvent(
     return { action: 'skipped', message: `Stage ID ${deal.stage_id} not mapped in Pipedrive config` }
   }
 
-  const finalStage = stage ?? 'Propuesta'
+  const finalStage = stage ?? 'Propuesta Presentada'
 
   const { data: existing } = await service
     .from('pipeline_simple')
