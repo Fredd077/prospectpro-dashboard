@@ -53,7 +53,9 @@ export function FilterBar({ currentType, currentChannel, channels }: FilterBarPr
         onValueChange={(v) => v && updateParam('type', v)}
       >
         <SelectTrigger className="w-36">
-          <SelectValue />
+          <SelectValue placeholder="Todo">
+            {currentType === 'OUTBOUND' ? 'Solo Outbound' : currentType === 'INBOUND' ? 'Solo Inbound' : 'Todo'}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="ALL">Todo</SelectItem>
@@ -69,7 +71,9 @@ export function FilterBar({ currentType, currentChannel, channels }: FilterBarPr
           onValueChange={(v) => v && updateParam('channel', v)}
         >
           <SelectTrigger className="w-44">
-            <SelectValue placeholder="Todos los canales" />
+            <SelectValue placeholder="Todos los canales">
+              {currentChannel ? (CHANNEL_LABELS[currentChannel] ?? currentChannel) : 'Todos los canales'}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los canales</SelectItem>
