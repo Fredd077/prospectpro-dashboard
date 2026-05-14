@@ -255,7 +255,7 @@ export function ReportModal({ managerEmail, showCompanyFilter, companies = [], m
     <div className="space-y-3">
 
       {/* Trigger card */}
-      <div style={{ borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: '#0d0d0d', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: '#0d0d0d', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <p style={{ fontSize: 14, fontWeight: 500, color: '#ffffff', margin: 0 }}>Generar reporte del equipo</p>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '3px 0 0' }}>

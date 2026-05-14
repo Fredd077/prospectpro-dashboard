@@ -260,7 +260,7 @@ export default async function AdminPage({ searchParams }: Props) {
                   <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden lg:table-cell">
                     Managers
                   </th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <th className="px-2 sm:px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
                     Check-ins hoy
                   </th>
                   <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden md:table-cell">
