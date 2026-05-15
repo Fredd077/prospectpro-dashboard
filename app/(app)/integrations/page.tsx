@@ -3,12 +3,12 @@ import { redirect } from 'next/navigation'
 import { Webhook, Link2, KeyRound, Activity, Database, Settings2 } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
 import { CopyButton } from '@/components/admin/CopyButton'
-import { LocalTime } from '@/components/admin/LocalTime'
 import { IntegrationsKeyManager } from '@/components/admin/IntegrationsKeyManager'
 import { CrmConfigForm } from '@/components/admin/CrmConfigForm'
 import { PipedriveConfigForm } from '@/components/admin/PipedriveConfigForm'
 import { PipedriveSetupGuide } from '@/components/admin/PipedriveSetupGuide'
 import { GenericAdapterConfigForm } from '@/components/admin/GenericAdapterConfigForm'
+import { WebhookLogsTable } from '@/components/admin/WebhookLogsTable'
 import { getIntegrationStatus } from '@/lib/actions/integrations'
 
 export const metadata: Metadata = { title: 'Integraciones — ProspectPro' }
@@ -117,56 +117,10 @@ export default async function IntegrationsPage() {
         {/* Webhook Logs */}
         <div className="space-y-3">
           <SectionHeader icon={Activity}>Últimas llamadas</SectionHeader>
-          {status.logs.length === 0 ? (
-            <p className="text-xs text-muted-foreground/50 italic">
-              Aún no se han recibido webhooks para esta empresa.
-            </p>
-          ) : (
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30">
-                    <th className="px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-muted-foreground text-[10px]">
-                      Fecha
-                    </th>
-                    <th className="px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-muted-foreground text-[10px]">
-                      Estado
-                    </th>
-                    <th className="px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-muted-foreground text-[10px] hidden md:table-cell">
-                      Payload (preview)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40">
-                  {status.logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-muted/10 transition-colors">
-                      <td className="px-4 py-2.5 font-mono text-muted-foreground whitespace-nowrap">
-                        <LocalTime iso={log.created_at} />
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                          log.status === 'processed' || log.status === 'received'
-                            ? 'bg-emerald-500/10 text-emerald-400'
-                            : log.status === 'skipped'
-                            ? 'bg-amber-500/10 text-amber-400'
-                            : 'bg-red-500/10 text-red-400'
-                        }`}>
-                          {log.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 font-mono text-muted-foreground/60 max-w-xs truncate hidden md:table-cell">
-                        {log.error_message
-                          ? <span className="text-red-400/70">{log.error_message}</span>
-                          : log.payload
-                          ? JSON.stringify(log.payload).slice(0, 80)
-                          : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <p className="text-xs text-muted-foreground">
+            Haz clic en cualquier fila para ver el mensaje completo y el payload JSON.
+          </p>
+          <WebhookLogsTable logs={status.logs} />
         </div>
 
       </div>
