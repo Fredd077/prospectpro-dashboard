@@ -124,7 +124,7 @@ export async function POST(
         }).eq('id', logId)
       }
     })
-    .catch((err: unknown) => {
+    .then(undefined, (err: unknown) => {
       // Outer catch — prevents logs from staying as 'received' if the async chain itself throws
       void service.from('webhook_logs').update({
         status:        'error',
