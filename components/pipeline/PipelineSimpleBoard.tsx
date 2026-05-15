@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -304,26 +303,15 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   const [sourceEntryId, setSourceEntryId]     = useState<string | null>(null)
   const [sourceEntryStage, setSourceEntryStage] = useState<Stage | null>(null)
 
-  // Auto-refresh via Supabase Realtime when Pipedrive webhooks insert/update rows
+  // Auto-refresh: poll every 30s + refresh on tab focus to pick up Pipedrive webhook updates
   useEffect(() => {
-    const sb = getSupabaseBrowserClient()
-    let userId: string | null = null
-
-    sb.auth.getUser().then(({ data }) => {
-      userId = data.user?.id ?? null
-      if (!userId) return
-
-      const channel = sb
-        .channel('pipeline-realtime')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'pipeline_simple', filter: `user_id=eq.${userId}` },
-          () => { router.refresh() }
-        )
-        .subscribe()
-
-      return () => { sb.removeChannel(channel) }
-    })
+    const interval = setInterval(() => { router.refresh() }, 30_000)
+    const onFocus  = () => { router.refresh() }
+    window.addEventListener('visibilitychange', onFocus)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('visibilitychange', onFocus)
+    }
   }, [router])
 
   // Filters
