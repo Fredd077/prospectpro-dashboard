@@ -13,7 +13,7 @@ export type PipedriveStageConfig = {
   owner_id?: string
 }
 
-async function assertManagerOrAdmin() {
+async function assertUser() {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -22,16 +22,20 @@ async function assertManagerOrAdmin() {
     .select('role, org_role, company')
     .eq('id', user.id)
     .single()
-  const isAdmin   = profile?.role === 'admin'
-  const isManager = profile?.role === 'active' && profile?.org_role === 'manager'
-  if (!isAdmin && !isManager) throw new Error('Not authorized')
+  if (!profile || profile.role === 'inactive') throw new Error('Not authorized')
   return { user, profile }
 }
 
+// Derive a stable company identifier: profile.company → email prefix → user UUID
+function resolveCompany(profile: { company?: string | null }, userEmail: string | undefined, userId: string): string {
+  if (profile.company) return profile.company
+  if (userEmail) return userEmail
+  return userId
+}
+
 export async function generateIntegrationApiKey(label?: string): Promise<{ plaintext: string }> {
-  const { user, profile } = await assertManagerOrAdmin()
-  const company = profile.company
-  if (!company) throw new Error('Admin profile has no company assigned')
+  const { user, profile } = await assertUser()
+  const company = resolveCompany(profile, user.email, user.id)
 
   const service = getSupabaseServiceClient()
 
@@ -63,8 +67,8 @@ export async function getIntegrationStatus(): Promise<{
   crmConfig: Pick<Integration, 'crm_name' | 'crm_api_key' | 'crm_base_url'> | null
   pipedriveConfig: PipedriveStageConfig | null
 }> {
-  const { profile } = await assertManagerOrAdmin()
-  const company = profile.company ?? ''
+  const { user, profile } = await assertUser()
+  const company = resolveCompany(profile, user.email, user.id)
 
   const service = getSupabaseServiceClient()
 
@@ -106,11 +110,8 @@ export async function saveCrmConfig(data: {
   crm_api_key: string
   crm_base_url: string
 }): Promise<void> {
-  const { user } = await assertManagerOrAdmin()
-  const sb = await getSupabaseServerClient()
-  const { data: profile } = await sb.from('profiles').select('company').eq('id', user.id).single()
-  const company = profile?.company
-  if (!company) throw new Error('No company assigned to this user')
+  const { user, profile } = await assertUser()
+  const company = resolveCompany(profile, user.email, user.id)
 
   const service = getSupabaseServiceClient()
   await service.from('integrations').upsert(
@@ -126,15 +127,11 @@ export async function saveCrmConfig(data: {
 }
 
 export async function savePipedriveConfig(data: PipedriveStageConfig): Promise<void> {
-  const { user } = await assertManagerOrAdmin()
-  const sb = await getSupabaseServerClient()
-  const { data: profile } = await sb.from('profiles').select('company').eq('id', user.id).single()
-  const company = profile?.company
-  if (!company) throw new Error('No company assigned to this user')
+  const { user, profile } = await assertUser()
+  const company = resolveCompany(profile, user.email, user.id)
 
   const service = getSupabaseServiceClient()
 
-  // Read current config to merge
   const { data: existing } = await service
     .from('integrations')
     .select('config')

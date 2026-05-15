@@ -19,13 +19,14 @@ import {
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard',         icon: LayoutDashboard },
-  { href: '/checkin',   label: 'Check-in Diario',   icon: ClipboardList   },
-  { href: '/pipeline',  label: 'Mi Pipeline',       icon: TrendingUp      },
-  { href: '/coach',     label: 'Reportes Coach IA', icon: Bot             },
-  { href: '/activities',label: 'Actividades',       icon: ListChecks      },
-  { href: '/recipe',    label: 'Recetario',          icon: FlaskConical    },
-  { href: '/guide',     label: 'Guía de uso',        icon: BookOpen        },
+  { href: '/dashboard',    label: 'Dashboard',         icon: LayoutDashboard },
+  { href: '/checkin',      label: 'Check-in Diario',   icon: ClipboardList   },
+  { href: '/pipeline',     label: 'Mi Pipeline',       icon: TrendingUp      },
+  { href: '/coach',        label: 'Reportes Coach IA', icon: Bot             },
+  { href: '/activities',   label: 'Actividades',       icon: ListChecks      },
+  { href: '/recipe',       label: 'Recetario',          icon: FlaskConical    },
+  { href: '/integrations', label: 'Integraciones',     icon: Webhook         },
+  { href: '/guide',        label: 'Guía de uso',        icon: BookOpen        },
 ] as const
 
 interface SidebarNavProps {
@@ -44,10 +45,7 @@ export function SidebarNav({ isAdmin, isManager = false, unreadCoachCount }: Sid
       { href: '/team'        as const, label: 'Mi Equipo',   icon: Users         },
       { href: '/gerente-ai'  as const, label: 'Gerente AI',  icon: BrainCircuit  },
     ] : []),
-    ...((isAdmin || isManager) ? [
-      { href: '/integrations' as const, label: 'Integraciones', icon: Webhook },
-    ] : []),
-    ...(isAdmin ? [
+...(isAdmin ? [
       { href: '/admin'           as const, label: 'Admin Panel', icon: ShieldCheck       },
       { href: '/admin/ai-config' as const, label: 'Config AI',   icon: SlidersHorizontal },
     ] : []),
