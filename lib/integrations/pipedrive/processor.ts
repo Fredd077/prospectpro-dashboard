@@ -115,7 +115,7 @@ export async function processPipedriveEvent(
     .maybeSingle()
 
   if (existing) {
-    await service
+    const { error: updateErr } = await service
       .from('pipeline_simple')
       .update({
         stage:         finalStage,
@@ -126,10 +126,11 @@ export async function processPipedriveEvent(
         updated_at:    new Date().toISOString(),
       })
       .eq('id', existing.id)
+    if (updateErr) throw new Error(`DB update failed: ${updateErr.message}`)
     return { action: 'updated', message: `Deal ${dealId} → ${finalStage} / ${entryStatus}` }
   }
 
-  await service
+  const { error: insertErr } = await service
     .from('pipeline_simple')
     .insert({
       user_id:            adminId,
@@ -143,5 +144,6 @@ export async function processPipedriveEvent(
       external_id:        dealId,
       integration_source: 'pipedrive',
     })
+  if (insertErr) throw new Error(`DB insert failed: ${insertErr.message}`)
   return { action: 'created', message: `Deal ${dealId} → ${finalStage} / ${entryStatus}` }
 }
