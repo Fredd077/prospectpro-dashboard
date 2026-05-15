@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -302,6 +303,28 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   const [deletingId, setDeletingId]   = useState<string | null>(null)
   const [sourceEntryId, setSourceEntryId]     = useState<string | null>(null)
   const [sourceEntryStage, setSourceEntryStage] = useState<Stage | null>(null)
+
+  // Auto-refresh via Supabase Realtime when Pipedrive webhooks insert/update rows
+  useEffect(() => {
+    const sb = getSupabaseBrowserClient()
+    let userId: string | null = null
+
+    sb.auth.getUser().then(({ data }) => {
+      userId = data.user?.id ?? null
+      if (!userId) return
+
+      const channel = sb
+        .channel('pipeline-realtime')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'pipeline_simple', filter: `user_id=eq.${userId}` },
+          () => { router.refresh() }
+        )
+        .subscribe()
+
+      return () => { sb.removeChannel(channel) }
+    })
+  }, [router])
 
   // Filters
   const [filterOrigen, setFilterOrigen] = useState<'all' | ProspectType>('all')
