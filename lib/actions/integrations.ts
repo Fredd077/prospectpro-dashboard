@@ -5,6 +5,8 @@ import { hashKey } from '@/lib/utils/crypto'
 import type { Integration, IntegrationApiKey, WebhookLog } from '@/lib/types/database'
 
 export type PipedriveStageConfig = {
+  cita_stage?: string
+  reagendar_stage?: string
   reunion_stage: string
   propuesta_stage: string
   cierre_stage: string

@@ -60,50 +60,52 @@ const TAB_LABELS: { value: TabType; label: string }[] = [
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function FunnelChart({ entries }: { entries: PipelineSimple[] }) {
-  const countR = entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length
-  const countP = entries.filter(e => e.stage === 'Propuesta Presentada').length
-  const countC = entries.filter(e => e.stage === 'Por facturar/cobrar').length
-  const maxCount = Math.max(countR, countP, countC, 1)
+  const counts = [
+    entries.filter(e => e.stage === 'Cita agendada').length,
+    entries.filter(e => e.stage === 'Reagendar').length,
+    entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length,
+    entries.filter(e => e.stage === 'Propuesta Presentada').length,
+    entries.filter(e => e.stage === 'Por facturar/cobrar').length,
+  ]
+  const maxCount = Math.max(...counts, 1)
 
   const bars = [
-    { label: 'Reuniones',  count: countR, pct: countR === maxCount ? 100 : Math.round(countR / maxCount * 100), color: 'bg-cyan-500/70',    text: 'text-cyan-400'    },
-    { label: 'Propuestas', count: countP, pct: countP === maxCount ? 100 : Math.round(countP / maxCount * 100), color: 'bg-amber-500/70',   text: 'text-amber-400'   },
-    { label: 'Cierres',    count: countC, pct: countC === maxCount ? 100 : Math.round(countC / maxCount * 100), color: 'bg-emerald-500/70', text: 'text-emerald-400' },
+    { label: 'Cita agenda.', count: counts[0], color: 'bg-blue-500/70',    text: 'text-blue-400'    },
+    { label: 'Reagendar',    count: counts[1], color: 'bg-rose-500/70',    text: 'text-rose-400'    },
+    { label: 'Reuniones',    count: counts[2], color: 'bg-cyan-500/70',    text: 'text-cyan-400'    },
+    { label: 'Propuestas',   count: counts[3], color: 'bg-amber-500/70',   text: 'text-amber-400'   },
+    { label: 'Cierres',      count: counts[4], color: 'bg-emerald-500/70', text: 'text-emerald-400' },
   ]
 
-  const convRP = countR > 0 ? Math.round(countP / countR * 100) : 0
-  const convPC = countP > 0 ? Math.round(countC / countP * 100) : 0
+  const total = counts.reduce((s, c) => s + c, 0)
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col items-center gap-3 py-4">
+      <div className="flex flex-col items-center gap-2 py-4">
         {bars.map((b, i) => {
-          const convVal = i === 0 ? convRP : convPC
-          const convColor = convVal >= 50 ? 'text-emerald-400' : convVal >= 25 ? 'text-amber-400' : 'text-red-400'
+          const pct = b.count === maxCount ? 100 : Math.round(b.count / maxCount * 100)
+          const nextCount = i < bars.length - 1 ? counts[i + 1] : null
+          const convVal = b.count > 0 && nextCount !== null ? Math.round(nextCount / b.count * 100) : null
+          const convColor = convVal !== null ? (convVal >= 50 ? 'text-emerald-400' : convVal >= 25 ? 'text-amber-400' : 'text-red-400') : ''
           return (
             <div key={b.label} className="w-full max-w-md">
               <div className="flex justify-between mb-1 px-1">
-                <span className={`text-sm font-bold tracking-widest uppercase ${b.text}`}>{b.label}</span>
-                <span className={`text-base font-bold tabular-nums ${b.text}`}>{b.count}</span>
+                <span className={`text-xs font-bold tracking-widest uppercase ${b.text}`}>{b.label}</span>
+                <span className={`text-sm font-bold tabular-nums ${b.text}`}>{b.count}</span>
               </div>
               <div className="flex justify-center">
-                <div
-                  className={`h-8 rounded ${b.color} transition-all`}
-                  style={{ width: `${b.pct}%` }}
-                />
+                <div className={`h-6 rounded ${b.color} transition-all`} style={{ width: `${pct}%` }} />
               </div>
-              {i < bars.length - 1 && (
-                <div className="flex justify-center mt-1">
-                  <span className={`text-sm font-semibold ${convColor}`}>
-                    ↓ {convVal}% conversión
-                  </span>
+              {convVal !== null && (
+                <div className="flex justify-center mt-0.5">
+                  <span className={`text-xs font-semibold ${convColor}`}>↓ {convVal}% conv.</span>
                 </div>
               )}
             </div>
           )
         })}
       </div>
-      {countR === 0 && countP === 0 && countC === 0 && (
+      {total === 0 && (
         <p className="text-center text-xs text-muted-foreground py-8">Sin datos para el período seleccionado</p>
       )}
     </div>
@@ -114,6 +116,7 @@ function ConversionChart({ entries, activeScenario }: { entries: PipelineSimple[
   const countR = entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length
   const countP = entries.filter(e => e.stage === 'Propuesta Presentada').length
   const countC = entries.filter(e => e.stage === 'Por facturar/cobrar').length
+  // Note: Cita agendada and Reagendar use same rates as reunion for scenario projection
 
   let metaR = 0, metaP = 0, metaC = 0
   if (activeScenario) {
@@ -128,9 +131,9 @@ function ConversionChart({ entries, activeScenario }: { entries: PipelineSimple[
   }
 
   const data = [
-    { etapa: 'Reuniones',  real: countR, ...(activeScenario ? { meta: metaR } : {}) },
-    { etapa: 'Propuestas', real: countP, ...(activeScenario ? { meta: metaP } : {}) },
-    { etapa: 'Cierres',    real: countC, ...(activeScenario ? { meta: metaC } : {}) },
+    { etapa: '1ra Reunión', real: countR, ...(activeScenario ? { meta: metaR } : {}) },
+    { etapa: 'Propuestas',  real: countP, ...(activeScenario ? { meta: metaP } : {}) },
+    { etapa: 'Cierres',     real: countC, ...(activeScenario ? { meta: metaC } : {}) },
   ]
 
   return (
@@ -159,6 +162,8 @@ function TrendChart({ entries, period }: { entries: PipelineSimple[]; period: st
     const group = buckets[k]!
     return {
       fecha:      k,
+      Citas:      group.filter(e => e.stage === 'Cita agendada').length,
+      Reagendar:  group.filter(e => e.stage === 'Reagendar').length,
       Reuniones:  group.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length,
       Propuestas: group.filter(e => e.stage === 'Propuesta Presentada').length,
       Cierres:    group.filter(e => e.stage === 'Por facturar/cobrar').length,
@@ -180,6 +185,8 @@ function TrendChart({ entries, period }: { entries: PipelineSimple[]; period: st
           labelStyle={{ color: '#e5e7eb' }}
         />
         <Legend wrapperStyle={{ fontSize: 10 }} />
+        <Line type="monotone" dataKey="Citas"      stroke="#60a5fa" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+        <Line type="monotone" dataKey="Reagendar"  stroke="#fb7185" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
         <Line type="monotone" dataKey="Reuniones"  stroke="#22d3ee" strokeWidth={2} dot={false} />
         <Line type="monotone" dataKey="Propuestas" stroke="#f59e0b" strokeWidth={2} dot={false} />
         <Line type="monotone" dataKey="Cierres"    stroke="#34d399" strokeWidth={2} dot={false} />

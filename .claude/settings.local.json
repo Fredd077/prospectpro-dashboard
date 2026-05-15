@@ -11,7 +11,8 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "WebFetch(domain:api.anthropic.com)"
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(git commit -m 'feat\\(gerente-ai\\): AI narrative insight panel with streaming text *)"
     ]
   }
 }

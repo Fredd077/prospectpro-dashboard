@@ -543,7 +543,7 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          stage: 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
+          stage: 'Cita agendada' | 'Reagendar' | 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
           status: 'abierto' | 'perdido' | 'ganado'
           prospect_type: 'inbound' | 'outbound'
           entry_date: string
@@ -559,7 +559,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id?: string
-          stage: 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
+          stage: 'Cita agendada' | 'Reagendar' | 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
           status?: 'abierto' | 'perdido' | 'ganado'
           prospect_type?: 'inbound' | 'outbound'
           entry_date?: string

@@ -10,6 +10,8 @@ interface Props {
 }
 
 export function PipedriveConfigForm({ initial }: Props) {
+  const [citaStage,      setCitaStage]      = useState(initial?.cita_stage      ?? '')
+  const [reagendarStage, setReagendarStage] = useState(initial?.reagendar_stage ?? '')
   const [reunionStage,   setReunionStage]   = useState(initial?.reunion_stage   ?? '')
   const [propuestaStage, setPropuestaStage] = useState(initial?.propuesta_stage ?? '')
   const [cierreStage,    setCierreStage]    = useState(initial?.cierre_stage    ?? '')
@@ -24,6 +26,8 @@ export function PipedriveConfigForm({ initial }: Props) {
     startTransition(async () => {
       try {
         await savePipedriveConfig({
+          cita_stage:      citaStage.trim()      || undefined,
+          reagendar_stage: reagendarStage.trim() || undefined,
           reunion_stage:   reunionStage.trim(),
           propuesta_stage: propuestaStage.trim(),
           cierre_stage:    cierreStage.trim(),
@@ -42,20 +46,40 @@ export function PipedriveConfigForm({ initial }: Props) {
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-4">
-      {/* Stage mapping */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* Stage mapping — 5 stages */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div>
-          <label className={labelClass}>ID etapa — Reunión</label>
+          <label className={labelClass}>Cita agendada</label>
           <input
             type="text"
-            value={reunionStage}
-            onChange={(e) => setReunionStage(e.target.value)}
-            placeholder="ej: 26"
+            value={citaStage}
+            onChange={(e) => setCitaStage(e.target.value)}
+            placeholder="ej: 1"
             className={inputClass}
           />
         </div>
         <div>
-          <label className={labelClass}>ID etapa — Propuesta</label>
+          <label className={labelClass}>Reagendar</label>
+          <input
+            type="text"
+            value={reagendarStage}
+            onChange={(e) => setReagendarStage(e.target.value)}
+            placeholder="ej: 2"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass}>1ra Reunión</label>
+          <input
+            type="text"
+            value={reunionStage}
+            onChange={(e) => setReunionStage(e.target.value)}
+            placeholder="ej: 3"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Propuesta</label>
           <input
             type="text"
             value={propuestaStage}
@@ -65,7 +89,7 @@ export function PipedriveConfigForm({ initial }: Props) {
           />
         </div>
         <div>
-          <label className={labelClass}>ID etapa — Cierre</label>
+          <label className={labelClass}>Cierre</label>
           <input
             type="text"
             value={cierreStage}

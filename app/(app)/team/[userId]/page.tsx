@@ -284,11 +284,11 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   // ── Pipeline ─────────────────────────────────────────────────────────────
   const pipeRows   = pipelineRes.data ?? []
   const wonAmount  = pipeRows.filter(r => r.stage === 'Por facturar/cobrar' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
-  const openAmount = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+  const openAmount = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación' && r.stage !== 'Cita agendada' && r.stage !== 'Reagendar' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
   const lostAmount = pipeRows.filter(r => r.status === 'perdido' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
   const wonCount   = pipeRows.filter(r => r.stage === 'Por facturar/cobrar' && r.status === 'ganado').length
   const lostCount  = pipeRows.filter(r => r.status === 'perdido').length
-  const openCount  = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación').length
+  const openCount  = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación' && r.stage !== 'Cita agendada' && r.stage !== 'Reagendar').length
   const stageCounts: Record<string, number> = {}
   for (const r of pipeRows) { stageCounts[r.stage] = (stageCounts[r.stage] ?? 0) + 1 }
   const dashPipeline = {
@@ -549,20 +549,21 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
                 </div>
               </div>
 
-              {/* Etapas: 3 columnas compactas */}
+              {/* Etapas: 5 columnas */}
               {Object.keys(dashPipeline.stageCounts).length > 0 && (
-                <div className="grid grid-cols-3 gap-3 pt-4 border-t border-border/50">
-                  {(['Reunión', 'Propuesta', 'Cierre'] as const).map((stage) => {
-                    const count = dashPipeline.stageCounts[stage] ?? 0
-                    const color = stage === 'Reunión' ? 'text-cyan-400' : stage === 'Propuesta' ? 'text-amber-400' : 'text-emerald-400'
-                    const bg    = stage === 'Reunión' ? 'bg-cyan-400/5 border-cyan-400/15' : stage === 'Propuesta' ? 'bg-amber-400/5 border-amber-400/15' : 'bg-emerald-400/5 border-emerald-400/15'
-                    return (
-                      <div key={stage} className={`flex flex-col items-center gap-1 rounded-lg border py-3 ${bg}`}>
-                        <span className={`text-2xl font-bold tabular-nums ${color}`}>{count}</span>
-                        <span className={`text-[10px] font-semibold uppercase tracking-widest ${color} opacity-60`}>{stage}</span>
-                      </div>
-                    )
-                  })}
+                <div className="grid grid-cols-5 gap-2 pt-4 border-t border-border/50">
+                  {([
+                    { stage: 'Cita agendada', label: 'Cita', color: 'text-blue-400', bg: 'bg-blue-400/5 border-blue-400/15' },
+                    { stage: 'Reagendar',     label: 'Reag.', color: 'text-rose-400', bg: 'bg-rose-400/5 border-rose-400/15' },
+                    { stage: 'Primera reu ejecutada/Propuesta en preparación', label: '1ra Reu.', color: 'text-cyan-400', bg: 'bg-cyan-400/5 border-cyan-400/15' },
+                    { stage: 'Propuesta Presentada', label: 'Prop.', color: 'text-amber-400', bg: 'bg-amber-400/5 border-amber-400/15' },
+                    { stage: 'Por facturar/cobrar',  label: 'Cierre', color: 'text-emerald-400', bg: 'bg-emerald-400/5 border-emerald-400/15' },
+                  ] as const).map(({ stage, label, color, bg }) => (
+                    <div key={stage} className={`flex flex-col items-center gap-1 rounded-lg border py-3 ${bg}`}>
+                      <span className={`text-xl font-bold tabular-nums ${color}`}>{dashPipeline.stageCounts[stage] ?? 0}</span>
+                      <span className={`text-[9px] font-semibold uppercase tracking-widest ${color} opacity-60`}>{label}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

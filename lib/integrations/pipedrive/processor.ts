@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 type PipedriveStageConfig = {
+  cita_stage?: string
+  reagendar_stage?: string
   reunion_stage?: string
   propuesta_stage?: string
   cierre_stage?: string
@@ -46,13 +48,15 @@ function resolveStage(
   stageId: number | undefined,
   dealStatus: string | undefined,
   config: PipedriveStageConfig,
-): 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar' | null {
+): 'Cita agendada' | 'Reagendar' | 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar' | null {
   if (dealStatus === 'won') return 'Por facturar/cobrar'
   if (!stageId) return null
   const sid = String(stageId)
-  if (config.cierre_stage    && sid === config.cierre_stage)    return 'Por facturar/cobrar'
-  if (config.propuesta_stage && sid === config.propuesta_stage) return 'Propuesta Presentada'
-  if (config.reunion_stage   && sid === config.reunion_stage)   return 'Primera reu ejecutada/Propuesta en preparación'
+  if (config.cierre_stage     && sid === config.cierre_stage)     return 'Por facturar/cobrar'
+  if (config.propuesta_stage  && sid === config.propuesta_stage)  return 'Propuesta Presentada'
+  if (config.reunion_stage    && sid === config.reunion_stage)    return 'Primera reu ejecutada/Propuesta en preparación'
+  if (config.reagendar_stage  && sid === config.reagendar_stage)  return 'Reagendar'
+  if (config.cita_stage       && sid === config.cita_stage)       return 'Cita agendada'
   return null
 }
 

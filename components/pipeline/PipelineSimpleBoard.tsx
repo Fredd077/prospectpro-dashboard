@@ -20,6 +20,8 @@ import { PipelineSimpleCharts } from '@/components/pipeline/PipelineSimpleCharts
 import type { PipelineSimple } from '@/lib/types/database'
 
 const STAGES = [
+  'Cita agendada',
+  'Reagendar',
   'Primera reu ejecutada/Propuesta en preparación',
   'Propuesta Presentada',
   'Por facturar/cobrar',
@@ -29,9 +31,11 @@ type Status = 'abierto' | 'perdido' | 'ganado'
 type ProspectType = 'inbound' | 'outbound'
 
 const STAGE_SHORT: Record<Stage, string> = {
+  'Cita agendada':                                  'Cita agenda.',
+  'Reagendar':                                      'Reagendar',
   'Primera reu ejecutada/Propuesta en preparación': '1ra Reunión',
-  'Propuesta Presentada': 'Prop. Presentada',
-  'Por facturar/cobrar':  'Por facturar',
+  'Propuesta Presentada':                           'Prop. Presentada',
+  'Por facturar/cobrar':                            'Por facturar',
 }
 
 type ActiveScenario = {
@@ -44,6 +48,8 @@ type ActiveScenario = {
 // ── Stage config ──────────────────────────────────────────────────────────────
 
 const STAGE_COLOR: Record<Stage, { border: string; label: string; badge: string }> = {
+  'Cita agendada':                                  { border: 'border-t-blue-500/50',    label: 'text-blue-400',    badge: 'bg-blue-400/10 text-blue-400'       },
+  'Reagendar':                                      { border: 'border-t-rose-500/50',    label: 'text-rose-400',    badge: 'bg-rose-400/10 text-rose-400'       },
   'Primera reu ejecutada/Propuesta en preparación': { border: 'border-t-cyan-500/50',    label: 'text-cyan-400',    badge: 'bg-cyan-400/10 text-cyan-400'       },
   'Propuesta Presentada':                           { border: 'border-t-amber-500/50',   label: 'text-amber-400',   badge: 'bg-amber-400/10 text-amber-400'     },
   'Por facturar/cobrar':                            { border: 'border-t-emerald-500/50', label: 'text-emerald-400', badge: 'bg-emerald-400/10 text-emerald-400' },
@@ -321,14 +327,15 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   })
 
   // Derived metrics (on filtered data)
+  const countCita      = filtered.filter(e => e.stage === 'Cita agendada').length
   const countReunion   = filtered.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length
   const countPropuesta = filtered.filter(e => e.stage === 'Propuesta Presentada').length
+  const countCierre    = filtered.filter(e => e.stage === 'Por facturar/cobrar').length
   const pipelineValue  = filtered.filter(e => e.stage === 'Propuesta Presentada' && e.status === 'abierto').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
   const perdidoValue   = filtered.filter(e => e.status === 'perdido').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
   const closedValue    = filtered.filter(e => e.stage === 'Por facturar/cobrar').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
 
   const convRP = countReunion > 0   ? Math.round(countPropuesta / countReunion * 100)   : 0
-  const countCierre = filtered.filter(e => e.stage === 'Por facturar/cobrar').length
   const convPC = countPropuesta > 0 ? Math.round(countCierre / countPropuesta * 100) : 0
   const minConv = Math.min(convRP, convPC)
   const convColor = minConv >= 70 ? 'emerald' : minConv >= 40 ? 'amber' : 'red'
@@ -336,7 +343,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  function resetForm(stage: Stage = 'Primera reu ejecutada/Propuesta en preparación', source?: PipelineSimple) {
+  function resetForm(stage: Stage = 'Cita agendada', source?: PipelineSimple) {
     setFormStage(source?.stage ?? stage)
     setFormStatus(source?.status ?? 'abierto')
     setFormProspectType(source?.prospect_type ?? 'outbound')
@@ -347,7 +354,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
     setFormNotes(source?.notes ?? '')
   }
 
-  function openCreate(stage: Stage = 'Primera reu ejecutada/Propuesta en preparación') {
+  function openCreate(stage: Stage = 'Cita agendada') {
     setEditingEntry(null)
     setModalMode('create')
     setSourceEntryId(null)
@@ -377,15 +384,15 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
     setModalMode('duplicate')
     setSourceEntryId(entry.id)
     setSourceEntryStage(entry.stage)
-    resetForm('Primera reu ejecutada/Propuesta en preparación', entry)
+    resetForm('Cita agendada', entry)
     setShowForm(true)
   }
 
   // Auto-set status when stage changes in the modal
   function handleFormStageChange(s: Stage) {
     setFormStage(s)
-    if (s === 'Por facturar/cobrar')                                setFormStatus('ganado')
-    if (s === 'Primera reu ejecutada/Propuesta en preparación')    setFormStatus('abierto')
+    if (s === 'Por facturar/cobrar') setFormStatus('ganado')
+    if (s === 'Cita agendada' || s === 'Reagendar' || s === 'Primera reu ejecutada/Propuesta en preparación') setFormStatus('abierto')
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -393,7 +400,9 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   async function handleSave() {
     setSaving(true)
     try {
-      const derivedStatus: Status = formStage === 'Por facturar/cobrar' ? 'ganado' : formStage === 'Primera reu ejecutada/Propuesta en preparación' ? 'abierto' : formStatus
+      const derivedStatus: Status = formStage === 'Por facturar/cobrar' ? 'ganado' :
+        (formStage === 'Cita agendada' || formStage === 'Reagendar' || formStage === 'Primera reu ejecutada/Propuesta en preparación') ? 'abierto' :
+        formStatus
       const payload = {
         stage:         formStage,
         status:        derivedStatus,
@@ -449,8 +458,8 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
     <div className="relative">
       {/* Metrics row — 6 cards */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
-        <MetricCard label="Reuniones"    value={String(countReunion)}   accent="cyan"    />
-        <MetricCard label="Propuestas"   value={String(countPropuesta)} accent="cyan"    />
+        <MetricCard label="Citas"        value={String(countCita)}      sub="citas agendadas"    accent="cyan"    />
+        <MetricCard label="Reuniones"    value={String(countReunion)}   sub="1ra reunión ejec."  accent="cyan"    />
         <MetricCard label="En propuesta" value={fmtUSD(pipelineValue)}  sub="pipeline estimado"  accent="amber"   />
         <MetricCard label="Perdidos"     value={fmtUSD(perdidoValue)}   sub="negocios perdidos"  accent="red"     />
         <MetricCard label="Cerrado"      value={fmtUSD(closedValue)}    sub="negocios ganados"   accent="emerald" />

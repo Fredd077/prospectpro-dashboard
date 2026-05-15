@@ -115,6 +115,8 @@ function GoalBar({ value, goal }: { value: number; goal: number }) {
 
 export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: Props) {
   const stats = useMemo(() => {
+    const citas      = entries.filter(e => e.stage === 'Cita agendada')
+    const reagendar  = entries.filter(e => e.stage === 'Reagendar')
     const reuniones  = entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación')
     const propuestas = entries.filter(e => e.stage === 'Propuesta Presentada')
     const cierres    = entries.filter(e => e.stage === 'Por facturar/cobrar')
@@ -143,6 +145,8 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: P
     const cierresIn     = cierres.filter(e => e.prospect_type === 'inbound').length
 
     return {
+      citas: citas.length,
+      reagendar: reagendar.length,
       reuniones: reuniones.length,
       propuestas: propuestas.length,
       cierres: cierres.length,

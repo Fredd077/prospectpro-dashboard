@@ -196,7 +196,7 @@ export function PipelinePanel({ pipeline }: Props) {
               <thead>
                 <tr className="border-b border-white/[0.06] bg-[#0a0e17]">
                   <th className="text-left px-4 py-2.5 text-[9px] font-bold text-white/30 uppercase tracking-[0.12em]">Vendedor</th>
-                  {['1ra Reunión','Prop. Presentada','Facturación'].map((s) => (
+                  {['Cita agenda.','Reagendar','1ra Reunión','Prop. Presentada','Facturación'].map((s) => (
                     <th key={s} colSpan={3} className="px-3 py-2.5 text-[9px] font-bold text-white/30 uppercase tracking-wider text-center border-l border-white/[0.06]">
                       {s}
                     </th>

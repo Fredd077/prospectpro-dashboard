@@ -16,6 +16,8 @@ export async function PipelineMiniCard() {
 
   if (!rows?.length) return null
 
+  const citas      = rows.filter(r => r.stage === 'Cita agendada').length
+  const reagendar  = rows.filter(r => r.stage === 'Reagendar').length
   const reuniones  = rows.filter(r => r.stage === 'Primera reu ejecutada/Propuesta en preparación').length
   const propuestas = rows.filter(r => r.stage === 'Propuesta Presentada').length
   const cierres    = rows.filter(r => r.stage === 'Por facturar/cobrar').length
@@ -38,19 +40,27 @@ export async function PipelineMiniCard() {
         </Link>
       </div>
 
-      {/* Stage counts */}
-      <div className="grid grid-cols-3 divide-x divide-border/50">
-        <div className="px-4 py-3 text-center">
-          <p className="text-xl font-bold tabular-nums text-cyan-400">{reuniones}</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Reuniones</p>
+      {/* Stage counts — 5 stages */}
+      <div className="grid grid-cols-5 divide-x divide-border/50">
+        <div className="px-2 py-3 text-center">
+          <p className="text-lg font-bold tabular-nums text-blue-400">{citas}</p>
+          <p className="text-[9px] text-muted-foreground mt-0.5">Citas</p>
         </div>
-        <div className="px-4 py-3 text-center">
-          <p className="text-xl font-bold tabular-nums text-amber-400">{propuestas}</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Propuestas</p>
+        <div className="px-2 py-3 text-center">
+          <p className="text-lg font-bold tabular-nums text-rose-400">{reagendar}</p>
+          <p className="text-[9px] text-muted-foreground mt-0.5">Reag.</p>
         </div>
-        <div className="px-4 py-3 text-center">
-          <p className="text-xl font-bold tabular-nums text-emerald-400">{cierres}</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Cierres</p>
+        <div className="px-2 py-3 text-center">
+          <p className="text-lg font-bold tabular-nums text-cyan-400">{reuniones}</p>
+          <p className="text-[9px] text-muted-foreground mt-0.5">1ra Reu.</p>
+        </div>
+        <div className="px-2 py-3 text-center">
+          <p className="text-lg font-bold tabular-nums text-amber-400">{propuestas}</p>
+          <p className="text-[9px] text-muted-foreground mt-0.5">Prop.</p>
+        </div>
+        <div className="px-2 py-3 text-center">
+          <p className="text-lg font-bold tabular-nums text-emerald-400">{cierres}</p>
+          <p className="text-[9px] text-muted-foreground mt-0.5">Cierre</p>
         </div>
       </div>
 
