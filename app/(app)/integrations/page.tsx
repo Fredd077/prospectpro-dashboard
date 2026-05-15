@@ -92,6 +92,7 @@ export default async function IntegrationsPage() {
           <IntegrationsKeyManager
             hasExistingKey={status.hasKey}
             lastUsedAt={status.lastUsedAt}
+            webhookUrl={webhookUrl}
           />
         </div>
 

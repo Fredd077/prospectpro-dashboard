@@ -14,17 +14,43 @@ export async function POST(
 ) {
   const { company } = await params
   const companyName = decodeURIComponent(company)
+  const service     = getSupabaseServiceClient()
+  const receivedAt  = new Date().toISOString()
 
   const apiKey =
     request.headers.get('x-prospectpro-key') ??
     request.nextUrl.searchParams.get('key')
 
+  let payload: unknown = null
+  try { payload = await request.json() } catch { /* non-JSON body */ }
+
+  const headersToLog: Record<string, string> = {}
+  for (const hdr of ['content-type', 'user-agent', 'x-forwarded-for']) {
+    const val = request.headers.get(hdr)
+    if (val) headersToLog[hdr] = val
+  }
+
+  // Log every request — even unauthenticated ones — so the user can debug.
+  const { data: logRow } = await service
+    .from('webhook_logs')
+    .insert({
+      company_name: companyName,
+      payload:      payload as never,
+      headers:      headersToLog as never,
+      status:       'received',
+    })
+    .select('id')
+    .single()
+
   if (!apiKey) {
+    await service.from('webhook_logs').update({
+      status: 'error', processed_at: receivedAt,
+      error_message: 'Missing API key (no x-prospectpro-key header or ?key= param)',
+    }).eq('id', logRow?.id ?? '')
     return NextResponse.json({ error: 'Missing API key' }, { status: 401 })
   }
 
-  const hash    = await hashKey(apiKey)
-  const service = getSupabaseServiceClient()
+  const hash = await hashKey(apiKey)
 
   const { data: keyRow } = await service
     .from('integration_api_keys')
@@ -34,40 +60,17 @@ export async function POST(
     .maybeSingle()
 
   if (!keyRow) {
+    await service.from('webhook_logs').update({
+      status: 'error', processed_at: receivedAt,
+      error_message: 'Invalid API key — key not found for this company',
+    }).eq('id', logRow?.id ?? '')
     return NextResponse.json({ error: 'Invalid API key' }, { status: 403 })
   }
 
-  let payload: unknown = null
-  try {
-    payload = await request.json()
-  } catch {
-    // non-JSON body; store null
-  }
-
-  const headersToLog: Record<string, string> = {}
-  for (const key of ['content-type', 'user-agent', 'x-forwarded-for']) {
-    const val = request.headers.get(key)
-    if (val) headersToLog[key] = val
-  }
-
-  const receivedAt = new Date().toISOString()
-
-  const [{ data: logRow }] = await Promise.all([
-    service
-      .from('webhook_logs')
-      .insert({
-        company_name: companyName,
-        payload:      payload as never,
-        headers:      headersToLog as never,
-        status:       'received',
-      })
-      .select('id')
-      .single(),
-    service
-      .from('integration_api_keys')
-      .update({ last_used_at: receivedAt })
-      .eq('id', keyRow.id),
-  ])
+  // Valid key — stamp last_used_at
+  await service.from('integration_api_keys')
+    .update({ last_used_at: receivedAt })
+    .eq('id', keyRow.id)
 
   // Detect CRM and process asynchronously
   if (logRow?.id) {

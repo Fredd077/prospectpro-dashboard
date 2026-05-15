@@ -8,9 +8,10 @@ import { CopyButton } from './CopyButton'
 interface Props {
   hasExistingKey: boolean
   lastUsedAt: string | null
+  webhookUrl: string
 }
 
-export function IntegrationsKeyManager({ hasExistingKey, lastUsedAt }: Props) {
+export function IntegrationsKeyManager({ hasExistingKey, lastUsedAt, webhookUrl }: Props) {
   const [isPending, startTransition] = useTransition()
   const [generatedKey, setGeneratedKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -28,18 +29,37 @@ export function IntegrationsKeyManager({ hasExistingKey, lastUsedAt }: Props) {
   }
 
   if (generatedKey) {
+    const fullUrl = `${webhookUrl}?key=${generatedKey}`
     return (
       <div className="space-y-3">
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-4">
           <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             Guarda esta clave ahora — no se volverá a mostrar
           </div>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 rounded bg-muted/40 border border-border px-3 py-2 font-mono text-xs text-foreground break-all">
-              {generatedKey}
-            </code>
-            <CopyButton text={generatedKey} label="Copiar clave" />
+
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+              API Key (solo la clave)
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 rounded bg-muted/40 border border-border px-3 py-2 font-mono text-xs text-foreground break-all">
+                {generatedKey}
+              </code>
+              <CopyButton text={generatedKey} label="Copiar clave" />
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+              URL completa para Pipedrive (copiar esto en el webhook)
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 rounded bg-muted/40 border border-border px-3 py-2 font-mono text-[11px] text-primary break-all">
+                {fullUrl}
+              </code>
+              <CopyButton text={fullUrl} label="Copiar URL" />
+            </div>
           </div>
         </div>
       </div>
