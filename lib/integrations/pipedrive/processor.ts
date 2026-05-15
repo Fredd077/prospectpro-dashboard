@@ -15,11 +15,12 @@ type PipedriveDeal = {
   status?: 'open' | 'won' | 'lost' | 'deleted'
   person_name?: string
   org_name?: string
-  user_id?: number
+  user_id?: number | { id?: number; name?: string; email?: string }
 }
 
 type PipedrivePayload = {
   event?: string
+  data?: PipedriveDeal
   current?: PipedriveDeal
   meta?: Record<string, unknown>
 }
@@ -63,7 +64,7 @@ export async function processPipedriveEvent(
 ): Promise<ProcessResult> {
   const body  = payload as PipedrivePayload
   const event = body?.event
-  const deal  = body?.current
+  const deal  = body?.data ?? body?.current
 
   if (!deal?.id) {
     return { action: 'skipped', message: 'No deal id in payload' }
@@ -77,10 +78,12 @@ export async function processPipedriveEvent(
     return { action: 'skipped', message: 'No admin_user_id on integration' }
   }
 
-  // Filter by owner if configured
+  // Filter by owner if configured (user_id can be a number or nested {id, name} object)
   if (config.owner_id && deal.user_id !== undefined) {
-    if (String(deal.user_id) !== config.owner_id) {
-      return { action: 'skipped', message: `Deal ${dealId} belongs to user ${deal.user_id}, not owner ${config.owner_id}` }
+    const rawUserId = deal.user_id
+    const userId = typeof rawUserId === 'object' ? rawUserId?.id : rawUserId
+    if (String(userId) !== config.owner_id) {
+      return { action: 'skipped', message: `Deal ${dealId} belongs to user ${userId}, not owner ${config.owner_id}` }
     }
   }
 

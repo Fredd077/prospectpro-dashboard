@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { Webhook, Link2, KeyRound, Activity, Database, Settings2 } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
 import { CopyButton } from '@/components/admin/CopyButton'
+import { LocalTime } from '@/components/admin/LocalTime'
 import { IntegrationsKeyManager } from '@/components/admin/IntegrationsKeyManager'
 import { CrmConfigForm } from '@/components/admin/CrmConfigForm'
 import { PipedriveConfigForm } from '@/components/admin/PipedriveConfigForm'
@@ -121,7 +122,7 @@ export default async function IntegrationsPage() {
                   {status.logs.map((log) => (
                     <tr key={log.id} className="hover:bg-muted/10 transition-colors">
                       <td className="px-4 py-2.5 font-mono text-muted-foreground whitespace-nowrap">
-                        {new Date(log.created_at).toLocaleString('es-CO')}
+                        <LocalTime iso={log.created_at} />
                       </td>
                       <td className="px-4 py-2.5">
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${

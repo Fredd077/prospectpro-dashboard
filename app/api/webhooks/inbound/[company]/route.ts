@@ -79,7 +79,21 @@ export async function POST(
       .eq('company_name', companyName)
       .maybeSingle()
       .then(({ data: integration }) => {
-        if (integration?.crm_name?.toLowerCase() !== 'pipedrive') return
+        if (!integration) {
+          return service.from('webhook_logs').update({
+            status: 'skipped',
+            processed_at: new Date().toISOString(),
+            error_message: 'No integration row found for this company',
+          }).eq('id', logId)
+        }
+
+        if (integration.crm_name?.toLowerCase() !== 'pipedrive') {
+          return service.from('webhook_logs').update({
+            status: 'skipped',
+            processed_at: new Date().toISOString(),
+            error_message: `CRM not set to Pipedrive (current: ${integration.crm_name ?? 'null'})`,
+          }).eq('id', logId)
+        }
 
         return processPipedriveEvent(payload, integration as { admin_user_id: string | null; config: Record<string, unknown> | null }, service)
           .then((result) =>
@@ -88,6 +102,7 @@ export async function POST(
               .update({
                 status:       result.action === 'skipped' ? 'skipped' : 'processed',
                 processed_at: new Date().toISOString(),
+                error_message: result.action === 'skipped' ? result.message : null,
               })
               .eq('id', logId)
           )
