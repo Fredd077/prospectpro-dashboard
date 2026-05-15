@@ -124,6 +124,14 @@ export async function POST(
         }).eq('id', logId)
       }
     })
+    .catch((err: unknown) => {
+      // Outer catch — prevents logs from staying as 'received' if the async chain itself throws
+      void service.from('webhook_logs').update({
+        status:        'error',
+        processed_at:  new Date().toISOString(),
+        error_message: `Async processing error: ${err instanceof Error ? err.message : String(err)}`,
+      }).eq('id', logId)
+    })
 
   return NextResponse.json({ ok: true, received_at: receivedAt })
 }

@@ -53,10 +53,13 @@ function resolveStage(
 
 export const pipedriveAdapter: CrmAdapter = {
   canHandle(payload: unknown, headers: Record<string, string>): boolean {
+    // x-crm-name is injected by the route from integration.crm_name — most reliable
+    if (headers['x-crm-name'] === 'pipedrive') return true
     if (headers['x-provider']?.toLowerCase() === 'pipedrive') return true
-    // Pipedrive webhooks always have { event: "*.deal", data: {...} }
+    // Structural fallback: Pipedrive always sends { event: string, meta: {...} }
+    // Note: body.data can be null for delete events, so we check meta instead
     const body = payload as PipedrivePayload
-    return typeof body?.event === 'string' && typeof body?.data === 'object' && body?.data !== null
+    return typeof body?.event === 'string' && typeof body?.meta === 'object' && body?.meta !== null
   },
 
   normalize(payload: unknown, config: Record<string, unknown> | null): NormalizedDealEvent {

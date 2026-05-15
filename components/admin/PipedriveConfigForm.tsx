@@ -100,21 +100,29 @@ export function PipedriveConfigForm({ initial }: Props) {
         </div>
       </div>
 
-      {/* Owner filter */}
-      <div>
-        <label className={labelClass}>
-          Tu ID de usuario en Pipedrive
-          <span className="ml-1 normal-case font-normal text-muted-foreground/60">(opcional — filtra solo tus deals)</span>
-        </label>
+      {/* Owner filter — shown prominently because without it ALL team members' deals sync */}
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+        <div className="flex items-start gap-2">
+          <span className="text-amber-400 text-sm shrink-0 mt-0.5">⚠</span>
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold text-amber-400">
+              Tu ID de usuario en Pipedrive
+              <span className="ml-1.5 font-normal text-amber-400/70">(muy recomendado)</span>
+            </label>
+            <p className="text-[11px] text-amber-400/70">
+              Sin este filtro, los movimientos de <strong>todos los usuarios de tu cuenta Pipedrive</strong> (compañeros, gerentes) sincronizarán en tu pipeline de ProspectPro.
+            </p>
+          </div>
+        </div>
         <input
           type="text"
           value={ownerId}
           onChange={(e) => setOwnerId(e.target.value)}
           placeholder="ej: 24658977"
-          className={`${inputClass} sm:max-w-[180px]`}
+          className={`${inputClass} sm:max-w-[220px]`}
         />
-        <p className="mt-1 text-[10px] text-muted-foreground/60">
-          Encuéntralo en la URL cuando abres tu pipeline: <span className="font-mono">/pipeline/1/user/<strong>XXXXXXXX</strong></span>
+        <p className="text-[10px] text-muted-foreground/60">
+          Cómo encontrarlo: en Pipedrive ve a <span className="font-mono">Tu perfil → Configuración</span> y busca el campo <span className="font-mono">ID de usuario</span>, o abre la URL de tu pipeline y anota el número después de <span className="font-mono">/user/</span>.
         </p>
       </div>
 
