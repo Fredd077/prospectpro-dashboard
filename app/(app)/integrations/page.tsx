@@ -8,6 +8,7 @@ import { IntegrationsKeyManager } from '@/components/admin/IntegrationsKeyManage
 import { CrmConfigForm } from '@/components/admin/CrmConfigForm'
 import { PipedriveConfigForm } from '@/components/admin/PipedriveConfigForm'
 import { PipedriveSetupGuide } from '@/components/admin/PipedriveSetupGuide'
+import { GenericAdapterConfigForm } from '@/components/admin/GenericAdapterConfigForm'
 import { getIntegrationStatus } from '@/lib/actions/integrations'
 
 export const metadata: Metadata = { title: 'Integraciones — ProspectPro' }
@@ -76,7 +77,7 @@ export default async function IntegrationsPage() {
           <CrmConfigForm initial={status.crmConfig} />
         </div>
 
-        {/* Pipedrive-specific config — only shown when CRM is Pipedrive */}
+        {/* Pipedrive-specific config */}
         {isPipedrive && (
           <div className="space-y-3">
             <SectionHeader icon={Settings2}>Configuración de Pipedrive</SectionHeader>
@@ -85,6 +86,18 @@ export default async function IntegrationsPage() {
               Los deals que lleguen por webhook se sincronizarán automáticamente.
             </p>
             <PipedriveConfigForm initial={status.pipedriveConfig} />
+          </div>
+        )}
+
+        {/* Generic adapter config — shown for any other CRM */}
+        {!isPipedrive && (
+          <div className="space-y-3">
+            <SectionHeader icon={Settings2}>Configuración del adaptador genérico</SectionHeader>
+            <p className="text-xs text-muted-foreground">
+              Compatible con cualquier CRM que soporte webhooks HTTP POST con JSON.
+              Configura los nombres de los campos que usa tu CRM.
+            </p>
+            <GenericAdapterConfigForm initial={status.genericConfig} />
           </div>
         )}
 

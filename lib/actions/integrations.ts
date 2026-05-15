@@ -3,6 +3,7 @@
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { hashKey } from '@/lib/utils/crypto'
 import type { Integration, IntegrationApiKey, WebhookLog } from '@/lib/types/database'
+import type { GenericAdapterConfig } from '@/lib/integrations/generic/adapter'
 
 export type PipedriveStageConfig = {
   cita_stage?: string
@@ -66,6 +67,7 @@ export async function getIntegrationStatus(): Promise<{
   existingKey: IntegrationApiKey | null
   crmConfig: Pick<Integration, 'crm_name' | 'crm_api_key' | 'crm_base_url'> | null
   pipedriveConfig: PipedriveStageConfig | null
+  genericConfig: GenericAdapterConfig | null
 }> {
   const { user, profile } = await assertUser()
   const company = resolveCompany(profile, user.email, user.id)
@@ -91,8 +93,9 @@ export async function getIntegrationStatus(): Promise<{
       .maybeSingle(),
   ])
 
-  const rawConfig = integration?.config as Record<string, unknown> | null
-  const pdConfig  = rawConfig?.['pipedrive'] as PipedriveStageConfig | null | undefined
+  const rawConfig   = integration?.config as Record<string, unknown> | null
+  const pdConfig    = rawConfig?.['pipedrive'] as PipedriveStageConfig | null | undefined
+  const genericConf = rawConfig?.['generic'] as GenericAdapterConfig | null | undefined
 
   return {
     company,
@@ -102,6 +105,7 @@ export async function getIntegrationStatus(): Promise<{
     existingKey:     keyRow as IntegrationApiKey | null,
     crmConfig:       integration ?? null,
     pipedriveConfig: pdConfig ?? null,
+    genericConfig:   genericConf ?? null,
   }
 }
 
@@ -140,6 +144,27 @@ export async function savePipedriveConfig(data: PipedriveStageConfig): Promise<v
 
   const currentConfig = (existing?.config as Record<string, unknown> | null) ?? {}
   const newConfig = { ...currentConfig, pipedrive: data }
+
+  await service.from('integrations').upsert(
+    { company_name: company, admin_user_id: user.id, config: newConfig },
+    { onConflict: 'company_name' }
+  )
+}
+
+export async function saveGenericConfig(data: GenericAdapterConfig): Promise<void> {
+  const { user, profile } = await assertUser()
+  const company = resolveCompany(profile, user.email, user.id)
+
+  const service = getSupabaseServiceClient()
+
+  const { data: existing } = await service
+    .from('integrations')
+    .select('config')
+    .eq('company_name', company)
+    .maybeSingle()
+
+  const currentConfig = (existing?.config as Record<string, unknown> | null) ?? {}
+  const newConfig = { ...currentConfig, generic: data }
 
   await service.from('integrations').upsert(
     { company_name: company, admin_user_id: user.id, config: newConfig },
