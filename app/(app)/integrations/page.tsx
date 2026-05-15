@@ -7,6 +7,7 @@ import { LocalTime } from '@/components/admin/LocalTime'
 import { IntegrationsKeyManager } from '@/components/admin/IntegrationsKeyManager'
 import { CrmConfigForm } from '@/components/admin/CrmConfigForm'
 import { PipedriveConfigForm } from '@/components/admin/PipedriveConfigForm'
+import { PipedriveSetupGuide } from '@/components/admin/PipedriveSetupGuide'
 import { getIntegrationStatus } from '@/lib/actions/integrations'
 
 export const metadata: Metadata = { title: 'Integraciones — ProspectPro' }
@@ -32,6 +33,7 @@ export default async function IntegrationsPage() {
 
   const webhookUrl = `https://app.prospectpro.cloud/api/webhooks/inbound/${encodeURIComponent(status.company)}`
   const isPipedrive = status.crmConfig?.crm_name?.toLowerCase() === 'pipedrive'
+  const isFullyConfigured = status.hasKey && isPipedrive && !!status.pipedriveConfig?.reunion_stage
 
   return (
     <div className="flex flex-col h-full">
@@ -40,6 +42,9 @@ export default async function IntegrationsPage() {
         description="Conecta tu CRM o sistema externo vía webhook"
       />
       <div className="flex-1 overflow-y-auto p-8 space-y-10 max-w-3xl">
+
+        {/* Setup guide */}
+        <PipedriveSetupGuide isConfigured={isFullyConfigured} />
 
         {/* Webhook URL */}
         <div className="space-y-3">
