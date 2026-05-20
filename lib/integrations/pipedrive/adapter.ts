@@ -18,6 +18,9 @@ type PipedriveDeal = {
   status?: 'open' | 'won' | 'lost' | 'deleted'
   person_name?: string
   org_name?: string
+  // Pipedrive sends owner as "owner_id" (integer) in webhook payloads.
+  // Older API versions used "user_id" which could be a nested object — keep both for compatibility.
+  owner_id?: number
   user_id?: number | { id?: number; name?: string; email?: string }
 }
 
@@ -71,15 +74,22 @@ export const pipedriveAdapter: CrmAdapter = {
 
     const pdConfig = parsePipedriveConfig(config)
 
-    // Filter by owner — fail-closed: if filter is configured but user_id is missing/null, skip
+    // Filter by owner — Pipedrive sends "owner_id" (int) in webhook payloads.
+    // Fall back to "user_id" for older API versions (can be int or nested object).
+    // Fail-closed: if filter is configured but no owner field found, skip the deal.
     if (pdConfig.owner_id) {
-      const raw = deal.user_id
-      if (raw === undefined || raw === null) {
-        throw new SkipError(`Deal ${deal.id}: owner_id filter active but no user_id in payload — skipped to be safe`)
+      let resolvedId: number | string | undefined
+      if (deal.owner_id !== undefined && deal.owner_id !== null) {
+        resolvedId = deal.owner_id
+      } else if (deal.user_id !== undefined && deal.user_id !== null) {
+        const raw = deal.user_id
+        resolvedId = typeof raw === 'object' ? raw?.id : raw
       }
-      const userId = typeof raw === 'object' ? raw?.id : raw
-      if (String(userId) !== pdConfig.owner_id) {
-        throw new SkipError(`Deal ${deal.id} belongs to user ${userId}, not owner ${pdConfig.owner_id}`)
+      if (resolvedId === undefined) {
+        throw new SkipError(`Deal ${deal.id}: owner_id filter active but no owner/user_id field in payload — skipped to be safe`)
+      }
+      if (String(resolvedId) !== pdConfig.owner_id) {
+        throw new SkipError(`Deal ${deal.id} belongs to user ${resolvedId}, not owner ${pdConfig.owner_id}`)
       }
     }
 
