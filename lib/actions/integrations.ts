@@ -151,6 +151,21 @@ export async function savePipedriveConfig(data: PipedriveStageConfig): Promise<v
   )
 }
 
+export async function cleanupPipedriveDeals(): Promise<{ deleted: number }> {
+  const { user } = await assertUser()
+  const service = getSupabaseServiceClient()
+
+  const { data, error } = await service
+    .from('pipeline_simple')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('integration_source', 'pipedrive')
+    .select('id')
+
+  if (error) throw new Error(`Cleanup failed: ${error.message}`)
+  return { deleted: data?.length ?? 0 }
+}
+
 export async function saveGenericConfig(data: GenericAdapterConfig): Promise<void> {
   const { user, profile } = await assertUser()
   const company = resolveCompany(profile, user.email, user.id)

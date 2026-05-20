@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { CheckCircle2, ExternalLink } from 'lucide-react'
-import { savePipedriveConfig } from '@/lib/actions/integrations'
+import { CheckCircle2, ExternalLink, Trash2, AlertTriangle } from 'lucide-react'
+import { savePipedriveConfig, cleanupPipedriveDeals } from '@/lib/actions/integrations'
 import type { PipedriveStageConfig } from '@/lib/actions/integrations'
 
 interface Props {
@@ -16,9 +16,13 @@ export function PipedriveConfigForm({ initial }: Props) {
   const [propuestaStage, setPropuestaStage] = useState(initial?.propuesta_stage ?? '')
   const [cierreStage,    setCierreStage]    = useState(initial?.cierre_stage    ?? '')
   const [ownerId,        setOwnerId]        = useState(initial?.owner_id        ?? '')
-  const [saved,    setSaved]    = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
-  const [pending,  startTransition] = useTransition()
+  const [saved,          setSaved]          = useState(false)
+  const [error,          setError]          = useState<string | null>(null)
+  const [pending,        startTransition]   = useTransition()
+
+  const [cleanupConfirm,  setCleanupConfirm]  = useState(false)
+  const [cleanupResult,   setCleanupResult]   = useState<string | null>(null)
+  const [cleanupPending,  startCleanup]       = useTransition()
 
   function handleSave() {
     setError(null)
@@ -37,6 +41,23 @@ export function PipedriveConfigForm({ initial }: Props) {
         setTimeout(() => setSaved(false), 3000)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al guardar')
+      }
+    })
+  }
+
+  function handleCleanup() {
+    if (!cleanupConfirm) {
+      setCleanupConfirm(true)
+      return
+    }
+    setCleanupConfirm(false)
+    setCleanupResult(null)
+    startCleanup(async () => {
+      try {
+        const { deleted } = await cleanupPipedriveDeals()
+        setCleanupResult(`✓ Se eliminaron ${deleted} trato${deleted !== 1 ? 's' : ''} sincronizados desde Pipedrive. Tus propios tratos volverán a aparecer la próxima vez que los muevas en Pipedrive.`)
+      } catch (err) {
+        setCleanupResult(`Error: ${err instanceof Error ? err.message : 'desconocido'}`)
       }
     })
   }
@@ -100,7 +121,7 @@ export function PipedriveConfigForm({ initial }: Props) {
         </div>
       </div>
 
-      {/* Owner filter — shown prominently because without it ALL team members' deals sync */}
+      {/* Owner filter */}
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
         <div className="flex items-start gap-2">
           <span className="text-amber-400 text-sm shrink-0 mt-0.5">⚠</span>
@@ -118,7 +139,7 @@ export function PipedriveConfigForm({ initial }: Props) {
           type="text"
           value={ownerId}
           onChange={(e) => setOwnerId(e.target.value)}
-          placeholder="ej: 24658977"
+          placeholder="ej: 12694"
           className={`${inputClass} sm:max-w-[220px]`}
         />
         <p className="text-[10px] text-muted-foreground/60">
@@ -144,6 +165,47 @@ export function PipedriveConfigForm({ initial }: Props) {
             Guardado
           </span>
         )}
+      </div>
+
+      {/* Cleanup section — removes deals from other users already in the pipeline */}
+      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 space-y-2">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-red-400">Limpiar tratos de otros usuarios</p>
+            <p className="text-[11px] text-red-400/70">
+              Elimina del pipeline todos los tratos sincronizados desde Pipedrive (incluyendo los de compañeros que llegaron antes de configurar tu ID de usuario).
+              Tus propios tratos volverán a aparecer la próxima vez que los muevas en Pipedrive.
+            </p>
+          </div>
+        </div>
+        {cleanupResult && (
+          <p className={`text-[11px] font-mono ${cleanupResult.startsWith('✓') ? 'text-emerald-400' : 'text-red-400'}`}>
+            {cleanupResult}
+          </p>
+        )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCleanup}
+            disabled={cleanupPending}
+            className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+              cleanupConfirm
+                ? 'bg-red-500/20 border-red-500/50 text-red-300 hover:bg-red-500/30'
+                : 'bg-muted/20 border-border text-muted-foreground hover:bg-muted/40'
+            }`}
+          >
+            <Trash2 className="h-3 w-3" />
+            {cleanupPending ? 'Limpiando...' : cleanupConfirm ? '¿Confirmar? Haz clic de nuevo' : 'Limpiar pipeline de Pipedrive'}
+          </button>
+          {cleanupConfirm && (
+            <button
+              onClick={() => setCleanupConfirm(false)}
+              className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground"
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Webhook setup instructions */}

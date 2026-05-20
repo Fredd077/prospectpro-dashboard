@@ -71,9 +71,12 @@ export const pipedriveAdapter: CrmAdapter = {
 
     const pdConfig = parsePipedriveConfig(config)
 
-    // Filter by owner if configured (user_id can be a number or nested {id, name} object)
-    if (pdConfig.owner_id && deal.user_id !== undefined) {
-      const raw    = deal.user_id
+    // Filter by owner — fail-closed: if filter is configured but user_id is missing/null, skip
+    if (pdConfig.owner_id) {
+      const raw = deal.user_id
+      if (raw === undefined || raw === null) {
+        throw new SkipError(`Deal ${deal.id}: owner_id filter active but no user_id in payload — skipped to be safe`)
+      }
       const userId = typeof raw === 'object' ? raw?.id : raw
       if (String(userId) !== pdConfig.owner_id) {
         throw new SkipError(`Deal ${deal.id} belongs to user ${userId}, not owner ${pdConfig.owner_id}`)
