@@ -9,22 +9,24 @@ import { ScenarioComparison } from './ScenarioComparison'
 import { RecipePlanBanner } from './RecipePlanBanner'
 import type { RecipeScenario, RecipeActual } from '@/lib/types/database'
 import type { RecipeValidation } from '@/lib/utils/recipe-validation'
+import type { ActivityForSupervision } from './SupervisionPanel'
 
 interface ScenarioTabsProps {
   scenario: RecipeScenario
   actuals: RecipeActual[]
   validation?: RecipeValidation | null
+  activities?: ActivityForSupervision[]
 }
 
 const TABS = [
-  { value: 'calculator', label: 'Escenario',  icon: SlidersHorizontal },
-  { value: 'simulator',  label: 'Simulador',  icon: FlaskConical },
+  { value: 'calculator', label: 'Escenario',    icon: SlidersHorizontal },
+  { value: 'simulator',  label: 'Simulador',    icon: FlaskConical },
   { value: 'comparison', label: 'Plan vs Real', icon: GitCompare },
 ] as const
 
 type TabValue = typeof TABS[number]['value']
 
-export function ScenarioTabs({ scenario, actuals, validation }: ScenarioTabsProps) {
+export function ScenarioTabs({ scenario, actuals, validation, activities }: ScenarioTabsProps) {
   const [active, setActive] = useState<TabValue>('calculator')
 
   return (
@@ -56,7 +58,9 @@ export function ScenarioTabs({ scenario, actuals, validation }: ScenarioTabsProp
         </div>
       )}
 
-      {active === 'calculator' && <RecipeCalculator scenario={scenario} />}
+      {active === 'calculator' && (
+        <RecipeCalculator scenario={scenario} activities={activities} />
+      )}
       {active === 'simulator'  && <RecipeSimulator scenario={scenario} />}
       {active === 'comparison' && <ScenarioComparison scenario={scenario} actuals={actuals} />}
     </div>

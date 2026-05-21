@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { FunnelStageEditor } from './FunnelStageEditor'
 import { RecipeInputs, RECIPE_DEFAULTS } from './RecipeInputs'
 import { RecipeOutputs } from './RecipeOutputs'
+import { SupervisionPanel } from './SupervisionPanel'
+import type { ActivityForSupervision } from './SupervisionPanel'
 import { calcRecipe, adjustRates, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 import { createScenario, updateScenario } from '@/lib/queries/recipe'
 import type { RecipeInputs as RecipeInputsType } from '@/lib/calculations/recipe'
@@ -17,9 +19,10 @@ import type { RecipeScenario } from '@/lib/types/database'
 interface RecipeCalculatorProps {
   scenario?: RecipeScenario
   readOnly?: boolean
+  activities?: ActivityForSupervision[]
 }
 
-export function RecipeCalculator({ scenario, readOnly = false }: RecipeCalculatorProps) {
+export function RecipeCalculator({ scenario, readOnly = false, activities }: RecipeCalculatorProps) {
   const router = useRouter()
   const [name, setName]             = useState(scenario?.name ?? '')
   const [description, setDescription] = useState(scenario?.description ?? '')
@@ -96,69 +99,93 @@ export function RecipeCalculator({ scenario, readOnly = false }: RecipeCalculato
     }
   }
 
+  const showSupervision = !readOnly && activities && activities.length > 0
+
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-      {/* Left: Inputs */}
-      <div className="space-y-6">
-        {!readOnly && (
-          <div className="space-y-4 rounded-lg border border-border bg-card p-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="scenario-name" className="text-xs text-muted-foreground">
-                Nombre del escenario *
-              </Label>
-              <Input
-                id="scenario-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ej: Conservador, Optimista, Q1 2026…"
-                className="bg-background"
-              />
+    <div className="space-y-8">
+      {/* ── Top grid: inputs (left) + outputs (right) ── */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {/* Left: Inputs */}
+        <div className="space-y-6">
+          {!readOnly && (
+            <div className="space-y-4 rounded-lg border border-border bg-card p-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="scenario-name" className="text-xs text-muted-foreground">
+                  Nombre del escenario *
+                </Label>
+                <Input
+                  id="scenario-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ej: Conservador, Optimista, Q1 2026…"
+                  className="bg-background"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="scenario-desc" className="text-xs text-muted-foreground">
+                  Descripción (opcional)
+                </Label>
+                <Input
+                  id="scenario-desc"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Notas sobre este escenario…"
+                  className="bg-background"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="scenario-desc" className="text-xs text-muted-foreground">
-                Descripción (opcional)
-              </Label>
-              <Input
-                id="scenario-desc"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Notas sobre este escenario…"
-                className="bg-background"
-              />
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Funnel Stage Editor */}
-        {!readOnly && (
+          {/* Funnel Stage Editor */}
+          {!readOnly && (
+            <div className="rounded-lg border border-border bg-card p-4">
+              <FunnelStageEditor stages={funnelStages} onChange={handleStagesChange} />
+            </div>
+          )}
+
           <div className="rounded-lg border border-border bg-card p-4">
-            <FunnelStageEditor stages={funnelStages} onChange={handleStagesChange} />
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4">
+              Parámetros
+            </p>
+            {/* key= triggers remount when stage count changes, resetting rate sliders */}
+            <RecipeInputs
+              key={funnelStages.join('|')}
+              defaults={{ ...inputs, funnel_stages: funnelStages, outbound_rates: outboundRates, inbound_rates: inboundRates }}
+              onChange={handleInputsChange}
+            />
           </div>
-        )}
-
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4">
-            Parámetros
-          </p>
-          {/* key= triggers remount when stage count changes, resetting rate sliders */}
-          <RecipeInputs
-            key={funnelStages.join('|')}
-            defaults={{ ...inputs, funnel_stages: funnelStages, outbound_rates: outboundRates, inbound_rates: inboundRates }}
-            onChange={handleInputsChange}
-          />
         </div>
 
-        {!readOnly && (
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? 'Guardando…' : scenario ? 'Actualizar escenario' : 'Guardar escenario'}
-          </Button>
-        )}
+        {/* Right: Outputs */}
+        <div>
+          <RecipeOutputs outputs={outputs} monthlyRevenueGoal={inputs.monthly_revenue_goal} />
+        </div>
       </div>
 
-      {/* Right: Outputs */}
-      <div>
-        <RecipeOutputs outputs={outputs} monthlyRevenueGoal={inputs.monthly_revenue_goal} />
-      </div>
+      {/* ── Supervision panel — full width, below grid ── */}
+      {showSupervision && (
+        <div className="rounded-lg border border-border bg-card p-5">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-6">
+            Supervisión de meta por actividad
+          </p>
+          <SupervisionPanel
+            activities={activities}
+            monthlyRevenueGoal={inputs.monthly_revenue_goal}
+            averageTicket={inputs.average_ticket}
+            workingDays={inputs.working_days_per_month}
+            outboundPct={inputs.outbound_pct}
+            outboundRates={outboundRates}
+            inboundRates={inboundRates}
+          />
+        </div>
+      )}
+
+      {/* ── Save scenario button ── */}
+      {!readOnly && (
+        <Button onClick={handleSave} disabled={saving} className="w-full">
+          {saving ? 'Guardando…' : scenario ? 'Actualizar escenario' : 'Guardar escenario'}
+        </Button>
+      )}
     </div>
   )
 }

@@ -66,6 +66,7 @@ export interface Database {
           status: 'active' | 'inactive'
           sort_order: number
           description: string | null
+          conversion_rate_pct: number | null
           created_at: string
           updated_at: string
         }
@@ -82,6 +83,7 @@ export interface Database {
           status?: 'active' | 'inactive'
           sort_order?: number
           description?: string | null
+          conversion_rate_pct?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -98,6 +100,7 @@ export interface Database {
           status?: 'active' | 'inactive'
           sort_order?: number
           description?: string | null
+          conversion_rate_pct?: number | null
           updated_at?: string
         }
         Relationships: []
