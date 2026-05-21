@@ -600,6 +600,7 @@ export default function LandingPage() {
           </a>
           <div className="pp-nav-links">
             <a href="#pp-como-funciona">Cómo funciona</a>
+            <a href="#pp-recetario">Recetario</a>
             <a href="#pp-caracteristicas">Características</a>
             <a href="#pp-precios">Precios</a>
             <a href="/guide">Guía de uso</a>
@@ -859,6 +860,112 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* RECETARIO DIFERENCIAL */}
+      <section className="pp-section pp-section-alt" id="pp-recetario">
+        <div className="pp-container">
+          <div className="pp-section-header" style={{ textAlign: 'center' }}>
+            <div className="pp-section-tag pp-reveal" style={{ display: 'block', textAlign: 'center' }}>El diferencial</div>
+            <h2 className="pp-section-title pp-reveal pp-reveal-delay-1" style={{ textAlign: 'center' }}>Lo que ningún CRM<br />te puede decir</h2>
+            <p className="pp-section-sub pp-reveal pp-reveal-delay-2" style={{ maxWidth: '520px', margin: '0 auto' }}>
+              Un CRM registra lo que ya pasó. El Recetario de ProspectPro calcula exactamente cuántas actividades necesitas — por canal — para cerrar tu meta. Y luego compara tu tasa de conversión real contra lo planeado, en tiempo real.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginTop: '56px' }}>
+
+            {/* Card 1 — Tu receta personalizada */}
+            <div className="pp-feature-card pp-reveal" style={{ padding: '32px', borderRadius: '16px', background: 'var(--pp-bg-card)', border: '1px solid var(--pp-border)' }}>
+              <div style={{ fontSize: '28px', marginBottom: '16px' }}>🎯</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--pp-cyan)', marginBottom: '10px' }}>Tu receta, no un template</div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--pp-text-1)', marginBottom: '10px', lineHeight: 1.3 }}>¿Cuántas llamadas necesitas para cerrar $10.000 este mes?</div>
+              <div style={{ fontSize: '13px', color: 'var(--pp-text-2)', lineHeight: 1.65 }}>
+                Defines tu meta de ingresos, tu ticket promedio y tus etapas de venta. El sistema calcula cuántas actividades necesitas por canal — outbound e inbound — para llegar. No hay adivinanzas.
+              </div>
+            </div>
+
+            {/* Card 2 — Tasas reales por canal */}
+            <div className="pp-feature-card pp-reveal pp-reveal-delay-1" style={{ padding: '32px', borderRadius: '16px', background: 'var(--pp-bg-card)', border: '1px solid oklch(0.82 0.19 200 / 0.25)', boxShadow: '0 0 32px oklch(0.82 0.19 200 / 0.06)' }}>
+              <div style={{ fontSize: '28px', marginBottom: '16px' }}>📊</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--pp-cyan)', marginBottom: '10px' }}>Conversión real vs plan</div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--pp-text-1)', marginBottom: '10px', lineHeight: 1.3 }}>Tu tasa de llamada a reunión es 8%. El plan dice 12%. Ya sabes dónde actuar.</div>
+              <div style={{ fontSize: '13px', color: 'var(--pp-text-2)', lineHeight: 1.65 }}>
+                ProspectPro compara en tiempo real tu conversión real por etapa del funnel contra tu recetario planificado. Ves exactamente en qué canal se rompe el proceso — no al final del mes, sino hoy.
+              </div>
+              {/* Mini visual de conversión */}
+              <div style={{ marginTop: '20px', padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid var(--pp-border)' }}>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>Outbound · Este mes</div>
+                {[
+                  { label: 'Actividad → Discurso', real: 80, plan: 80, color: '#00FF9D' },
+                  { label: 'Discurso → Reunión', real: 8, plan: 12, color: '#FF3B5C' },
+                  { label: 'Reunión → Propuesta', real: 55, plan: 50, color: '#00FF9D' },
+                  { label: 'Propuesta → Cierre', real: 28, plan: 30, color: '#F59E0B' },
+                ].map((row) => (
+                  <div key={row.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '7px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--pp-text-2)', flex: 1 }}>{row.label}</span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: row.color, fontFamily: "'JetBrains Mono', monospace", minWidth: '80px', textAlign: 'right' }}>
+                      {row.real}% <span style={{ color: 'var(--pp-text-3)', fontWeight: 400 }}>/ {row.plan}% plan</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Card 3 — Lo que el CRM no hace */}
+            <div className="pp-feature-card pp-reveal pp-reveal-delay-2" style={{ padding: '32px', borderRadius: '16px', background: 'var(--pp-bg-card)', border: '1px solid var(--pp-border)' }}>
+              <div style={{ fontSize: '28px', marginBottom: '16px' }}>🔗</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--pp-cyan)', marginBottom: '10px' }}>Conectado a tu CRM</div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--pp-text-1)', marginBottom: '10px', lineHeight: 1.3 }}>ProspectPro se integra con Pipedrive, HubSpot y Zoho.</div>
+              <div style={{ fontSize: '13px', color: 'var(--pp-text-2)', lineHeight: 1.65 }}>
+                Tu CRM guarda los negocios. ProspectPro analiza el comportamiento que los produce. Las actividades de prospección y las tasas de conversión por canal fluyen automáticamente — sin doble registro.
+              </div>
+              <div style={{ marginTop: '20px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {['Pipedrive', 'HubSpot', 'Zoho'].map((crm) => (
+                  <span key={crm} style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--pp-border)', color: 'var(--pp-text-2)' }}>{crm}</span>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Comparación ProspectPro vs CRM */}
+          <div className="pp-reveal" style={{ marginTop: '48px', padding: '32px', borderRadius: '16px', background: 'var(--pp-bg-card)', border: '1px solid var(--pp-border)', maxWidth: '760px', margin: '48px auto 0' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-text-2)', textAlign: 'center', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>ProspectPro vs CRM tradicional</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '0', alignItems: 'stretch' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '14px', textAlign: 'center' }}>CRM</div>
+                {[
+                  'Registra negocios cerrados',
+                  'Muestra en qué etapa está el deal',
+                  'Historial de actividad pasada',
+                  'No sabe cuánto prospectar',
+                  'No analiza conversión por canal',
+                ].map((item) => (
+                  <div key={item} style={{ fontSize: '12px', color: 'var(--pp-text-3)', padding: '8px 12px', marginBottom: '6px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: 'var(--pp-text-3)', flexShrink: 0 }}>—</span>{item}
+                  </div>
+                ))}
+              </div>
+              <div style={{ width: '1px', background: 'var(--pp-border)', margin: '0 24px' }}></div>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--pp-cyan)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '14px', textAlign: 'center' }}>ProspectPro</div>
+                {[
+                  'Calcula cuánto prospectar hoy',
+                  'Muestra qué canal está fallando',
+                  'Conversión real vs plan en vivo',
+                  'Coach IA actúa sobre la brecha',
+                  'Se conecta con tu CRM actual',
+                ].map((item) => (
+                  <div key={item} style={{ fontSize: '12px', color: 'var(--pp-text-1)', padding: '8px 12px', marginBottom: '6px', borderRadius: '8px', background: 'oklch(0.82 0.19 200 / 0.05)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: 'var(--pp-cyan)', flexShrink: 0 }}>✓</span>{item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
         </div>
       </section>
 
