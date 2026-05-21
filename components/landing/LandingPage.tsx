@@ -1045,11 +1045,12 @@ export default function LandingPage() {
               <div style={{ fontSize: '24px', marginBottom: '12px' }}>🔗</div>
               <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Conectado a tu CRM</div>
               <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--pp-text-1)', marginBottom: '8px', lineHeight: 1.4 }}>Tu CRM registra los negocios. ProspectPro calcula el comportamiento que los produce.</div>
-              <div style={{ fontSize: '12px', color: 'var(--pp-text-2)', lineHeight: 1.6 }}>Las actividades y tasas fluyen automáticamente entre ProspectPro y tu CRM. Sin doble registro. Sin perder datos.</div>
-              <div style={{ marginTop: '14px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '12px', color: 'var(--pp-text-2)', lineHeight: 1.6 }}>Si tu CRM tiene webhook o API, ProspectPro se conecta. Las actividades y tasas fluyen automáticamente. Sin doble registro. Sin perder datos.</div>
+              <div style={{ marginTop: '14px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                 {['Pipedrive', 'HubSpot', 'Zoho'].map((crm) => (
                   <span key={crm} style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--pp-border)', color: 'var(--pp-text-2)' }}>{crm}</span>
                 ))}
+                <span style={{ fontSize: '11px', color: 'var(--pp-text-3)', fontStyle: 'italic' }}>+ cualquier CRM con webhook o API</span>
               </div>
             </div>
 
