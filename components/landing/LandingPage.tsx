@@ -868,166 +868,184 @@ export default function LandingPage() {
         <div className="pp-container">
 
           {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '56px' }}>
-            <div className="pp-section-tag pp-reveal" style={{ display: 'block', textAlign: 'center' }}>El diferencial</div>
+          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+            <div className="pp-section-tag pp-reveal" style={{ display: 'block', textAlign: 'center' }}>
+              La joya de la corona
+            </div>
             <h2 className="pp-section-title pp-reveal pp-reveal-delay-1" style={{ textAlign: 'center' }}>
-              Lo que ningún CRM<br />puede calcular
+              Sabe exactamente cuántas<br />llamadas necesitas hacer hoy
             </h2>
-            <p className="pp-section-sub pp-reveal pp-reveal-delay-2" style={{ maxWidth: '560px', margin: '16px auto 0' }}>
-              Un CRM registra lo que ya pasó. El Recetario de ProspectPro calcula cuántas actividades necesitas hoy — por canal, por etapa del funnel — para cerrar tu meta este mes. Y compara tu tasa real contra lo planeado, en tiempo real.
+            <p className="pp-section-sub pp-reveal pp-reveal-delay-2" style={{ maxWidth: '600px', margin: '16px auto 0' }}>
+              No es motivación. No es intuición. Es matemática comercial pura: ProspectPro calcula por cada tipo de actividad — llamadas, DMs, referidos, VSL — cuántas debes hacer diario para cerrar tu meta. Y si no vas en camino, te lo dice hoy. No el último día del mes.
             </p>
           </div>
 
-          {/* Simulador visual — el corazón del producto */}
+          {/* TABLA PRINCIPAL — el corazón del producto */}
           <div className="pp-reveal pp-reveal-delay-1" style={{
             background: 'var(--pp-bg-card)',
             border: '1px solid var(--pp-border)',
             borderRadius: '20px',
-            padding: '32px',
-            marginBottom: '24px',
-            maxWidth: '900px',
-            margin: '0 auto 24px',
+            overflow: 'hidden',
+            maxWidth: '960px',
+            margin: '48px auto 0',
           }}>
-            {/* Tabs simulados */}
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '28px', borderBottom: '1px solid var(--pp-border)', paddingBottom: '0' }}>
-              {['Escenario', 'Simulador', 'Plan vs Real'].map((tab, i) => (
-                <div key={tab} style={{
-                  padding: '8px 18px',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: i === 1 ? 'var(--pp-cyan)' : 'var(--pp-text-3)',
-                  borderBottom: i === 1 ? '2px solid var(--pp-cyan)' : '2px solid transparent',
-                  marginBottom: '-1px',
-                  cursor: 'default',
-                }}>{tab}</div>
-              ))}
+
+            {/* Header de la tabla */}
+            <div style={{
+              background: 'rgba(0,217,255,0.04)',
+              borderBottom: '1px solid var(--pp-border)',
+              padding: '20px 28px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>
+                  ⬆ OUTBOUND · Meta $32.000
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--pp-text-3)' }}>
+                  Tasa real vs actividad planificada · este mes
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '24px' }}>
+                {[
+                  { label: 'Diario', value: '10 actos' },
+                  { label: 'Semanal', value: '46 actos' },
+                  { label: 'Al mes', value: '5 citas' },
+                ].map((k) => (
+                  <div key={k.label} style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--pp-cyan)', fontFamily: "'JetBrains Mono', monospace" }}>{k.value}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{k.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Parámetros del escenario */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
-              {[
-                { label: 'Meta mensual', value: '$80.000' },
-                { label: 'Ticket promedio', value: '$7.500' },
-                { label: 'Días hábiles/mes', value: '20 días' },
-                { label: 'Mix Outbound/Inbound', value: '40% / 60%' },
-              ].map((p) => (
-                <div key={p.label} style={{
-                  padding: '12px 16px',
-                  background: 'rgba(255,255,255,0.03)',
-                  borderRadius: '10px',
-                  border: '1px solid var(--pp-border)',
-                }}>
-                  <div style={{ fontSize: '11px', color: 'var(--pp-text-3)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{p.label}</div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--pp-text-1)', fontFamily: "'JetBrains Mono', monospace" }}>{p.value}</div>
+            {/* Encabezados de columna */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '2fr 80px 100px 100px 80px 80px',
+              padding: '10px 28px',
+              borderBottom: '1px solid var(--pp-border)',
+              background: 'rgba(255,255,255,0.01)',
+            }}>
+              {['Actividad', 'Peso %', 'Tasa → Cita', 'Citas/mes', 'Diario', 'Eficiencia'].map((col) => (
+                <div key={col} style={{ fontSize: '10px', fontWeight: 700, color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: col === 'Actividad' ? 'left' : 'center' }}>
+                  {col}
                 </div>
               ))}
             </div>
 
-            {/* Tasas Outbound vs Inbound */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-              {/* Outbound */}
-              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--pp-border)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '14px' }}>Tasas Outbound</div>
-                {[
-                  { etapa: 'Actividad → Discurso', tasa: 80 },
-                  { etapa: 'Discurso → Calificación', tasa: 20 },
-                  { etapa: 'Calificación → Reunión', tasa: 70 },
-                  { etapa: 'Reunión → Propuesta', tasa: 70 },
-                  { etapa: 'Propuesta → Cierre', tasa: 30 },
-                ].map((row) => (
-                  <div key={row.etapa} style={{ marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--pp-text-2)' }}>{row.etapa}</span>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--pp-cyan)', fontFamily: "'JetBrains Mono', monospace" }}>{row.tasa}%</span>
-                    </div>
-                    <div style={{ height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px' }}>
-                      <div style={{ height: '100%', width: `${row.tasa}%`, background: 'var(--pp-cyan)', borderRadius: '2px', opacity: 0.7 }} />
-                    </div>
-                  </div>
-                ))}
+            {/* Filas de actividades */}
+            {[
+              { nombre: 'Llamadas / videos en frío', peso: 30, tasa: 10, citas: 4.3, diario: 3, eficiencia: 'Baja' },
+              { nombre: 'Leads de prospección Outbound', peso: 20, tasa: 50, citas: 2.9, diario: 1, eficiencia: 'Alta' },
+              { nombre: 'Pedir referidos', peso: 5, tasa: 20, citas: 0.7, diario: 1, eficiencia: 'Alta' },
+              { nombre: 'Emails de prospección', peso: 15, tasa: 0, citas: 2.1, diario: null, eficiencia: 'Baja' },
+              { nombre: 'Seguimientos', peso: 13, tasa: 0, citas: 1.9, diario: null, eficiencia: 'Baja' },
+              { nombre: 'DM LinkedIn', peso: 5, tasa: 0, citas: 0.7, diario: null, eficiencia: 'Baja' },
+            ].map((row, i) => (
+              <div key={row.nombre} style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 80px 100px 100px 80px 80px',
+                padding: '14px 28px',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                alignItems: 'center',
+                background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
+              }}>
+                <div style={{ fontSize: '13px', color: 'var(--pp-text-1)', fontWeight: 500 }}>{row.nombre}</div>
+                <div style={{ textAlign: 'center', fontSize: '13px', fontWeight: 700, color: 'var(--pp-text-1)', fontFamily: "'JetBrains Mono', monospace" }}>{row.peso}</div>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    color: row.tasa >= 20 ? 'var(--pp-cyan)' : row.tasa > 0 ? '#f59e0b' : 'var(--pp-text-3)',
+                  }}>{row.tasa}%</span>
+                </div>
+                <div style={{ textAlign: 'center', fontSize: '13px', color: 'var(--pp-text-2)', fontFamily: "'JetBrains Mono', monospace" }}>{row.citas}</div>
+                <div style={{ textAlign: 'center', fontSize: '13px', fontWeight: 700, color: 'var(--pp-cyan)', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {row.diario !== null ? row.diario : '—'}
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    background: row.eficiencia === 'Alta' ? 'rgba(0,255,157,0.1)' : 'rgba(255,59,92,0.1)',
+                    color: row.eficiencia === 'Alta' ? '#00FF9D' : '#FF3B5C',
+                  }}>{row.eficiencia}</span>
+                </div>
               </div>
+            ))}
 
-              {/* Inbound */}
-              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--pp-border)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '14px' }}>Tasas Inbound</div>
-                {[
-                  { etapa: 'Actividad → Discurso', tasa: 100 },
-                  { etapa: 'Discurso → Calificación', tasa: 100 },
-                  { etapa: 'Calificación → Reunión', tasa: 100 },
-                  { etapa: 'Reunión → Propuesta', tasa: 70 },
-                  { etapa: 'Propuesta → Cierre', tasa: 30 },
-                ].map((row) => (
-                  <div key={row.etapa} style={{ marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--pp-text-2)' }}>{row.etapa}</span>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#a78bfa', fontFamily: "'JetBrains Mono', monospace" }}>{row.tasa}%</span>
-                    </div>
-                    <div style={{ height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px' }}>
-                      <div style={{ height: '100%', width: `${row.tasa}%`, background: '#a78bfa', borderRadius: '2px', opacity: 0.7 }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Resultado del cálculo */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-              <div style={{ padding: '16px', background: 'rgba(0,217,255,0.05)', borderRadius: '12px', border: '1px solid rgba(0,217,255,0.2)', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Actividades/día</div>
-                <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--pp-cyan)', fontFamily: "'JetBrains Mono', monospace" }}>12</div>
-                <div style={{ fontSize: '10px', color: 'var(--pp-text-3)', marginTop: '2px' }}>10 OUT · 2 IN</div>
-              </div>
-              <div style={{ padding: '16px', background: 'rgba(0,217,255,0.05)', borderRadius: '12px', border: '1px solid rgba(0,217,255,0.2)', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Cierres/mes</div>
-                <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--pp-cyan)', fontFamily: "'JetBrains Mono', monospace" }}>12</div>
-                <div style={{ fontSize: '10px', color: 'var(--pp-text-3)', marginTop: '2px' }}>para $80.000</div>
-              </div>
-              <div style={{ padding: '16px', background: 'rgba(0,217,255,0.05)', borderRadius: '12px', border: '1px solid rgba(0,217,255,0.2)', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Meta total</div>
-                <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--pp-cyan)', fontFamily: "'JetBrains Mono', monospace" }}>$80k</div>
-                <div style={{ fontSize: '10px', color: 'var(--pp-text-3)', marginTop: '2px' }}>$32k OUT · $48k IN</div>
-              </div>
+            {/* Panel de brecha */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              borderTop: '1px solid var(--pp-border)',
+            }}>
+              {[
+                { label: 'Citas proyectadas', value: '9.4', color: 'var(--pp-text-1)' },
+                { label: 'Citas requeridas', value: '14.2', color: 'var(--pp-text-1)' },
+                { label: 'Brecha este mes', value: '−$10.850', color: '#FF3B5C', sub: 'Brecha crítica' },
+              ].map((item) => (
+                <div key={item.label} style={{
+                  padding: '20px 28px',
+                  textAlign: 'center',
+                  borderRight: '1px solid var(--pp-border)',
+                }}>
+                  <div style={{ fontSize: '11px', color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>{item.label}</div>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: item.color, fontFamily: "'JetBrains Mono', monospace" }}>{item.value}</div>
+                  {item.sub && <div style={{ fontSize: '10px', color: '#FF3B5C', marginTop: '4px', fontWeight: 600 }}>{item.sub}</div>}
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* 3 cards explicativas */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', maxWidth: '900px', margin: '32px auto 0' }}>
+          {/* Insight debajo de la tabla */}
+          <div className="pp-reveal" style={{
+            maxWidth: '960px',
+            margin: '16px auto 0',
+            padding: '16px 24px',
+            background: 'rgba(255,59,92,0.05)',
+            border: '1px solid rgba(255,59,92,0.2)',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}>
+            <span style={{ fontSize: '18px' }}>💡</span>
+            <span style={{ fontSize: '13px', color: 'var(--pp-text-2)', lineHeight: 1.6 }}>
+              <strong style={{ color: 'var(--pp-text-1)' }}>Lo que esto significa:</strong> tus llamadas en frío tienen tasa 10% — necesitas 43 en el mes, 3 por día. Tus Leads Outbound tienen tasa 50% — solo necesitas 6 en el mes, 1 por día. El sistema te dice dónde concentrar la energía. No tu intuición.
+            </span>
+          </div>
+
+          {/* 3 propiedades clave */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', maxWidth: '960px', margin: '40px auto 0' }}>
 
             <div className="pp-feature-card pp-reveal" style={{ padding: '28px', borderRadius: '16px', background: 'var(--pp-bg-card)', border: '1px solid var(--pp-border)' }}>
               <div style={{ fontSize: '24px', marginBottom: '12px' }}>🎯</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Tu receta exacta</div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--pp-text-1)', marginBottom: '8px', lineHeight: 1.4 }}>Define meta, ticket y mix de canales. El sistema calcula cuánto hacer hoy.</div>
-              <div style={{ fontSize: '12px', color: 'var(--pp-text-2)', lineHeight: 1.6 }}>No es un template genérico. Es tu plan basado en tus tasas de conversión reales — por canal y por etapa del funnel.</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Tasa real, no estimada</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--pp-text-1)', marginBottom: '8px', lineHeight: 1.4 }}>Cada actividad tiene su propia tasa de conversión a cita. Tú la defines, el sistema la usa.</div>
+              <div style={{ fontSize: '12px', color: 'var(--pp-text-2)', lineHeight: 1.6 }}>¿Tus referidos convierten al 20% y tus emails al 0%? El sistema lo sabe y calcula diferente para cada canal. No hay promedios engañosos.</div>
             </div>
 
             <div className="pp-feature-card pp-reveal pp-reveal-delay-1" style={{ padding: '28px', borderRadius: '16px', background: 'var(--pp-bg-card)', border: '1px solid rgba(0,217,255,0.2)', boxShadow: '0 0 28px rgba(0,217,255,0.04)' }}>
               <div style={{ fontSize: '24px', marginBottom: '12px' }}>📊</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Brecha en tiempo real</div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--pp-text-1)', marginBottom: '8px', lineHeight: 1.4 }}>¿Cuánto ingreso te falta este mes? Lo ves hoy — no el último día.</div>
-              <div style={{ fontSize: '12px', color: 'var(--pp-text-2)', lineHeight: 1.6 }}>El sistema compara tus citas proyectadas vs las requeridas por canal. Si hay brecha, el Coach IA actúa de inmediato.</div>
-              {/* Ejemplo de brecha */}
-              <div style={{ marginTop: '14px', padding: '12px', background: 'rgba(255,59,92,0.06)', borderRadius: '8px', border: '1px solid rgba(255,59,92,0.2)' }}>
-                <div style={{ fontSize: '10px', color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px' }}>Alineación Outbound · hoy</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
-                  <span style={{ color: 'var(--pp-text-2)' }}>Citas proyectadas</span>
-                  <span style={{ color: 'var(--pp-text-1)', fontWeight: 700 }}>9.4</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
-                  <span style={{ color: 'var(--pp-text-2)' }}>Citas requeridas</span>
-                  <span style={{ color: 'var(--pp-text-1)', fontWeight: 700 }}>14.2</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                  <span style={{ color: 'var(--pp-text-2)' }}>Brecha</span>
-                  <span style={{ color: '#FF3B5C', fontWeight: 700 }}>−4.8 citas · −$10.800</span>
-                </div>
-              </div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Outbound e Inbound por separado</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--pp-text-1)', marginBottom: '8px', lineHeight: 1.4 }}>El sistema calcula cada canal por separado y te dice en cuál está la brecha.</div>
+              <div style={{ fontSize: '12px', color: 'var(--pp-text-2)', lineHeight: 1.6 }}>Puedes tener Inbound alineado y Outbound en brecha crítica. ProspectPro te lo muestra por separado — y el Coach IA actúa sobre el canal que falla.</div>
             </div>
 
             <div className="pp-feature-card pp-reveal pp-reveal-delay-2" style={{ padding: '28px', borderRadius: '16px', background: 'var(--pp-bg-card)', border: '1px solid var(--pp-border)' }}>
               <div style={{ fontSize: '24px', marginBottom: '12px' }}>🔗</div>
               <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Conectado a tu CRM</div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--pp-text-1)', marginBottom: '8px', lineHeight: 1.4 }}>Tu CRM guarda los negocios. ProspectPro analiza el comportamiento que los produce.</div>
-              <div style={{ fontSize: '12px', color: 'var(--pp-text-2)', lineHeight: 1.6 }}>Las actividades y tasas de conversión fluyen automáticamente. Sin doble registro. Sin perder datos.</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--pp-text-1)', marginBottom: '8px', lineHeight: 1.4 }}>Tu CRM registra los negocios. ProspectPro calcula el comportamiento que los produce.</div>
+              <div style={{ fontSize: '12px', color: 'var(--pp-text-2)', lineHeight: 1.6 }}>Las actividades y tasas fluyen automáticamente entre ProspectPro y tu CRM. Sin doble registro. Sin perder datos.</div>
               <div style={{ marginTop: '14px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {['Pipedrive', 'HubSpot', 'Zoho'].map((crm) => (
                   <span key={crm} style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--pp-border)', color: 'var(--pp-text-2)' }}>{crm}</span>
@@ -1037,7 +1055,7 @@ export default function LandingPage() {
 
           </div>
 
-          {/* Tabla comparativa ProspectPro vs CRM */}
+          {/* Tabla comparativa */}
           <div className="pp-reveal" style={{
             marginTop: '48px',
             padding: '32px',
@@ -1058,7 +1076,7 @@ export default function LandingPage() {
                   'Muestra en qué etapa está el deal',
                   'Historial de actividades pasadas',
                   'No sabe cuánto prospectar hoy',
-                  'No calcula brecha de ingreso en vivo',
+                  'No calcula tasa real por actividad',
                   'No diferencia Outbound de Inbound',
                 ].map((item) => (
                   <div key={item} style={{ fontSize: '12px', color: 'var(--pp-text-3)', padding: '8px 10px', marginBottom: '6px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
@@ -1071,8 +1089,8 @@ export default function LandingPage() {
                 <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--pp-cyan)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '14px', textAlign: 'center' }}>ProspectPro</div>
                 {[
                   'Calcula cuánto prospectar hoy',
-                  'Muestra qué canal está fallando',
-                  'Tasas de conversión reales por etapa',
+                  'Tasa de conversión real por actividad',
+                  'Cuántos actos hacer diario por canal',
                   'Brecha de ingreso visible este mes',
                   'Coach IA actúa sobre la brecha',
                   'Se integra con tu CRM actual',
