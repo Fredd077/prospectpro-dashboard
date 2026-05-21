@@ -1113,32 +1113,38 @@ export default function LandingPage() {
           <div className="pp-section-header" style={{ textAlign: 'center' }}>
             <div className="pp-section-tag pp-reveal" style={{ display: 'block', textAlign: 'center' }}>Precios</div>
             <h2 className="pp-section-title pp-reveal pp-reveal-delay-1" style={{ textAlign: 'center' }}>Paga solo por el rol<br />que usas</h2>
-            <p className="pp-section-sub pp-reveal pp-reveal-delay-2" style={{ maxWidth: '440px', margin: '0 auto' }}>Sin planes fijos. Sin límite de actividades. 14 días gratis sin tarjeta de crédito.</p>
+            <p className="pp-section-sub pp-reveal pp-reveal-delay-2" style={{ maxWidth: '480px', margin: '0 auto' }}>Sin planes fijos. Sin límite de actividades. 14 días gratis sin tarjeta de crédito.</p>
           </div>
+
           <div className="pp-pricing-grid" style={{ marginTop: '56px' }}>
+
+            {/* VENDEDOR */}
             <div className="pp-pricing-card pp-reveal">
               <div className="pp-pricing-role">Vendedor</div>
-              <div className="pp-pricing-price">$19<span>/mes</span></div>
+              <div className="pp-pricing-price">$17<span>/mes</span></div>
               <div className="pp-pricing-desc">Por vendedor activo. Volumen con descuento.</div>
               <div className="pp-pricing-tiers">
-                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">1 vendedor</span><span className="pp-pricing-tier-value">$19/mes</span></div>
-                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">2–5 vendedores</span><span className="pp-pricing-tier-value">$15/mes c/u</span></div>
-                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">6–15 vendedores</span><span className="pp-pricing-tier-value">$12/mes c/u</span></div>
-                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">16+ vendedores</span><span className="pp-pricing-tier-value">$10/mes c/u</span></div>
+                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">1 vendedor</span><span className="pp-pricing-tier-value">$17/mes</span></div>
+                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">2–5 vendedores</span><span className="pp-pricing-tier-value">$14/mes c/u</span></div>
+                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">6–15 vendedores</span><span className="pp-pricing-tier-value">$11/mes c/u</span></div>
+                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">16+ vendedores</span><span className="pp-pricing-tier-value">$9/mes c/u</span></div>
               </div>
               <div className="pp-pricing-divider"></div>
+              <div className="pp-pricing-feature" style={{ color: 'var(--pp-text-1)', fontWeight: 600 }}>⭐ Recetario + tasas de conversión por actividad</div>
               <div className="pp-pricing-feature">Dashboard personal con semáforo</div>
-              <div className="pp-pricing-feature">Recetario comercial con IA</div>
               <div className="pp-pricing-feature">Check-in diario en 2 min</div>
               <div className="pp-pricing-feature">Coach IA diario y semanal</div>
-              <div className="pp-pricing-feature">Pipeline de negocios</div>
-              <a href="/register" className="pp-pricing-btn pp-pricing-btn-default">Empezar prueba gratis</a>
+              <div className="pp-pricing-feature">Pipeline con proyección de cierre</div>
+              <div className="pp-pricing-feature">Integración con tu CRM (add-on)</div>
+              <a href="/register" className="pp-pricing-btn pp-pricing-btn-default">Empezar gratis — 14 días</a>
             </div>
+
+            {/* MANAGER */}
             <div className="pp-pricing-card featured pp-reveal pp-reveal-delay-1">
-              <div className="pp-pricing-badge">Más valor por equipo</div>
+              <div className="pp-pricing-badge">Para líderes de equipo</div>
               <div className="pp-pricing-role">Manager</div>
               <div className="pp-pricing-price">$29<span>/mes</span></div>
-              <div className="pp-pricing-desc">Por manager. Incluye vista de equipo completa.</div>
+              <div className="pp-pricing-desc">Por manager. Incluye vista completa del equipo.</div>
               <div className="pp-pricing-tiers">
                 <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">1 manager</span><span className="pp-pricing-tier-value">$29/mes</span></div>
                 <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">2–5 managers</span><span className="pp-pricing-tier-value">$22/mes c/u</span></div>
@@ -1146,15 +1152,61 @@ export default function LandingPage() {
               </div>
               <div className="pp-pricing-divider"></div>
               <div className="pp-pricing-feature">Todo lo del Vendedor incluido</div>
+              <div className="pp-pricing-feature" style={{ color: 'var(--pp-text-1)', fontWeight: 600 }}>⭐ Recetario del equipo + conversiones por vendedor</div>
               <div className="pp-pricing-feature">Vista del equipo en tiempo real</div>
-              <div className="pp-pricing-feature">3 agentes IA de análisis de pipeline</div>
-              <div className="pp-pricing-feature">Reportes automáticos semanales</div>
-              <div className="pp-pricing-feature">Proyecciones y momentum score</div>
-              <div className="pp-pricing-feature">Alertas de riesgo por vendedor</div>
-              <a href="/register" className="pp-pricing-btn pp-pricing-btn-featured">Empezar prueba gratis</a>
+              <div className="pp-pricing-feature">3 agentes IA: analista, predictivo y ejecutivo</div>
+              <div className="pp-pricing-feature">Reportes automáticos semanales por email</div>
+              <div className="pp-pricing-feature">Alertas de brecha por vendedor y canal</div>
+              <a href="/register" className="pp-pricing-btn pp-pricing-btn-featured">Empezar gratis — 14 días</a>
+            </div>
+
+          </div>
+
+          {/* Add-on CRM */}
+          <div className="pp-reveal" style={{
+            maxWidth: '780px',
+            margin: '16px auto 0',
+            padding: '20px 28px',
+            background: 'rgba(0,217,255,0.03)',
+            border: '1px solid rgba(0,217,255,0.15)',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '36px', height: '36px',
+                background: 'rgba(0,217,255,0.08)',
+                borderRadius: '8px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+                fontSize: '18px',
+              }}>🔗</div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-text-1)', marginBottom: '2px' }}>
+                  Add-on — Integración con tu CRM
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--pp-text-3)' }}>
+                  Compatible con cualquier CRM con webhook o API · Pipedrive, HubSpot, Zoho y más
+                </div>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--pp-cyan)', fontFamily: "'JetBrains Mono', monospace" }}>
+                +$12<span style={{ fontSize: '12px', color: 'var(--pp-text-3)', fontFamily: 'Syne, sans-serif', fontWeight: 400 }}>/mes por usuario</span>
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--pp-text-3)', marginTop: '2px' }}>Se activa sobre cualquier plan</div>
             </div>
           </div>
-          <div className="pp-pricing-footnote pp-reveal">Toda empresa requiere al menos un Manager que supervise al equipo de vendedores.</div>
+
+          {/* Footnote */}
+          <div className="pp-pricing-footnote pp-reveal" style={{ marginTop: '20px' }}>
+            Sin tarjeta de crédito · Cancela cuando quieras · El Manager incluye visibilidad total del equipo
+          </div>
+
         </div>
       </section>
 
