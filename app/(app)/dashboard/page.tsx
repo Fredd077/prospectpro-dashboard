@@ -349,7 +349,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               label="Cumplimiento"
               value={formatPercent(compliance.pct)}
               semaphore={compliance.semaphore}
-              description={`Ponderado por peso · ${totalReal} de ${totalGoal} actividades en total`}
+              description="Porcentaje de cumplimiento teniendo en cuenta el peso asignado a cada actividad"
               icon={<BarChart2 className="h-4 w-4" />}
             />
             <KpiCard
