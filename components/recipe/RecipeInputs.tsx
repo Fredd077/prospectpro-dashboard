@@ -23,6 +23,10 @@ interface RecipeInputsProps {
   // When funnel_stages changes externally, re-key this component to reset.
   defaults?: Partial<RecipeInputsType>
   onChange: (values: RecipeInputsType) => void
+  // Auto-computed first rates from activity conversion_rate_pct averages.
+  // When provided, the first transition slider is replaced by a read-only badge.
+  autoFirstOutRate?: number | null
+  autoFirstInRate?: number | null
 }
 
 export const RECIPE_DEFAULTS: RecipeInputsType = {
@@ -62,11 +66,32 @@ function RateSlider({
   )
 }
 
-export function RecipeInputs({ defaults, onChange }: RecipeInputsProps) {
+export function RecipeInputs({ defaults, onChange, autoFirstOutRate, autoFirstInRate }: RecipeInputsProps) {
   const merged = { ...RECIPE_DEFAULTS, ...defaults }
-  const funnelStages   = merged.funnel_stages
-  const [outboundRates, setOutboundRates] = useState<number[]>(merged.outbound_rates)
-  const [inboundRates,  setInboundRates]  = useState<number[]>(merged.inbound_rates)
+  const funnelStages = merged.funnel_stages
+
+  // If auto rates are provided, seed the first element from them
+  const initOut = autoFirstOutRate != null
+    ? [autoFirstOutRate, ...merged.outbound_rates.slice(1)]
+    : merged.outbound_rates
+  const initIn = autoFirstInRate != null
+    ? [autoFirstInRate, ...merged.inbound_rates.slice(1)]
+    : merged.inbound_rates
+
+  const [outboundRates, setOutboundRates] = useState<number[]>(initOut)
+  const [inboundRates,  setInboundRates]  = useState<number[]>(initIn)
+
+  // Keep first element in sync with auto rates when they change
+  useEffect(() => {
+    if (autoFirstOutRate != null) {
+      setOutboundRates((prev) => [autoFirstOutRate, ...prev.slice(1)])
+    }
+  }, [autoFirstOutRate])
+  useEffect(() => {
+    if (autoFirstInRate != null) {
+      setInboundRates((prev) => [autoFirstInRate, ...prev.slice(1)])
+    }
+  }, [autoFirstInRate])
 
   const { register, watch, setValue, formState: { errors } } = useForm<ScalarFields>({
     resolver: zodResolver(scalarSchema),
@@ -202,28 +227,60 @@ export function RecipeInputs({ defaults, onChange }: RecipeInputsProps) {
           <p className="text-xs font-medium text-blue-400 uppercase tracking-wider mb-3">
             Tasas Outbound
           </p>
-          {transitions.map(({ label, index }) => (
-            <RateSlider
-              key={`o-${index}`}
-              label={label}
-              value={outboundRates[index] ?? 50}
-              onSet={(v) => setOutboundRate(index, v)}
-            />
-          ))}
+          {transitions.map(({ label, index }) => {
+            if (index === 0 && autoFirstOutRate != null) {
+              return (
+                <div key={`o-${index}`} className="space-y-2 py-2 border-b border-border last:border-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-400 border border-cyan-400/20">⚡ Auto</span>
+                      <span className="text-sm font-semibold tabular-nums text-cyan-400">{autoFirstOutRate}%</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/50">Promedio real de tus actividades Outbound</p>
+                </div>
+              )
+            }
+            return (
+              <RateSlider
+                key={`o-${index}`}
+                label={label}
+                value={outboundRates[index] ?? 50}
+                onSet={(v) => setOutboundRate(index, v)}
+              />
+            )
+          })}
         </div>
         {/* Inbound rates */}
         <div className="space-y-1">
           <p className="text-xs font-medium text-violet-400 uppercase tracking-wider mb-3">
             Tasas Inbound
           </p>
-          {transitions.map(({ label, index }) => (
-            <RateSlider
-              key={`i-${index}`}
-              label={label}
-              value={inboundRates[index] ?? 50}
-              onSet={(v) => setInboundRate(index, v)}
-            />
-          ))}
+          {transitions.map(({ label, index }) => {
+            if (index === 0 && autoFirstInRate != null) {
+              return (
+                <div key={`i-${index}`} className="space-y-2 py-2 border-b border-border last:border-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-400 border border-cyan-400/20">⚡ Auto</span>
+                      <span className="text-sm font-semibold tabular-nums text-cyan-400">{autoFirstInRate}%</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/50">Promedio real de tus actividades Inbound</p>
+                </div>
+              )
+            }
+            return (
+              <RateSlider
+                key={`i-${index}`}
+                label={label}
+                value={inboundRates[index] ?? 50}
+                onSet={(v) => setInboundRate(index, v)}
+              />
+            )
+          })}
         </div>
       </div>
     </div>

@@ -556,6 +556,7 @@ export interface Database {
           notes: string | null
           external_id: string | null
           integration_source: string | null
+          origin_activity_id: string | null
           created_at: string
           updated_at: string
         }
@@ -572,6 +573,7 @@ export interface Database {
           notes?: string | null
           external_id?: string | null
           integration_source?: string | null
+          origin_activity_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -586,6 +588,7 @@ export interface Database {
           notes?: string | null
           external_id?: string | null
           integration_source?: string | null
+          origin_activity_id?: string | null
           updated_at?: string
         }
         Relationships: []

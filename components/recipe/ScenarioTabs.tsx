@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { SlidersHorizontal, FlaskConical, GitCompare } from 'lucide-react'
+import { SlidersHorizontal, FlaskConical, GitCompare, BarChart3 } from 'lucide-react'
 import { RecipeCalculator } from './RecipeCalculator'
 import { RecipeSimulator } from './RecipeSimulator'
 import { ScenarioComparison } from './ScenarioComparison'
 import { RecipePlanBanner } from './RecipePlanBanner'
+import { ActivityPerformanceTab } from './ActivityPerformanceTab'
 import type { RecipeScenario, RecipeActual } from '@/lib/types/database'
 import type { RecipeValidation } from '@/lib/utils/recipe-validation'
 import type { ActivityForSupervision } from './SupervisionPanel'
@@ -19,9 +20,10 @@ interface ScenarioTabsProps {
 }
 
 const TABS = [
-  { value: 'calculator', label: 'Escenario',    icon: SlidersHorizontal },
-  { value: 'simulator',  label: 'Simulador',    icon: FlaskConical },
-  { value: 'comparison', label: 'Plan vs Real', icon: GitCompare },
+  { value: 'calculator',   label: 'Escenario',    icon: SlidersHorizontal },
+  { value: 'simulator',    label: 'Simulador',    icon: FlaskConical },
+  { value: 'comparison',   label: 'Plan vs Real', icon: GitCompare },
+  { value: 'rendimiento',  label: 'Rendimiento',  icon: BarChart3 },
 ] as const
 
 type TabValue = typeof TABS[number]['value']
@@ -58,11 +60,21 @@ export function ScenarioTabs({ scenario, actuals, validation, activities }: Scen
         </div>
       )}
 
-      {active === 'calculator' && (
+      {active === 'calculator'  && (
         <RecipeCalculator scenario={scenario} activities={activities} />
       )}
-      {active === 'simulator'  && <RecipeSimulator scenario={scenario} />}
-      {active === 'comparison' && <ScenarioComparison scenario={scenario} actuals={actuals} />}
+      {active === 'simulator'   && <RecipeSimulator scenario={scenario} />}
+      {active === 'comparison'  && <ScenarioComparison scenario={scenario} actuals={actuals} />}
+      {active === 'rendimiento' && activities && activities.length > 0 && (
+        <ActivityPerformanceTab scenario={scenario} activities={activities} />
+      )}
+      {active === 'rendimiento' && (!activities || activities.length === 0) && (
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            Configura tus actividades primero para ver el rendimiento por actividad.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

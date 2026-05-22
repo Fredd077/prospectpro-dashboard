@@ -45,6 +45,12 @@ type ActiveScenario = {
   working_days_per_month: number
 } | null
 
+type ActivityOption = {
+  id: string
+  name: string
+  type: 'OUTBOUND' | 'INBOUND'
+}
+
 // ── Stage config ──────────────────────────────────────────────────────────────
 
 const STAGE_COLOR: Record<Stage, { border: string; label: string; badge: string }> = {
@@ -116,11 +122,13 @@ function MetricCard({
 
 function EntryCard({
   entry,
+  originActivityName,
   onEdit,
   onDuplicate,
   onDelete,
 }: {
   entry: PipelineSimple
+  originActivityName?: string | null
   onEdit: () => void
   onDuplicate: () => void
   onDelete: () => void
@@ -162,6 +170,11 @@ function EntryCard({
         {entry.stage === 'Propuesta Presentada' && (
           <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border ${estadoBadge}`}>
             {entry.status}
+          </span>
+        )}
+        {originActivityName && (
+          <span className="text-[8px] font-medium px-1.5 py-0.5 rounded border bg-violet-500/10 text-violet-400 border-violet-500/20 truncate max-w-[120px]" title={originActivityName}>
+            ⚡ {originActivityName}
           </span>
         )}
         {entry.integration_source && (
@@ -287,9 +300,10 @@ interface PipelineSimpleBoardProps {
   entries: PipelineSimple[]
   period: string
   activeScenario: ActiveScenario
+  activities?: ActivityOption[]
 }
 
-export function PipelineSimpleBoard({ entries, period, activeScenario }: PipelineSimpleBoardProps) {
+export function PipelineSimpleBoard({ entries, period, activeScenario, activities = [] }: PipelineSimpleBoardProps) {
   const router = useRouter()
   const today = todayISO()
 
@@ -320,14 +334,18 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
   const [filterEtapa,  setFilterEtapa]  = useState<'all' | Stage>('all')
 
   // Form state
-  const [formStage,       setFormStage]       = useState<Stage>('Primera reu ejecutada/Propuesta en preparación')
-  const [formStatus,      setFormStatus]      = useState<Status>('abierto')
-  const [formProspectType, setFormProspectType] = useState<ProspectType>('outbound')
-  const [formDate,        setFormDate]        = useState(today)
-  const [formCompany,     setFormCompany]     = useState('')
-  const [formProspect,    setFormProspect]    = useState('')
-  const [formAmount,      setFormAmount]      = useState('')
-  const [formNotes,       setFormNotes]       = useState('')
+  const [formStage,             setFormStage]             = useState<Stage>('Primera reu ejecutada/Propuesta en preparación')
+  const [formStatus,            setFormStatus]            = useState<Status>('abierto')
+  const [formProspectType,      setFormProspectType]      = useState<ProspectType>('outbound')
+  const [formDate,              setFormDate]              = useState(today)
+  const [formCompany,           setFormCompany]           = useState('')
+  const [formProspect,          setFormProspect]          = useState('')
+  const [formAmount,            setFormAmount]            = useState('')
+  const [formNotes,             setFormNotes]             = useState('')
+  const [formOriginActivityId,  setFormOriginActivityId]  = useState<string>('')
+
+  // Activity lookup map for card display
+  const activityMap = Object.fromEntries(activities.map((a) => [a.id, a]))
 
   // Filtered entries for Kanban columns + metrics
   const filtered = entries.filter(e => {
@@ -363,6 +381,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
     setFormProspect(source?.prospect_name ?? '')
     setFormAmount(source?.amount_usd != null ? String(source.amount_usd) : '')
     setFormNotes(source?.notes ?? '')
+    setFormOriginActivityId(source?.origin_activity_id ?? '')
   }
 
   function openCreate(stage: Stage = 'Cita agendada') {
@@ -387,6 +406,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
     setFormProspect(entry.prospect_name ?? '')
     setFormAmount(entry.amount_usd != null ? String(entry.amount_usd) : '')
     setFormNotes(entry.notes ?? '')
+    setFormOriginActivityId(entry.origin_activity_id ?? '')
     setShowForm(true)
   }
 
@@ -415,14 +435,15 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
         (formStage === 'Cita agendada' || formStage === 'Reagendar' || formStage === 'Primera reu ejecutada/Propuesta en preparación') ? 'abierto' :
         formStatus
       const payload = {
-        stage:         formStage,
-        status:        derivedStatus,
-        prospect_type: formProspectType,
-        entry_date:    formDate,
-        company_name:  formCompany.trim() || null,
-        prospect_name: formProspect.trim() || null,
-        amount_usd:    formAmount ? Number(formAmount) : null,
-        notes:         formNotes.trim() || null,
+        stage:              formStage,
+        status:             derivedStatus,
+        prospect_type:      formProspectType,
+        entry_date:         formDate,
+        company_name:       formCompany.trim() || null,
+        prospect_name:      formProspect.trim() || null,
+        amount_usd:         formAmount ? Number(formAmount) : null,
+        notes:              formNotes.trim() || null,
+        origin_activity_id: formOriginActivityId || null,
       }
       if (modalMode === 'edit' && editingEntry) {
         await updatePipelineSimple(editingEntry.id, payload)
@@ -516,6 +537,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
                 <EntryCard
                   key={entry.id}
                   entry={entry}
+                  originActivityName={entry.origin_activity_id ? (activityMap[entry.origin_activity_id]?.name ?? null) : null}
                   onEdit={() => openEdit(entry)}
                   onDuplicate={() => openDuplicate(entry)}
                   onDelete={() => setDeletingId(entry.id)}
@@ -619,6 +641,31 @@ export function PipelineSimpleBoard({ entries, period, activeScenario }: Pipelin
                 <input type="number" value={formAmount} onChange={e => setFormAmount(e.target.value)}
                   placeholder="0" min={0} className={inputClass} />
               </div>
+
+              {/* Actividad de origen */}
+              {activities.length > 0 && (
+                <div>
+                  <label className={labelClass}>Actividad de origen</label>
+                  <select
+                    value={formOriginActivityId}
+                    onChange={e => setFormOriginActivityId(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">— Sin especificar —</option>
+                    {(['OUTBOUND', 'INBOUND'] as const).map((tipo) => {
+                      const grupo = activities.filter(a => a.type === tipo)
+                      if (!grupo.length) return null
+                      return (
+                        <optgroup key={tipo} label={tipo}>
+                          {grupo.map(a => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                          ))}
+                        </optgroup>
+                      )
+                    })}
+                  </select>
+                </div>
+              )}
 
               {/* Notas */}
               <div>

@@ -16,6 +16,7 @@ export async function createPipelineSimple(data: {
   prospect_name?: string | null
   amount_usd?: number | null
   notes?: string | null
+  origin_activity_id?: string | null
 }): Promise<string> {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
@@ -24,15 +25,16 @@ export async function createPipelineSimple(data: {
   const { data: row, error } = await sb
     .from('pipeline_simple')
     .insert({
-      user_id:       user.id,
-      stage:         data.stage,
-      status:        data.status ?? 'abierto',
-      prospect_type: data.prospect_type ?? 'outbound',
-      entry_date:    data.entry_date,
-      company_name:  data.company_name?.trim() ?? null,
-      prospect_name: data.prospect_name?.trim() ?? null,
-      amount_usd:    data.amount_usd ?? null,
-      notes:         data.notes?.trim() ?? null,
+      user_id:            user.id,
+      stage:              data.stage,
+      status:             data.status ?? 'abierto',
+      prospect_type:      data.prospect_type ?? 'outbound',
+      entry_date:         data.entry_date,
+      company_name:       data.company_name?.trim() ?? null,
+      prospect_name:      data.prospect_name?.trim() ?? null,
+      amount_usd:         data.amount_usd ?? null,
+      notes:              data.notes?.trim() ?? null,
+      origin_activity_id: data.origin_activity_id ?? null,
     })
     .select('id')
     .single()
@@ -54,6 +56,7 @@ export async function updatePipelineSimple(
     prospect_name?: string | null
     amount_usd?: number | null
     notes?: string | null
+    origin_activity_id?: string | null
   },
 ): Promise<void> {
   const sb = await getSupabaseServerClient()

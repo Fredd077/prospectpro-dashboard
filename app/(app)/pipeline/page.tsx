@@ -67,12 +67,15 @@ export default async function PipelinePage({ searchParams }: PageProps) {
   const [
     { data: scenario },
     { data: pipelineSimpleRaw },
+    { data: activitiesRaw },
   ] = await Promise.all([
     sb.from('recipe_scenarios').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     sb.from('pipeline_simple').select('*').eq('user_id', user?.id ?? '').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }),
+    sb.from('activities').select('id,name,type').eq('user_id', user?.id ?? '').eq('status', 'active').order('type').order('sort_order'),
   ])
 
   const pipelineSimple     = (pipelineSimpleRaw ?? []) as PipelineSimple[]
+  const activitiesForBoard = (activitiesRaw ?? []) as { id: string; name: string; type: 'OUTBOUND' | 'INBOUND' }[]
   const monthlyRevenueGoal = scenario?.monthly_revenue_goal ?? null
   const pLabel             = periodLabel(period, anchorDate)
 
@@ -116,6 +119,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
           <PipelineSimpleBoard
             entries={pipelineSimple}
             period={period}
+            activities={activitiesForBoard}
             activeScenario={scenario ? {
               funnel_stages:          scenario.funnel_stages,
               outbound_rates:         scenario.outbound_rates,

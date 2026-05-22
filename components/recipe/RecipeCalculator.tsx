@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
@@ -99,6 +99,21 @@ export function RecipeCalculator({ scenario, readOnly = false, activities }: Rec
     }
   }
 
+  // Auto rates: average conversion_rate_pct per group (feeds RecipeInputs first slider)
+  const autoFirstOutRate = useMemo(() => {
+    const out = (activities ?? []).filter(a => a.type === 'OUTBOUND' && (a.conversion_rate_pct ?? 0) > 0)
+    return out.length > 0
+      ? Math.round(out.reduce((s, a) => s + (a.conversion_rate_pct ?? 0), 0) / out.length)
+      : null
+  }, [activities])
+
+  const autoFirstInRate = useMemo(() => {
+    const inb = (activities ?? []).filter(a => a.type === 'INBOUND' && (a.conversion_rate_pct ?? 0) > 0)
+    return inb.length > 0
+      ? Math.round(inb.reduce((s, a) => s + (a.conversion_rate_pct ?? 0), 0) / inb.length)
+      : null
+  }, [activities])
+
   const showSupervision = !readOnly && activities && activities.length > 0
 
   return (
@@ -152,6 +167,8 @@ export function RecipeCalculator({ scenario, readOnly = false, activities }: Rec
               key={funnelStages.join('|')}
               defaults={{ ...inputs, funnel_stages: funnelStages, outbound_rates: outboundRates, inbound_rates: inboundRates }}
               onChange={handleInputsChange}
+              autoFirstOutRate={autoFirstOutRate}
+              autoFirstInRate={autoFirstInRate}
             />
           </div>
         </div>

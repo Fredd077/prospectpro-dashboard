@@ -16,6 +16,15 @@ export interface ActivityCompliance {
   pct: number
 }
 
+export interface ActivityPerformance {
+  name: string
+  type: 'OUTBOUND' | 'INBOUND'
+  citasMeta: number
+  citasReales: number
+  cumplimiento: number
+  contribGlobalPct: number
+}
+
 export interface WeeklyBucket {
   weekLabel: string
   compliance: number
@@ -82,6 +91,8 @@ export interface CoachContext {
   totalActivitiesGoal?: number
   // Pipeline (daily + weekly)
   pipeline?: PipelineCoachData
+  // Activity performance (pipeline origin tracking)
+  activityPerformance?: ActivityPerformance[]
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -90,6 +101,77 @@ function toTrend(current: number, previous: number): CoachContext['trend'] {
   if (current > previous + 10) return 'improving'
   if (current < previous - 10) return 'declining'
   return 'stable'
+}
+
+// ─── Activity performance helper ─────────────────────────────────────────────
+
+async function _fetchActivityPerformance(
+  sb: SbClient,
+  periodStart: string,
+  periodEnd: string,
+  scenario: { monthly_revenue_goal: number; average_ticket: number; outbound_pct: number; outbound_rates: number[] | null; inbound_rates: number[] | null } | null,
+  userId?: string,
+): Promise<ActivityPerformance[] | undefined> {
+  if (!scenario) return undefined
+
+  const activitiesQ = (() => {
+    let q = sb.from('activities').select('id,name,type,conversion_rate_pct').eq('status', 'active')
+    if (userId) q = q.eq('user_id', userId)
+    return q
+  })()
+
+  const pipelineQ = (() => {
+    let q = sb.from('pipeline_simple')
+      .select('origin_activity_id')
+      .gte('entry_date', periodStart)
+      .lte('entry_date', periodEnd)
+      .not('origin_activity_id', 'is', null)
+    if (userId) q = q.eq('user_id', userId)
+    return q
+  })()
+
+  const [{ data: acts }, { data: pipeRows }] = await Promise.all([activitiesQ, pipelineQ])
+  if (!acts?.length) return undefined
+
+  // Count citas reales per activity
+  const citasMap: Record<string, number> = {}
+  for (const row of pipeRows ?? []) {
+    if (row.origin_activity_id) {
+      citasMap[row.origin_activity_id] = (citasMap[row.origin_activity_id] ?? 0) + 1
+    }
+  }
+
+  const { monthly_revenue_goal, average_ticket, outbound_pct } = scenario
+  const lastOutRate = ((scenario.outbound_rates ?? [])[((scenario.outbound_rates ?? []).length) - 1] ?? 30) / 100
+  const cierresReq  = average_ticket > 0 ? monthly_revenue_goal / average_ticket : 0
+  const citasReqTotal = lastOutRate > 0 ? cierresReq / lastOutRate : 0
+  const citasReqOut = citasReqTotal * (outbound_pct / 100)
+  const citasReqIn  = citasReqTotal * (1 - outbound_pct / 100)
+
+  const totalCitasReales = Object.values(citasMap).reduce((s, v) => s + v, 0)
+
+  const outActs = acts.filter((a) => a.type === 'OUTBOUND')
+  const inActs  = acts.filter((a) => a.type === 'INBOUND')
+
+  function rowsForGroup(list: NonNullable<typeof acts>, citasReqGroup: number): ActivityPerformance[] {
+    const sumRates = list.filter((a) => (a.conversion_rate_pct ?? 0) > 0)
+      .reduce((s, a) => s + (a.conversion_rate_pct ?? 0), 0)
+    return list.map((a) => {
+      const convRate    = a.conversion_rate_pct ?? 0
+      const citasMeta   = sumRates > 0 ? citasReqGroup * (convRate / sumRates) : 0
+      const citasReales = citasMap[a.id] ?? 0
+      return {
+        name: a.name,
+        type: a.type as 'OUTBOUND' | 'INBOUND',
+        citasMeta,
+        citasReales,
+        cumplimiento: citasMeta > 0 ? Math.round((citasReales / citasMeta) * 100) : 0,
+        contribGlobalPct: totalCitasReales > 0 ? Math.round((citasReales / totalCitasReales) * 100) : 0,
+      }
+    })
+  }
+
+  return [...rowsForGroup(outActs, citasReqOut), ...rowsForGroup(inActs, citasReqIn)]
 }
 
 // ─── Pipeline helper ─────────────────────────────────────────────────────────
@@ -242,14 +324,17 @@ export async function buildDailyContext(date: string): Promise<CoachContext> {
     activities_needed_monthly:  activeScenario.activities_needed_monthly ?? 0,
   } : null
 
-  const pipeline = activeScenario ? await _fetchPipelineData(
-    sb, date, date, totalReal,
-    activeScenario.funnel_stages ?? [],
-    activeScenario.outbound_rates ?? [],
-    activeScenario.inbound_rates  ?? [],
-    activeScenario.outbound_pct   ?? 80,
-    activeScenario.monthly_revenue_goal,
-  ) : undefined
+  const [pipeline, activityPerformance] = await Promise.all([
+    activeScenario ? _fetchPipelineData(
+      sb, date, date, totalReal,
+      activeScenario.funnel_stages ?? [],
+      activeScenario.outbound_rates ?? [],
+      activeScenario.inbound_rates  ?? [],
+      activeScenario.outbound_pct   ?? 80,
+      activeScenario.monthly_revenue_goal,
+    ) : Promise.resolve(undefined),
+    _fetchActivityPerformance(sb, date, date, activeScenario),
+  ])
 
   return {
     userName,
@@ -263,6 +348,7 @@ export async function buildDailyContext(date: string): Promise<CoachContext> {
     strongestActivity: strongest ? { name: strongest.name, pct: strongest.pct } : null,
     trend: toTrend(overallCompliance, yestPct),
     pipeline,
+    activityPerformance: activityPerformance ?? undefined,
   }
 }
 
@@ -356,14 +442,17 @@ export async function buildWeeklyContext(weekStart: string): Promise<CoachContex
     activities_needed_monthly:  activeScenario.activities_needed_monthly ?? 0,
   } : null
 
-  const weeklyPipeline = activeScenario ? await _fetchPipelineData(
-    sb, weekStart, weekEnd, totalReal,
-    activeScenario.funnel_stages ?? [],
-    activeScenario.outbound_rates ?? [],
-    activeScenario.inbound_rates  ?? [],
-    activeScenario.outbound_pct   ?? 80,
-    activeScenario.monthly_revenue_goal,
-  ) : undefined
+  const [weeklyPipeline, weeklyActivityPerformance] = await Promise.all([
+    activeScenario ? _fetchPipelineData(
+      sb, weekStart, weekEnd, totalReal,
+      activeScenario.funnel_stages ?? [],
+      activeScenario.outbound_rates ?? [],
+      activeScenario.inbound_rates  ?? [],
+      activeScenario.outbound_pct   ?? 80,
+      activeScenario.monthly_revenue_goal,
+    ) : Promise.resolve(undefined),
+    _fetchActivityPerformance(sb, weekStart, weekEnd, activeScenario),
+  ])
 
   return {
     userName,
@@ -384,6 +473,7 @@ export async function buildWeeklyContext(weekStart: string): Promise<CoachContex
     },
     weeksBelow70,
     pipeline: weeklyPipeline,
+    activityPerformance: weeklyActivityPerformance ?? undefined,
   }
 }
 
@@ -528,6 +618,18 @@ export function formatContextForPrompt(ctx: CoachContext): string {
     }
   }
 
+  // ── Activity performance section ────────────────────────────────────────────
+  if (ctx.activityPerformance?.length) {
+    lines.push('')
+    lines.push('RENDIMIENTO POR ACTIVIDAD (pipeline este período):')
+    for (const ap of ctx.activityPerformance) {
+      const cumTag = ap.cumplimiento >= 100 ? '✅' : ap.cumplimiento >= 70 ? '⚠️' : '🔴'
+      lines.push(
+        `  • ${ap.name} [${ap.type}]: citas meta ${ap.citasMeta.toFixed(1)} | reales ${ap.citasReales} | cumplimiento ${ap.cumplimiento}% ${cumTag} | contribución global ${ap.contribGlobalPct}%`
+      )
+    }
+  }
+
   if (ctx.period === 'monthly') {
     lines.push('')
     if (ctx.bestWeek)  lines.push(`MEJOR SEMANA DEL MES: ${ctx.bestWeek.weekLabel} (${ctx.bestWeek.compliance}%)`)
@@ -635,11 +737,14 @@ async function _buildDailyContextCron(
   const yReal = (yLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
 
   const withGoal = actCompliance.filter((a) => a.goal > 0)
-  const cronDailyPipeline = scenario ? await _fetchPipelineData(
-    sb, date, date, totalReal,
-    scenario.funnel_stages ?? [], scenario.outbound_rates ?? [], scenario.inbound_rates ?? [],
-    scenario.outbound_pct ?? 80, scenario.monthly_revenue_goal, userId,
-  ) : undefined
+  const [cronDailyPipeline, cronDailyPerformance] = await Promise.all([
+    scenario ? _fetchPipelineData(
+      sb, date, date, totalReal,
+      scenario.funnel_stages ?? [], scenario.outbound_rates ?? [], scenario.inbound_rates ?? [],
+      scenario.outbound_pct ?? 80, scenario.monthly_revenue_goal, userId,
+    ) : Promise.resolve(undefined),
+    _fetchActivityPerformance(sb, date, date, scenario, userId),
+  ])
   return {
     userName, period: 'daily', periodDate: date,
     recipe: recipeFromData(scenario),
@@ -648,6 +753,7 @@ async function _buildDailyContextCron(
     strongestActivity: withGoal.length ? { name: withGoal.reduce((m, a) => a.pct > m.pct ? a : m).name, pct: withGoal.reduce((m, a) => a.pct > m.pct ? a : m).pct } : null,
     trend: toTrend(overallCompliance, yGoal > 0 ? Math.round((yReal / yGoal) * 100) : 0),
     pipeline: cronDailyPipeline,
+    activityPerformance: cronDailyPerformance ?? undefined,
   }
 }
 
@@ -696,11 +802,14 @@ async function _buildWeeklyContextCron(
   const monthReal = (monthLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
 
   const withGoal = actCompliance.filter((a) => a.goal > 0)
-  const cronWeeklyPipeline = scenario ? await _fetchPipelineData(
-    sb, weekStart, weekEnd, totalReal,
-    scenario.funnel_stages ?? [], scenario.outbound_rates ?? [], scenario.inbound_rates ?? [],
-    scenario.outbound_pct ?? 80, scenario.monthly_revenue_goal, userId,
-  ) : undefined
+  const [cronWeeklyPipeline, cronWeeklyPerformance] = await Promise.all([
+    scenario ? _fetchPipelineData(
+      sb, weekStart, weekEnd, totalReal,
+      scenario.funnel_stages ?? [], scenario.outbound_rates ?? [], scenario.inbound_rates ?? [],
+      scenario.outbound_pct ?? 80, scenario.monthly_revenue_goal, userId,
+    ) : Promise.resolve(undefined),
+    _fetchActivityPerformance(sb, weekStart, weekEnd, scenario, userId),
+  ])
   return {
     userName, period: 'weekly', periodDate: weekStart,
     recipe: recipeFromData(scenario),
@@ -715,6 +824,7 @@ async function _buildWeeklyContextCron(
     },
     weeksBelow70: overallCompliance < 70 && prevCompliance < 70 ? 2 : overallCompliance < 70 ? 1 : 0,
     pipeline: cronWeeklyPipeline,
+    activityPerformance: cronWeeklyPerformance ?? undefined,
   }
 }
 
@@ -787,6 +897,7 @@ async function _buildMonthlyContext(
   const worstWeek = weekEntries.length ? weekEntries.reduce((m, w) => w.compliance < m.compliance ? w : m) : undefined
 
   const withGoal = actCompliance.filter((a) => a.goal > 0)
+  const monthlyPerformance = await _fetchActivityPerformance(sb, monthStart, monthEnd, scenario, userId)
   return {
     userName, period: 'monthly', periodDate: monthStart,
     recipe: recipeFromData(scenario),
@@ -797,5 +908,6 @@ async function _buildMonthlyContext(
     monthName, prevMonthCompliance: prevCompliance,
     bestWeek, worstWeek,
     totalActivitiesDone: totalReal, totalActivitiesGoal: totalGoal,
+    activityPerformance: monthlyPerformance ?? undefined,
   }
 }
