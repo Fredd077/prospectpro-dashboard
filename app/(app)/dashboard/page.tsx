@@ -349,7 +349,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               label="Cumplimiento"
               value={formatPercent(compliance.pct)}
               semaphore={compliance.semaphore}
-              description={`${totalReal} de ${totalGoal} actividades · ponderado`}
+              description={`Ponderado por peso · ${totalReal} de ${totalGoal} actividades en total`}
               icon={<BarChart2 className="h-4 w-4" />}
             />
             <KpiCard
@@ -357,21 +357,21 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               value={totalReal}
               subValue={`/ ${totalGoal}`}
               semaphore={compliance.semaphore}
-              description="Realizadas vs meta"
+              description="Conteo total sin ponderar · todas las actividades valen igual"
               icon={<Activity className="h-4 w-4" />}
             />
             <KpiCard
               label="Desviación acumulada"
               value={deviation >= 0 ? `+${deviation}` : String(deviation)}
               semaphore={getSemaphoreColor(compliance.pct)}
-              description="Real menos meta del período"
+              description="Actividades realizadas menos meta del período"
               icon={<TrendingUp className="h-4 w-4" />}
             />
             <KpiCard
               label="Proyección al cierre"
               value={formatPercent(projection.projectedPct)}
               semaphore={getSemaphoreColor(projection.projectedPct)}
-              description={`~${projection.projected} actividades ponderadas proyectadas`}
+              description="Proyección de cierre del período según ritmo ponderado actual"
               icon={<Target className="h-4 w-4" />}
             />
           </div>
