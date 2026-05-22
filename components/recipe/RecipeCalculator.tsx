@@ -12,7 +12,8 @@ import { RecipeOutputs } from './RecipeOutputs'
 import { SupervisionPanel } from './SupervisionPanel'
 import type { ActivityForSupervision } from './SupervisionPanel'
 import { calcRecipe, adjustRates, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
-import { createScenario, updateScenario } from '@/lib/queries/recipe'
+import { createScenario } from '@/lib/queries/recipe'
+import { updateScenarioAction } from '@/lib/actions/recipe'
 import type { RecipeInputs as RecipeInputsType } from '@/lib/calculations/recipe'
 import type { RecipeScenario } from '@/lib/types/database'
 
@@ -84,9 +85,8 @@ export function RecipeCalculator({ scenario, readOnly = false, activities }: Rec
         description: description || null,
       }
       if (scenario) {
-        await updateScenario(scenario.id, payload)
+        await updateScenarioAction(scenario.id, payload)
         toast.success('Escenario actualizado')
-        router.refresh()
       } else {
         const created = await createScenario({ ...payload, is_active: true })
         toast.success('Escenario guardado')

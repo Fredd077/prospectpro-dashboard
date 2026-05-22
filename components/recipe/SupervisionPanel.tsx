@@ -387,9 +387,10 @@ export function SupervisionPanel({
           activities.map((a) => ({
             activityId:        a.id,
             conversionRatePct: actState[a.id]?.convRate ?? null,
+            weight:            actState[a.id]?.weight ?? null,
           })),
         )
-        toast.success('Tasas de conversión guardadas')
+        toast.success('Tasas de conversión y pesos guardados')
       } catch {
         toast.error('Error al guardar las tasas')
       }

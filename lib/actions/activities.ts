@@ -5,20 +5,26 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 
 export async function saveActivityConversionRates(
-  rates: Array<{ activityId: string; conversionRatePct: number | null }>,
+  rates: Array<{ activityId: string; conversionRatePct: number | null; weight?: number | null }>,
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
   await Promise.all(
-    rates.map(({ activityId, conversionRatePct }) =>
-      sb.from('activities')
-        .update({ conversion_rate_pct: conversionRatePct })
+    rates.map(({ activityId, conversionRatePct, weight }) => {
+      const patch: Record<string, unknown> = { conversion_rate_pct: conversionRatePct }
+      if (weight != null) patch.weight = weight
+      return sb.from('activities')
+        .update(patch)
         .eq('id', activityId)
-        .eq('user_id', user.id),
-    ),
+        .eq('user_id', user.id)
+    }),
   )
+
+  revalidatePath('/recipe', 'layout')
+  revalidatePath('/activities')
+  revalidatePath('/dashboard')
 }
 
 interface WeightUpdate {
