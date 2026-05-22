@@ -1157,6 +1157,10 @@ export default function LandingPage() {
               <div className="pp-pricing-feature">3 agentes IA: analista, predictivo y ejecutivo</div>
               <div className="pp-pricing-feature">Reportes automáticos semanales por email</div>
               <div className="pp-pricing-feature">Alertas de brecha por vendedor y canal</div>
+              <div className="pp-pricing-feature" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <span>Gerente AI — análisis en lenguaje natural</span>
+                <span style={{ flexShrink: 0, fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: 'var(--pp-yellow)' }}>30 consultas/mes</span>
+              </div>
               <a href="/register" className="pp-pricing-btn pp-pricing-btn-featured">Empezar gratis — 14 días</a>
             </div>
 
