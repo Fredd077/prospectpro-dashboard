@@ -132,16 +132,16 @@ export default async function TeamPage({ searchParams }: Props) {
 
   const userIds  = allUsers.map((u) => u.id)
 
-  let weekLogs: { user_id: string; real_executed: number }[] = []
-  let activitiesData: { user_id: string; weekly_goal: number }[] = []
+  let weekLogs: { user_id: string; activity_id: string; real_executed: number }[] = []
+  let activitiesData: { id: string; user_id: string; weekly_goal: number; weight: number | null }[] = []
   let recentLogs: { user_id: string; log_date: string }[] = []
   let recipesData: { user_id: string }[] = []
 
   if (userIds.length > 0) {
     const [wl, ad, rl, rd] = await Promise.all([
-      service.from('activity_logs').select('user_id,real_executed')
+      service.from('activity_logs').select('user_id,activity_id,real_executed')
         .gte('log_date', weekStart).lte('log_date', weekEnd).in('user_id', userIds),
-      service.from('activities').select('user_id,weekly_goal')
+      service.from('activities').select('id,user_id,weekly_goal,weight')
         .eq('status', 'active').in('user_id', userIds),
       service.from('activity_logs').select('user_id,log_date')
         .gte('log_date', past14).in('user_id', userIds)
@@ -158,15 +158,24 @@ export default async function TeamPage({ searchParams }: Props) {
   // ── Aggregate per user
   const weekRealByUser:  Record<string, number>  = {}
   const weekGoalByUser:  Record<string, number>  = {}
+  const weekRealByUserActivity: Record<string, Record<string, number>> = {}
   const lastCheckInByUser: Record<string, string> = {}
   const streakDates: Record<string, Set<string>> = {}
   const recipeUserIds = new Set(recipesData.map((r) => r.user_id))
 
   for (const log of weekLogs) {
     weekRealByUser[log.user_id] = (weekRealByUser[log.user_id] ?? 0) + log.real_executed
+    if (!weekRealByUserActivity[log.user_id]) weekRealByUserActivity[log.user_id] = {}
+    weekRealByUserActivity[log.user_id][log.activity_id] =
+      (weekRealByUserActivity[log.user_id][log.activity_id] ?? 0) + log.real_executed
   }
   for (const act of activitiesData) {
     weekGoalByUser[act.user_id] = (weekGoalByUser[act.user_id] ?? 0) + act.weekly_goal
+  }
+  const activitiesByUser: Record<string, typeof activitiesData> = {}
+  for (const act of activitiesData) {
+    if (!activitiesByUser[act.user_id]) activitiesByUser[act.user_id] = []
+    activitiesByUser[act.user_id].push(act)
   }
   for (const log of recentLogs) {
     if (!lastCheckInByUser[log.user_id]) lastCheckInByUser[log.user_id] = log.log_date
@@ -177,7 +186,19 @@ export default async function TeamPage({ searchParams }: Props) {
   const teamUsers = allUsers.map((u) => {
     const real = weekRealByUser[u.id] ?? 0
     const goal = weekGoalByUser[u.id] ?? 0
-    const pct  = goal > 0 ? Math.round((real / goal) * 100) : 0
+    const userActs = activitiesByUser[u.id] ?? []
+    const userRealByAct = weekRealByUserActivity[u.id] ?? {}
+    let wReal = 0, wGoal = 0
+    for (const a of userActs) {
+      const aGoal = a.weekly_goal
+      const aReal = userRealByAct[a.id] ?? 0
+      const weight = a.weight ?? 0
+      if (aGoal > 0 && weight > 0) {
+        wGoal += weight
+        wReal += Math.min(aReal, aGoal) * (weight / aGoal)
+      }
+    }
+    const pct = wGoal > 0 ? Math.round((wReal / wGoal) * 100) : (goal > 0 ? Math.round((real / goal) * 100) : 0)
     return {
       ...u,
       weeklyReal:       real,
