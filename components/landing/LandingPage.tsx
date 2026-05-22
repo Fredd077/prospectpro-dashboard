@@ -1107,6 +1107,159 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* PROOF — ANTES / DESPUÉS */}
+      <section className="pp-section" id="pp-resultados">
+        <div className="pp-container">
+
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: '56px' }}>
+            <div className="pp-section-tag pp-reveal" style={{ display: 'block', textAlign: 'center' }}>
+              Resultado real · Antes y después
+            </div>
+            <h2 className="pp-section-title pp-reveal pp-reveal-delay-1" style={{ textAlign: 'center' }}>
+              5 minutos de setup.<br />De brecha crítica a meta alineada.
+            </h2>
+            <p className="pp-section-sub pp-reveal pp-reveal-delay-2" style={{ maxWidth: '560px', margin: '16px auto 0' }}>
+              Así se ve ProspectPro antes y después de configurar las tasas reales. El mismo vendedor, el mismo mes, información completamente diferente.
+            </p>
+          </div>
+
+          {/* Before / After grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))', gap: '24px', maxWidth: '1100px', margin: '0 auto' }}>
+
+            {/* ── ANTES ── */}
+            <div className="pp-feature-card pp-reveal" style={{ borderRadius: '20px', overflow: 'hidden', background: 'var(--pp-bg-card)', border: '1px solid rgba(255,59,92,0.3)', boxShadow: '0 0 48px rgba(255,59,92,0.07)' }}>
+              {/* Card header */}
+              <div style={{ padding: '14px 24px', borderBottom: '1px solid rgba(255,59,92,0.15)', background: 'rgba(255,59,92,0.05)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#FF3B5C', display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#FF3B5C', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Antes · Sin tasas configuradas</span>
+              </div>
+              {/* Col headers */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 52px 78px 68px 58px', padding: '8px 24px', borderBottom: '1px solid var(--pp-border)', background: 'rgba(255,255,255,0.01)' }}>
+                {['Actividad', 'Peso', 'Tasa', 'Citas/mes', 'Diario'].map((c) => (
+                  <div key={c} style={{ fontSize: '9px', fontWeight: 700, color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: c === 'Actividad' ? 'left' : 'center' }}>{c}</div>
+                ))}
+              </div>
+              {/* Rows */}
+              {[
+                { nombre: 'Llamadas / videos en frío', peso: 30, tasa: 10, citas: 4.3, diario: 3 },
+                { nombre: 'Leads de prospección Out.', peso: 20, tasa: 50, citas: 2.9, diario: 1 },
+                { nombre: 'Pedir referidos',           peso: 5,  tasa: 20, citas: 0.7, diario: 1 },
+                { nombre: 'Emails de prospección',     peso: 15, tasa: 0,  citas: 2.1, diario: null },
+                { nombre: 'Seguimientos',              peso: 13, tasa: 0,  citas: 1.9, diario: null },
+                { nombre: 'DM LinkedIn',               peso: 5,  tasa: 0,  citas: 0.7, diario: null },
+              ].map((row, i) => (
+                <div key={row.nombre} style={{ display: 'grid', gridTemplateColumns: '1fr 52px 78px 68px 58px', padding: '11px 24px', borderBottom: '1px solid rgba(255,255,255,0.03)', alignItems: 'center', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--pp-text-1)', fontWeight: 500, lineHeight: 1.3 }}>{row.nombre}</div>
+                  <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, color: 'var(--pp-text-1)', fontFamily: 'monospace' }}>{row.peso}</div>
+                  <div style={{ textAlign: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, fontFamily: 'monospace', color: row.tasa >= 20 ? 'var(--pp-cyan)' : row.tasa > 0 ? '#f59e0b' : 'var(--pp-text-3)' }}>{row.tasa}%</span>
+                  </div>
+                  <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--pp-text-2)', fontFamily: 'monospace' }}>{row.citas}</div>
+                  <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, fontFamily: 'monospace', color: row.diario !== null ? 'var(--pp-cyan)' : 'var(--pp-text-3)' }}>{row.diario !== null ? row.diario : '—'}</div>
+                </div>
+              ))}
+              {/* Bottom summary */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid rgba(255,59,92,0.2)' }}>
+                {[
+                  { label: 'Citas proyectadas', value: '9.4',      color: 'var(--pp-text-1)' },
+                  { label: 'Citas requeridas',  value: '14.2',     color: 'var(--pp-text-1)' },
+                  { label: 'Brecha este mes',   value: '−$10.850', color: '#FF3B5C', sub: 'Brecha crítica' },
+                ].map((item) => (
+                  <div key={item.label} style={{ padding: '16px 12px', textAlign: 'center', borderRight: '1px solid rgba(255,59,92,0.1)' }}>
+                    <div style={{ fontSize: '9px', color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>{item.label}</div>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: item.color, fontFamily: 'monospace' }}>{item.value}</div>
+                    {item.sub && <div style={{ fontSize: '9px', color: '#FF3B5C', marginTop: '4px', fontWeight: 600 }}>{item.sub}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── DESPUÉS ── */}
+            <div className="pp-feature-card pp-reveal pp-reveal-delay-1" style={{ borderRadius: '20px', overflow: 'hidden', background: 'var(--pp-bg-card)', border: '1px solid rgba(0,217,255,0.28)', boxShadow: '0 0 48px rgba(0,217,255,0.07)' }}>
+              {/* Card header */}
+              <div style={{ padding: '14px 24px', borderBottom: '1px solid rgba(0,217,255,0.15)', background: 'rgba(0,217,255,0.05)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#00D9FF', display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--pp-cyan)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Después · Con tasas reales configuradas</span>
+              </div>
+              {/* Col headers */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 44px 60px 56px 48px 50px 46px', padding: '8px 20px', borderBottom: '1px solid var(--pp-border)', background: 'rgba(255,255,255,0.01)' }}>
+                {['Actividad', 'Peso', 'Tasa', 'Citas', 'Actos', 'Diario', 'Efic.'].map((c) => (
+                  <div key={c} style={{ fontSize: '9px', fontWeight: 700, color: 'var(--pp-text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: c === 'Actividad' ? 'left' : 'center' }}>{c}</div>
+                ))}
+              </div>
+              {/* Rows */}
+              {[
+                { nombre: 'Pedir referidos',          peso: 5,  tasa: 30, citas: 0.7, actos: 2,    diario: 1, efic: 'Alta' },
+                { nombre: 'Asistir a ferias/eventos', peso: 10, tasa: 20, citas: 1.4, actos: 7,    diario: 1, efic: 'Alta' },
+                { nombre: 'Leads de prospección Out.',peso: 20, tasa: 60, citas: 2.9, actos: 5,    diario: 1, efic: 'Alta' },
+                { nombre: 'DM LinkedIn',              peso: 5,  tasa: 0,  citas: 0.7, actos: null, diario: null, efic: 'Baja' },
+                { nombre: 'Llamadas/videos en frío',  peso: 30, tasa: 10, citas: 4.3, actos: 43,   diario: 3, efic: 'Baja' },
+                { nombre: 'Emails de prospección',    peso: 15, tasa: 0,  citas: 2.1, actos: null, diario: null, efic: 'Baja' },
+                { nombre: 'Seguimientos',             peso: 13, tasa: 20, citas: 1.9, actos: 9,    diario: 1, efic: 'Alta' },
+                { nombre: 'Eventos de networking',    peso: 20, tasa: 20, citas: 2.9, actos: 14,   diario: 1, efic: 'Alta' },
+              ].map((row, i) => (
+                <div key={row.nombre} style={{ display: 'grid', gridTemplateColumns: '1fr 44px 60px 56px 48px 50px 46px', padding: '9px 20px', borderBottom: '1px solid rgba(255,255,255,0.03)', alignItems: 'center', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--pp-text-1)', fontWeight: 500, lineHeight: 1.2 }}>{row.nombre}</div>
+                  <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 700, color: 'var(--pp-text-1)', fontFamily: 'monospace' }}>{row.peso}</div>
+                  <div style={{ textAlign: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, fontFamily: 'monospace', color: row.tasa >= 20 ? 'var(--pp-cyan)' : row.tasa > 0 ? '#f59e0b' : 'var(--pp-text-3)' }}>{row.tasa}%</span>
+                  </div>
+                  <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--pp-text-2)', fontFamily: 'monospace' }}>{row.citas}</div>
+                  <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 600, fontFamily: 'monospace', color: row.actos !== null ? 'var(--pp-text-1)' : 'var(--pp-text-3)' }}>{row.actos !== null ? row.actos : '—'}</div>
+                  <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 700, fontFamily: 'monospace', color: row.diario !== null ? 'var(--pp-cyan)' : 'var(--pp-text-3)' }}>{row.diario !== null ? row.diario : '—'}</div>
+                  <div style={{ textAlign: 'center' }}>
+                    <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', background: row.efic === 'Alta' ? 'rgba(0,255,157,0.1)' : 'rgba(255,59,92,0.1)', color: row.efic === 'Alta' ? '#00FF9D' : '#FF3B5C' }}>{row.efic}</span>
+                  </div>
+                </div>
+              ))}
+              {/* Alignment cards */}
+              <div style={{ padding: '16px 20px', borderTop: '1px solid var(--pp-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {[
+                  { label: 'Alineación Outbound',  proy: '13.9', req: '14.2', diff: '−0.3', estado: 'En rango',         accentBg: 'rgba(0,217,255,0.08)',  accentBorder: 'rgba(0,217,255,0.25)',  accentText: 'var(--pp-cyan)', ingreso: '$31.388', desv: '−1.9%' },
+                  { label: 'Alineación Inbound',   proy: '21.3', req: '21.3', diff: '+0',   estado: 'Por encima de meta', accentBg: 'rgba(0,255,157,0.08)',  accentBorder: 'rgba(0,255,157,0.25)', accentText: '#00FF9D',         ingreso: '$48.015', desv: '+0%' },
+                  { label: 'Alineación Total',     proy: '35.3', req: '35.6', diff: '−0.3', estado: 'En rango',         accentBg: 'rgba(0,217,255,0.08)',  accentBorder: 'rgba(0,217,255,0.25)', accentText: 'var(--pp-cyan)', ingreso: '$79.403', desv: '−0.7%' },
+                ].map((card) => (
+                  <div key={card.label} style={{ borderRadius: '10px', border: `1px solid ${card.accentBorder}`, background: card.accentBg, padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: card.accentText, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{card.label}</span>
+                      <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', border: `1px solid ${card.accentBorder}`, color: card.accentText }}>{card.estado}</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', textAlign: 'center', marginBottom: '10px' }}>
+                      {[
+                        { l: 'Citas proy.', v: card.proy },
+                        { l: 'Citas req.',  v: card.req },
+                        { l: card.diff.startsWith('+') ? 'Excedente' : 'Faltan', v: card.diff },
+                      ].map(({ l, v }) => (
+                        <div key={l}>
+                          <div style={{ fontSize: '9px', color: card.accentText, opacity: 0.65, marginBottom: '2px' }}>{l}</div>
+                          <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: card.accentText }}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: '10px', color: card.accentText, opacity: 0.75, borderTop: `1px solid ${card.accentBorder}`, paddingTop: '8px' }}>
+                      Ingreso proy: <strong style={{ opacity: 1, color: card.accentText }}>{card.ingreso}</strong> &nbsp;·&nbsp; Desv: <strong style={{ opacity: 1, color: card.accentText }}>{card.desv}</strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Callout */}
+          <div className="pp-reveal" style={{ maxWidth: '700px', margin: '40px auto 0', padding: '24px 32px', background: 'rgba(0,217,255,0.04)', border: '1px solid rgba(0,217,255,0.18)', borderRadius: '16px', textAlign: 'center' }}>
+            <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--pp-text-1)', lineHeight: 1.5, marginBottom: '8px' }}>
+              El mismo vendedor. El mismo mes. Información completamente diferente.
+            </p>
+            <p style={{ fontSize: '13px', color: 'var(--pp-text-2)', lineHeight: 1.6 }}>
+              Sin ProspectPro: brecha invisible de $10.850, actividades sin prioridad, cierre del mes incierto. Con ProspectPro: cada canal calibrado, ingreso proyectado $79.403, desviación −0.7%.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
       {/* PRICING */}
       <section className="pp-section" id="pp-precios">
         <div className="pp-container">
