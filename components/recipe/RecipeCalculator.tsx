@@ -12,6 +12,12 @@ import { RecipeOutputs } from './RecipeOutputs'
 import { SupervisionPanel } from './SupervisionPanel'
 import type { ActivityForSupervision } from './SupervisionPanel'
 import { calcRecipe, adjustRates, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
+import {
+  calcCierresRequeridos,
+  calcCitasRequeridas,
+  calcIngresoProy,
+  calcDesviacion,
+} from '@/lib/calculations/recipe-supervision'
 import { createScenario } from '@/lib/queries/recipe'
 import { updateScenarioAction } from '@/lib/actions/recipe'
 import type { RecipeInputs as RecipeInputsType } from '@/lib/calculations/recipe'
@@ -120,6 +126,44 @@ export function RecipeCalculator({ scenario, readOnly = false, activities }: Rec
   const metaIn          = inputs.monthly_revenue_goal * (1 - outboundPct / 100)
   const outActivities   = (activities ?? []).filter((a) => a.type === 'OUTBOUND')
   const inActivities    = (activities ?? []).filter((a) => a.type === 'INBOUND')
+
+  // ── Global totals (blended: each group uses its own last rate) ───────────
+  const lastOutRate     = outboundRates[outboundRates.length - 1] ?? 30
+  const lastInRate      = inboundRates[inboundRates.length  - 1] ?? 30
+  const avgTicket       = inputs.average_ticket
+  const totalGoal       = inputs.monthly_revenue_goal
+
+  const cierresReqOutG  = calcCierresRequeridos(metaOut, avgTicket)
+  const cierresReqInG   = calcCierresRequeridos(metaIn,  avgTicket)
+  const cierresReqGlobal = cierresReqOutG + cierresReqInG
+
+  const citasReqOutG    = calcCitasRequeridas(cierresReqOutG, lastOutRate)
+  const citasReqInG     = calcCitasRequeridas(cierresReqInG,  lastInRate)
+  const citasReqGlobal  = citasReqOutG + citasReqInG
+
+  const citasProyOutG   = outActivities.reduce((s, a) => s + (a.meetings_expected ?? 0), 0)
+  const citasProyInG    = inActivities.reduce( (s, a) => s + (a.meetings_expected ?? 0), 0)
+  const citasProyGlobal = citasProyOutG + citasProyInG
+
+  const ingresoProyOutG  = calcIngresoProy(citasProyOutG, lastOutRate, avgTicket)
+  const ingresoProyInG   = calcIngresoProy(citasProyInG,  lastInRate,  avgTicket)
+  const ingresoProyGlobal = ingresoProyOutG + ingresoProyInG
+
+  const desviacionGlobal  = calcDesviacion(ingresoProyGlobal, totalGoal)
+  const progressGlobal    = Math.min(100, (ingresoProyGlobal / Math.max(totalGoal, 1)) * 100)
+  const progressColorGlobal = progressGlobal >= 95 ? 'bg-emerald-400' : progressGlobal >= 75 ? 'bg-amber-400' : 'bg-red-400'
+  const devLabelGlobal    =
+    desviacionGlobal.pct >= 0     ? 'Por encima de meta'
+    : desviacionGlobal.pct >= -5  ? 'En rango'
+    : desviacionGlobal.pct >= -25 ? 'Brecha moderada'
+    : 'Brecha crítica'
+  const devClsGlobal = desviacionGlobal.estado === 'ok'
+    ? 'bg-emerald-400/10 text-emerald-400 border-emerald-500/20'
+    : desviacionGlobal.estado === 'warn'
+    ? 'bg-amber-400/10 text-amber-400 border-amber-500/20'
+    : 'bg-red-400/10 text-red-400 border-red-500/20'
+  const fmtUsdG = (n: number) => '$' + Math.abs(Math.round(n)).toLocaleString('es')
+  const fmtG    = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 1 })
 
   return (
     <div className="space-y-8">
@@ -230,6 +274,104 @@ export function RecipeCalculator({ scenario, readOnly = false, activities }: Rec
             inboundRates={inboundRates}
             group="INBOUND"
           />
+        </div>
+      )}
+
+      {/* ── Global summary panel ── */}
+      {showSupervision && (outActivities.length > 0 || inActivities.length > 0) && (
+        <div className="rounded-lg border border-white/10 bg-card p-5 space-y-4">
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <span className="h-2.5 w-2.5 rounded-full bg-white/60" />
+            <p className="text-xs font-bold text-white/70 uppercase tracking-widest">
+              Resumen Global — Outbound + Inbound
+            </p>
+            <span className="ml-auto text-[10px] font-semibold text-white/40 font-mono">
+              Meta total: {fmtUsdG(totalGoal)}
+            </span>
+          </div>
+
+          {/* KPI cards */}
+          <div className="flex gap-3 flex-wrap">
+            {/* Negocios requeridos */}
+            <div className="flex-1 min-w-0 rounded-lg border border-border bg-muted/10 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Negocios requeridos</p>
+              <p className="text-2xl font-mono font-bold leading-none text-white/80">{fmtG(cierresReqGlobal)}</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-1">cierres / mes</p>
+            </div>
+            {/* Citas requeridas */}
+            <div className="flex-1 min-w-0 rounded-lg border border-border bg-muted/10 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Citas requeridas</p>
+              <p className="text-2xl font-mono font-bold leading-none text-white/80">{fmtG(citasReqGlobal)}</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-1">para lograr ese cierre</p>
+            </div>
+            {/* Citas proyectadas */}
+            <div className="flex-1 min-w-0 rounded-lg border border-border bg-muted/10 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Citas proyectadas</p>
+              <p className={`text-2xl font-mono font-bold leading-none ${
+                citasProyGlobal >= citasReqGlobal * 0.95 ? 'text-emerald-400'
+                : citasProyGlobal >= citasReqGlobal * 0.75 ? 'text-amber-400'
+                : 'text-red-400'
+              }`}>{fmtG(citasProyGlobal)}</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-1">según reuniones esperadas</p>
+            </div>
+            {/* Ingreso proyectado */}
+            <div className="flex-1 min-w-0 rounded-lg border border-border bg-muted/10 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Ingreso proyectado</p>
+              <p className={`text-2xl font-mono font-bold leading-none ${devClsGlobal.split(' ')[1]}`}>{fmtUsdG(ingresoProyGlobal)}</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-1">vs meta total</p>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>Cobertura de meta global</span>
+              <span className="font-semibold">{Math.round(progressGlobal)}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-muted/30 overflow-hidden">
+              <div className={`h-full rounded-full transition-all duration-300 ${progressColorGlobal}`} style={{ width: `${progressGlobal}%` }} />
+            </div>
+            <div className="flex justify-between text-[10px] text-muted-foreground/50">
+              <span>$0</span>
+              <span>{fmtUsdG(totalGoal)}</span>
+            </div>
+          </div>
+
+          {/* Alignment card */}
+          <div className={`rounded-lg border px-4 py-3 space-y-2 ${devClsGlobal}`}>
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-wider">Alineación Total</p>
+              <span className={`text-[10px] font-semibold rounded-full border px-2 py-0.5 ${devClsGlobal}`}>{devLabelGlobal}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-[10px] text-current/70 mb-0.5">Citas proyectadas</p>
+                <p className="font-mono font-bold text-sm">{citasProyGlobal.toFixed(1)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-current/70 mb-0.5">Citas requeridas</p>
+                <p className="font-mono font-bold text-sm">{citasReqGlobal.toFixed(1)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-current/70 mb-0.5">
+                  {citasProyGlobal < citasReqGlobal ? 'Faltan' : 'Excedente'}
+                </p>
+                <p className="font-mono font-bold text-sm">
+                  {citasProyGlobal < citasReqGlobal
+                    ? `−${(Math.round((citasReqGlobal - citasProyGlobal) * 10) / 10).toFixed(1)}`
+                    : `+${(Math.round((citasProyGlobal - citasReqGlobal) * 10) / 10).toFixed(1)}`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-1 border-t border-current/20">
+              <span className="text-[10px]">Ingreso proy: <strong>{fmtUsdG(ingresoProyGlobal)}</strong></span>
+              <span className="text-[10px]">
+                Desv: <strong>{desviacionGlobal.pct >= 0 ? '+' : ''}{desviacionGlobal.pct}%</strong>
+                {' '}({desviacionGlobal.valor >= 0 ? '+' : '−'}{fmtUsdG(desviacionGlobal.valor)})
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
