@@ -355,6 +355,11 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
     const totalExpected  = rows.reduce((s, r) => s + r.meetingsExpected, 0)
     const totalCierres   = rows.reduce((s, r) => s + r.cierresReales, 0)
     const totalGroupUsd  = totalCierres * avgTicket
+    // Average conv rate (same logic as autoFirstOutRate/autoFirstInRate in RecipeCalculator)
+    const nonZeroRates   = rows.filter((r) => r.convRate > 0)
+    const avgConvRate    = nonZeroRates.length > 0
+      ? nonZeroRates.reduce((s, r) => s + r.convRate, 0) / nonZeroRates.length
+      : null
     return {
       actReqMes:       totalActReqMes,
       actReqSem:       totalActReqSem,
@@ -367,6 +372,7 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
       contribGroupPct: metaGroup > 0 ? (totalGroupUsd / metaGroup) * 100 : 0,
       contribGlobalUsd: totalGroupUsd,
       contribGlobalPct: monthlyGoal > 0 ? (totalGroupUsd / monthlyGoal) * 100 : 0,
+      avgConvRate,
     }
   }
 
@@ -418,7 +424,11 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
       <tr className="border-t-2 border-zinc-700 bg-zinc-900/40">
         <td className={`${tdL} font-bold ${color}`}>{label}</td>
         <td className={`${td} font-bold ${color}`}>{totals.meetingsExpected || '—'}</td>
-        <td className={`${td} text-zinc-500`}>—</td>
+        <td className={td}>
+          {totals.avgConvRate !== null ? (
+            <span className="text-[#00D9FF] font-semibold tabular-nums">{fmtNum(totals.avgConvRate)}%</span>
+          ) : <span className="text-zinc-500">—</span>}
+        </td>
         <td className={`${td} font-bold ${color}`}>{totals.actReqMes !== null ? fmtNum(totals.actReqMes) : '—'}</td>
         <td className={`${td} font-bold ${color}`}>{totals.actReqSem !== null ? fmtNum(totals.actReqSem) : '—'}</td>
         <td className={`${td} font-bold ${color}`}>{totals.actReqDia !== null ? fmtNum(totals.actReqDia) : '—'}</td>
