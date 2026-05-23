@@ -756,7 +756,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
           {/* Panel 1 — Top 3 citas */}
           <div className="rounded-lg p-3" style={{ background: '#111118', border: '0.5px solid rgba(0,217,255,0.2)', borderRadius: 8 }}>
             <p className="uppercase font-semibold mb-3" style={{ fontSize: 10, color: CYAN, letterSpacing: '0.1em' }}>
-              Top 3 citas generadas
+              Ranking de las 3 actividades que más citas me están generando
             </p>
             {top3Reuniones.length === 0 ? (
               <p style={{ fontSize: 11, color: '#333' }}>Sin reuniones este período</p>
@@ -803,7 +803,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
           {/* Panel 2 — Top 3 cierres */}
           <div className="rounded-lg p-3" style={{ background: '#111118', border: '0.5px solid rgba(29,158,117,0.2)', borderRadius: 8 }}>
             <p className="uppercase font-semibold mb-3" style={{ fontSize: 10, color: GREEN, letterSpacing: '0.1em' }}>
-              Top 3 cierres generados
+              Ranking de las 3 actividades que más cierres me están generando
             </p>
             {top3Cierres.length === 0 ? (
               <p style={{ fontSize: 11, color: '#333' }}>Sin cierres este período</p>
@@ -838,7 +838,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
                             style={{ width: `${(r.cierresReales / Math.max(maxCierres, 1)) * 100}%`, background: rankGreen[i] }}
                           />
                         </div>
-                        <p className="mt-0.5 font-mono" style={{ fontSize: 9, color: '#444' }}>
+                        <p className="mt-1 font-mono font-semibold" style={{ fontSize: 14, fontWeight: 600, color: GREEN }}>
                           {fmtCop(r.cierresReales * avgTicket)}
                         </p>
                       </div>
@@ -848,9 +848,9 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 pt-2 flex items-center justify-between" style={{ borderTop: '0.5px solid rgba(255,255,255,0.05)' }}>
-                  <span style={{ fontSize: 10, color: '#444' }}>Total: {allTotals.cierresReales} cierres</span>
-                  <span className="font-mono font-medium" style={{ fontSize: 11, color: GREEN }}>{fmtCop(ingresoReal)}</span>
+                <div className="mt-3 pt-3 flex items-center justify-between" style={{ borderTop: '0.5px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ fontSize: 12, color: '#aaa' }}>Total: {allTotals.cierresReales} cierres</span>
+                  <span className="font-mono font-bold" style={{ fontSize: 18, fontWeight: 700, color: GREEN }}>{fmtCop(ingresoReal)}</span>
                 </div>
               </>
             )}
