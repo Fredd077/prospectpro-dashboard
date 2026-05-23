@@ -29,11 +29,25 @@ const RED    = '#E24B4A'
 const C2_COLORS = ['#55555599', '#1D9E7599', '#EF9F2799']
 
 const TOOLTIP_STYLE = {
-  backgroundColor: '#1a1a1f',
-  border: '0.5px solid rgba(0,217,255,0.15)',
-  borderRadius: 6,
-  fontSize: 11,
-  color: '#e4e4e7',
+  backgroundColor: '#0e0e15',
+  border: '1px solid rgba(0,217,255,0.4)',
+  borderRadius: 8,
+  fontSize: 13,
+  color: '#f4f4f5',
+  padding: '8px 12px',
+}
+const TOOLTIP_LABEL_STYLE = {
+  color: CYAN,
+  fontSize: 12,
+  fontWeight: 600,
+  marginBottom: 4,
+  letterSpacing: '0.05em',
+}
+const TOOLTIP_ITEM_STYLE = {
+  color: '#f4f4f5',
+  fontSize: 13,
+  fontWeight: 500,
+  padding: '1px 0',
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -356,7 +370,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 9, fill: '#555' }} axisLine={false} tickLine={false} />
             <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: '#555' }} width={56} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} cursor={{ fill: 'rgba(0,217,255,0.06)' }} />
             <Legend wrapperStyle={{ fontSize: 10, color: '#555' }} />
             <Bar dataKey="esperadas" name="Esperadas" fill={`${CYAN}88`} radius={[0, 2, 2, 0]} />
             <Bar dataKey="reales"    name="Reales"    fill={`${VIOLET}88`} radius={[0, 2, 2, 0]} />
@@ -374,7 +388,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
             <Radar name="Esperadas" dataKey="esperadas" stroke={CYAN}   fill={CYAN}   fillOpacity={0.12} strokeWidth={1.5} />
             <Radar name="Reales"    dataKey="reales"    stroke={VIOLET} fill={VIOLET} fillOpacity={0.12} strokeWidth={1.5} />
             <Legend wrapperStyle={{ fontSize: 10, color: '#555' }} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
           </RadarChart>
         </ResponsiveContainer>
       )
@@ -386,7 +400,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
             <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#555' }} angle={-30} textAnchor="end" interval={0} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 9, fill: '#555' }} width={26} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
             <Legend wrapperStyle={{ fontSize: 10, color: '#555', paddingTop: 4 }} />
             <Line type="monotone" dataKey="esperadas" name="Esperadas" stroke={CYAN}   dot={{ fill: CYAN,   r: 3 }} strokeWidth={2} connectNulls={false} />
             <Line type="monotone" dataKey="reales"    name="Reales"    stroke={VIOLET} dot={{ fill: VIOLET, r: 3 }} strokeWidth={2} connectNulls={false} />
@@ -401,7 +415,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
           <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#555' }} angle={-30} textAnchor="end" interval={0} axisLine={{ stroke: 'rgba(255,255,255,0.06)' }} tickLine={false} />
           <YAxis tick={{ fontSize: 9, fill: '#555' }} width={26} axisLine={false} tickLine={false} />
-          <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} cursor={{ fill: 'rgba(0,217,255,0.06)' }} />
           <Legend wrapperStyle={{ fontSize: 10, color: '#555', paddingTop: 4 }} />
           {firstInLabel && (
             <ReferenceArea x1={firstInLabel} x2={c1Data[c1Data.length - 1]?.name} fill="rgba(139,92,246,0.05)" stroke="none" />
@@ -427,7 +441,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
               {c2BarData.map((_, i) => <Cell key={i} fill={C2_COLORS[i] ?? '#555'} />)}
             </Pie>
             <Legend wrapperStyle={{ fontSize: 10, color: '#555' }} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => fmtCop(Number(v))} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => fmtCop(Number(v))} />
           </PieChart>
         </ResponsiveContainer>
       )
@@ -445,7 +459,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
             <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10, fill: '#555' }} />
             <PolarRadiusAxis tick={{ fontSize: 8, fill: '#333' }} tickFormatter={(v: number) => fmtK(v)} />
             <Radar name="Valor" dataKey="value" stroke={GREEN} fill={GREEN} fillOpacity={0.15} strokeWidth={1.5} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => fmtCop(Number(v))} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => fmtCop(Number(v))} />
           </RadarChart>
         </ResponsiveContainer>
       )
@@ -461,7 +475,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
           <RadialBarChart data={polarData} innerRadius="20%" outerRadius="90%" cx="50%" cy="50%">
             <RadialBar dataKey="value" background={{ fill: '#1a1a1f' }} />
             <Legend iconSize={8} wrapperStyle={{ fontSize: 10, color: '#555' }} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => fmtCop(Number(v))} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => fmtCop(Number(v))} />
           </RadialBarChart>
         </ResponsiveContainer>
       )
@@ -473,7 +487,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
           <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#555' }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fontSize: 9, fill: '#555' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => fmtK(v)} width={44} />
-          <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => fmtCop(Number(v))} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => fmtCop(Number(v))} />
           <Bar dataKey="value" name="Valor" radius={[3, 3, 0, 0]}>
             {c2BarData.map((_, i) => <Cell key={i} fill={C2_COLORS[i] ?? '#555'} />)}
           </Bar>
@@ -493,7 +507,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
             <PolarAngleAxis dataKey="name" tick={{ fontSize: 9, fill: '#555' }} />
             <PolarRadiusAxis tick={{ fontSize: 8, fill: '#333' }} unit="%" domain={[0, 120]} />
             <Radar name="Eficiencia %" dataKey="eficiencia" stroke={CYAN} fill={CYAN} fillOpacity={0.15} strokeWidth={1.5} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
           </RadarChart>
         </ResponsiveContainer>
       )
@@ -506,7 +520,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
             <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#555' }} angle={-30} textAnchor="end" interval={0} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 9, fill: '#555' }} width={36} unit="%" domain={[0, 120]} axisLine={false} tickLine={false} />
             <ReferenceLine y={100} stroke="rgba(255,255,255,0.15)" strokeDasharray="4 3" />
-            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
             <Line type="monotone" dataKey="eficiencia" name="Eficiencia %" stroke={CYAN} dot={{ fill: CYAN, r: 3 }} strokeWidth={2} />
           </LineChart>
         </ResponsiveContainer>
@@ -519,7 +533,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
           <RadialBarChart data={polarC3} innerRadius="15%" outerRadius="90%" cx="50%" cy="50%">
             <RadialBar dataKey="value" background={{ fill: '#1a1a1f' }} />
             <Legend iconSize={8} wrapperStyle={{ fontSize: 10, color: '#555' }} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
           </RadialBarChart>
         </ResponsiveContainer>
       )
@@ -532,7 +546,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
           <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#555' }} angle={-30} textAnchor="end" interval={0} axisLine={false} tickLine={false} />
           <YAxis tick={{ fontSize: 9, fill: '#555' }} width={36} unit="%" domain={[0, 120]} axisLine={false} tickLine={false} />
           <ReferenceLine y={100} stroke="rgba(255,255,255,0.15)" strokeDasharray="4 3" />
-          <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
           <Bar dataKey="eficiencia" name="Eficiencia %" radius={[2, 2, 0, 0]}>
             {c3Data.map((r, i) => <Cell key={i} fill={r.fill} />)}
           </Bar>
@@ -552,7 +566,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
             <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#555' }} angle={-30} textAnchor="end" interval={0} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 9, fill: '#555' }} width={36} unit="%" domain={[0, 150]} axisLine={false} tickLine={false} />
             <ReferenceLine y={100} stroke="rgba(255,255,255,0.15)" strokeDasharray="4 3" />
-            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
             <Bar dataKey="eficiencia" name="Eficiencia %" radius={[2, 2, 0, 0]}>
               {c4Data.map((r, i) => <Cell key={i} fill={effColor(r.eficiencia)} />)}
             </Bar>
@@ -575,7 +589,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
             >
               {donutData.map((r, i) => <Cell key={i} fill={effColor(r.value)} />)}
             </Pie>
-            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
             <Legend wrapperStyle={{ fontSize: 10, color: '#555' }} />
           </PieChart>
         </ResponsiveContainer>
@@ -588,7 +602,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
           <RadialBarChart data={polarC4} innerRadius="15%" outerRadius="90%" cx="50%" cy="50%">
             <RadialBar dataKey="value" background={{ fill: '#1a1a1f' }} />
             <Legend iconSize={8} wrapperStyle={{ fontSize: 10, color: '#555' }} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
           </RadialBarChart>
         </ResponsiveContainer>
       )
@@ -603,7 +617,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
           <Radar name="Meta (100%)" dataKey="meta"       stroke="rgba(255,255,255,0.12)" fill="none"                        strokeDasharray="5 3" strokeWidth={1} />
           <Radar name="Eficiencia %" dataKey="eficiencia" stroke={CYAN}                  fill="rgba(0,217,255,0.12)"        strokeWidth={2} />
           <Legend wrapperStyle={{ fontSize: 10, color: '#555' }} />
-          <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} formatter={(v: unknown) => `${Number(v).toFixed(1)}%`} />
         </RadarChart>
       </ResponsiveContainer>
     )
