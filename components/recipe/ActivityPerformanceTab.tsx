@@ -426,7 +426,7 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
         <td className={`${td} font-bold ${color}`}>{totals.meetingsExpected || '—'}</td>
         <td className={td}>
           {totals.avgConvRate !== null ? (
-            <span className="text-[#00D9FF] font-semibold tabular-nums">{fmtNum(totals.avgConvRate)}%</span>
+            <span className={`${color} font-semibold tabular-nums`}>{fmtNum(totals.avgConvRate)}%</span>
           ) : <span className="text-zinc-500">—</span>}
         </td>
         <td className={`${td} font-bold ${color}`}>{totals.actReqMes !== null ? fmtNum(totals.actReqMes) : '—'}</td>
