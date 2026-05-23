@@ -31,6 +31,7 @@ interface SupervisionPanelProps {
   outboundPct: number
   outboundRates: number[]
   inboundRates: number[]
+  group?: 'OUTBOUND' | 'INBOUND'
 }
 
 type ActivityState = { weight: number; convRate: number }
@@ -284,6 +285,7 @@ export function SupervisionPanel({
   outboundPct,
   outboundRates,
   inboundRates,
+  group,
 }: SupervisionPanelProps) {
   // Editable state per activity
   const [actState, setActState] = useState<Record<string, ActivityState>>(() =>
@@ -304,10 +306,13 @@ export function SupervisionPanel({
   const inboundPct  = 100 - outboundPct
 
   // ── Global KPIs ──────────────────────────────────────────────────────────
+  // When group is set, use that group's last rate so inbound changes react correctly
+  const primaryRate    = group === 'INBOUND' ? lastInRate : lastOutRate
   const cierresReq     = calcCierresRequeridos(monthlyRevenueGoal, averageTicket)
-  const citasReqTotal  = calcCitasRequeridas(cierresReq, lastOutRate)
-  const citasReqOut    = citasReqTotal * (outboundPct / 100)
-  const citasReqIn     = citasReqTotal * (inboundPct  / 100)
+  const citasReqTotal  = calcCitasRequeridas(cierresReq, primaryRate)
+  // When group is set, the passed monthlyRevenueGoal is already the group's meta → all citas req go to that group
+  const citasReqOut    = group === 'INBOUND' ? 0 : group === 'OUTBOUND' ? citasReqTotal : citasReqTotal * (outboundPct / 100)
+  const citasReqIn     = group === 'OUTBOUND' ? 0 : group === 'INBOUND' ? citasReqTotal : citasReqTotal * (inboundPct  / 100)
 
   // ── Per-activity projected citas (contribution = 0 if convRate=0) ──────
   const { citasProyOut, citasProyIn } = useMemo(() => {
@@ -334,8 +339,10 @@ export function SupervisionPanel({
     return { citasProyOut: out, citasProyIn: inb }
   }, [actState, citasReqOut, citasReqIn]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const citasProyTotal = citasProyOut + citasProyIn
-  const ingresoProy    = calcIngresoProy(citasProyTotal, lastOutRate, averageTicket)
+  const citasProyTotal = group === 'OUTBOUND' ? citasProyOut
+    : group === 'INBOUND' ? citasProyIn
+    : citasProyOut + citasProyIn
+  const ingresoProy    = calcIngresoProy(citasProyTotal, primaryRate, averageTicket)
   const desviacion     = calcDesviacion(ingresoProy, monthlyRevenueGoal)
 
   const progressPct    = Math.min(100, (ingresoProy / Math.max(monthlyRevenueGoal, 1)) * 100)
@@ -482,8 +489,8 @@ export function SupervisionPanel({
 
       {/* ─── Section B: Tables ────────────────────────────────────────────── */}
       <div className="space-y-8">
-        {/* OUTBOUND */}
-        {outActivities.length > 0 && (
+        {/* OUTBOUND — show when no group filter or specifically outbound */}
+        {outActivities.length > 0 && group !== 'INBOUND' && (
           <div className="space-y-4">
             <ActivityTable
               title="Outbound"
@@ -501,15 +508,15 @@ export function SupervisionPanel({
               citasProy={citasProyOut}
               citasReq={citasReqOut}
               ingresoProy={ingresoProyOut}
-              metaMensual={metaOut}
+              metaMensual={group === 'OUTBOUND' ? monthlyRevenueGoal : metaOut}
               averageTicket={averageTicket}
               lastRate={lastOutRate}
             />
           </div>
         )}
 
-        {/* INBOUND */}
-        {inActivities.length > 0 && (
+        {/* INBOUND — show when no group filter or specifically inbound */}
+        {inActivities.length > 0 && group !== 'OUTBOUND' && (
           <div className="space-y-4">
             <ActivityTable
               title="Inbound"
@@ -527,23 +534,25 @@ export function SupervisionPanel({
               citasProy={citasProyIn}
               citasReq={citasReqIn}
               ingresoProy={ingresoProyIn}
-              metaMensual={metaIn}
+              metaMensual={group === 'INBOUND' ? monthlyRevenueGoal : metaIn}
               averageTicket={averageTicket}
               lastRate={lastInRate}
             />
           </div>
         )}
 
-        {/* Total alignment card */}
-        <AlignmentCard
-          label="Alineación Total"
-          citasProy={citasProyTotal}
-          citasReq={citasReqTotal}
-          ingresoProy={ingresoProy}
-          metaMensual={monthlyRevenueGoal}
-          averageTicket={averageTicket}
-          lastRate={lastOutRate}
-        />
+        {/* Total alignment card — only when no group filter */}
+        {!group && (
+          <AlignmentCard
+            label="Alineación Total"
+            citasProy={citasProyTotal}
+            citasReq={citasReqTotal}
+            ingresoProy={ingresoProy}
+            metaMensual={monthlyRevenueGoal}
+            averageTicket={averageTicket}
+            lastRate={lastOutRate}
+          />
+        )}
       </div>
 
       {/* ─── Save button ─────────────────────────────────────────────────── */}

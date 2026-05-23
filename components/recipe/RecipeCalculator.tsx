@@ -115,6 +115,11 @@ export function RecipeCalculator({ scenario, readOnly = false, activities }: Rec
   }, [activities])
 
   const showSupervision = !readOnly && activities && activities.length > 0
+  const outboundPct     = inputs.outbound_pct
+  const metaOut         = inputs.monthly_revenue_goal * (outboundPct / 100)
+  const metaIn          = inputs.monthly_revenue_goal * (1 - outboundPct / 100)
+  const outActivities   = (activities ?? []).filter((a) => a.type === 'OUTBOUND')
+  const inActivities    = (activities ?? []).filter((a) => a.type === 'INBOUND')
 
   return (
     <div className="space-y-8">
@@ -179,20 +184,51 @@ export function RecipeCalculator({ scenario, readOnly = false, activities }: Rec
         </div>
       </div>
 
-      {/* ── Supervision panel — full width, below grid ── */}
-      {showSupervision && (
-        <div className="rounded-lg border border-border bg-card p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-6">
-            Supervisión de meta por actividad
-          </p>
+      {/* ── Supervision panels — full width, below grid ── */}
+      {showSupervision && outActivities.length > 0 && (
+        <div className="rounded-lg border border-[#00D9FF]/30 bg-card p-5 space-y-1">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#00D9FF]" />
+            <p className="text-xs font-bold text-[#00D9FF] uppercase tracking-widest">
+              Supervisión de meta por actividad — Outbound
+            </p>
+            <span className="ml-auto text-[10px] font-semibold text-[#00D9FF]/60 font-mono">
+              Meta: ${Math.round(metaOut).toLocaleString('es')}
+            </span>
+          </div>
           <SupervisionPanel
-            activities={activities}
-            monthlyRevenueGoal={inputs.monthly_revenue_goal}
+            activities={outActivities}
+            monthlyRevenueGoal={metaOut}
             averageTicket={inputs.average_ticket}
             workingDays={inputs.working_days_per_month}
             outboundPct={inputs.outbound_pct}
             outboundRates={outboundRates}
             inboundRates={inboundRates}
+            group="OUTBOUND"
+          />
+        </div>
+      )}
+
+      {showSupervision && inActivities.length > 0 && (
+        <div className="rounded-lg border border-violet-500/30 bg-card p-5 space-y-1">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="h-2.5 w-2.5 rounded-full bg-violet-400" />
+            <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">
+              Supervisión de meta por actividad — Inbound
+            </p>
+            <span className="ml-auto text-[10px] font-semibold text-violet-400/60 font-mono">
+              Meta: ${Math.round(metaIn).toLocaleString('es')}
+            </span>
+          </div>
+          <SupervisionPanel
+            activities={inActivities}
+            monthlyRevenueGoal={metaIn}
+            averageTicket={inputs.average_ticket}
+            workingDays={inputs.working_days_per_month}
+            outboundPct={inputs.outbound_pct}
+            outboundRates={outboundRates}
+            inboundRates={inboundRates}
+            group="INBOUND"
           />
         </div>
       )}
