@@ -581,39 +581,44 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
 
   return (
     <div className="space-y-5">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Act. requeridas (mes)', value: allTotals.actReqMes !== null ? fmtNum(allTotals.actReqMes) : '—', color: 'text-zinc-200' },
-          {
-            label: 'Reuniones reales',
-            value: String(allTotals.reunionesReales),
-            color: allTotals.eficienciaCanal !== null
-              ? allTotals.eficienciaCanal >= 100 ? 'text-emerald-400'
-              : allTotals.eficienciaCanal >= 70  ? 'text-amber-400'
-              : 'text-red-400'
-              : 'text-zinc-400',
-          },
-          {
-            label: 'Eficiencia global',
-            value: allTotals.eficienciaCanal !== null ? fmtPct(allTotals.eficienciaCanal) : '—',
-            color: allTotals.eficienciaCanal !== null
-              ? allTotals.eficienciaCanal >= 100 ? 'text-emerald-400'
-              : allTotals.eficienciaCanal >= 70  ? 'text-amber-400'
-              : 'text-red-400'
-              : 'text-zinc-500',
-          },
-          {
-            label: 'Cierres reales',
-            value: String(allTotals.cierresReales),
-            color: allTotals.cierresReales > 0 ? 'text-emerald-400' : 'text-zinc-400',
-          },
-        ].map((c) => (
-          <div key={c.label} className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">{c.label}</p>
-            <p className={`text-xl font-bold font-mono tabular-nums ${c.color}`}>{c.value}</p>
-          </div>
-        ))}
+      {/* Alignment section */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 px-1">
+          Alineación de citas
+        </p>
+        <p className="text-[10px] text-zinc-600 px-1">
+          Compara tus reuniones esperadas (columna de la tabla) contra lo que la receta requiere para alcanzar la meta.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {outActivities.length > 0 && (
+            <AlignmentCard
+              label="Alineación Outbound"
+              accentColor="text-[#00D9FF]"
+              citasProy={citasProyOut}
+              citasReq={citasReqOut}
+              ingresoProy={ingresoProyOut}
+              metaMensual={metaOut}
+            />
+          )}
+          {inActivities.length > 0 && (
+            <AlignmentCard
+              label="Alineación Inbound"
+              accentColor="text-violet-400"
+              citasProy={citasProyIn}
+              citasReq={citasReqIn}
+              ingresoProy={ingresoProyIn}
+              metaMensual={metaIn}
+            />
+          )}
+          <AlignmentCard
+            label="Alineación Total"
+            accentColor="text-zinc-100"
+            citasProy={citasProyTotal}
+            citasReq={citasReqTotal}
+            ingresoProy={ingresoProyTotal}
+            metaMensual={monthlyGoal}
+          />
+        </div>
       </div>
 
       {(ratePending || expPending) && (
@@ -663,46 +668,6 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
             <TotalRow totals={allTotals} label="TOTAL GLOBAL" color="text-zinc-100" />
           </tbody>
         </table>
-      </div>
-
-      {/* Alignment section */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 px-1">
-          Alineación de citas
-        </p>
-        <p className="text-[10px] text-zinc-600 px-1">
-          Compara tus reuniones esperadas (columna de la tabla) contra lo que la receta requiere para alcanzar la meta.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {outActivities.length > 0 && (
-            <AlignmentCard
-              label="Alineación Outbound"
-              accentColor="text-[#00D9FF]"
-              citasProy={citasProyOut}
-              citasReq={citasReqOut}
-              ingresoProy={ingresoProyOut}
-              metaMensual={metaOut}
-            />
-          )}
-          {inActivities.length > 0 && (
-            <AlignmentCard
-              label="Alineación Inbound"
-              accentColor="text-violet-400"
-              citasProy={citasProyIn}
-              citasReq={citasReqIn}
-              ingresoProy={ingresoProyIn}
-              metaMensual={metaIn}
-            />
-          )}
-          <AlignmentCard
-            label="Alineación Total"
-            accentColor="text-zinc-100"
-            citasProy={citasProyTotal}
-            citasReq={citasReqTotal}
-            ingresoProy={ingresoProyTotal}
-            metaMensual={monthlyGoal}
-          />
-        </div>
       </div>
 
       <p className="text-[10px] text-zinc-600">
