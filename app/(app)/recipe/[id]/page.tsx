@@ -5,7 +5,6 @@ import { buttonVariants } from '@/components/ui/button-variants'
 import { TopBar } from '@/components/layout/TopBar'
 import { ScenarioTabs } from '@/components/recipe/ScenarioTabs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
 import type { ActivityForSupervision } from '@/components/recipe/SupervisionPanel'
 
 interface Props {
@@ -31,10 +30,6 @@ export default async function RecipeDetailPage({ params }: Props) {
 
   const activities = (rawActivities ?? []) as ActivityForSupervision[]
 
-  const validation = activities.length > 0
-    ? calcRecipeValidation(scenario, rawActivities as Parameters<typeof calcRecipeValidation>[1] ?? [])
-    : null
-
   return (
     <div className="flex flex-col h-full">
       <TopBar
@@ -51,7 +46,6 @@ export default async function RecipeDetailPage({ params }: Props) {
         <ScenarioTabs
           scenario={scenario}
           actuals={actuals ?? []}
-          validation={validation}
           activities={activities}
         />
       </div>

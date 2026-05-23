@@ -4,16 +4,13 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { SlidersHorizontal, BarChart3 } from 'lucide-react'
 import { RecipeCalculator } from './RecipeCalculator'
-import { RecipePlanBanner } from './RecipePlanBanner'
 import { ActivityPerformanceTab } from './ActivityPerformanceTab'
 import type { RecipeScenario, RecipeActual } from '@/lib/types/database'
-import type { RecipeValidation } from '@/lib/utils/recipe-validation'
 import type { ActivityForSupervision } from './SupervisionPanel'
 
 interface ScenarioTabsProps {
   scenario: RecipeScenario
   actuals: RecipeActual[]
-  validation?: RecipeValidation | null
   activities?: ActivityForSupervision[]
 }
 
@@ -24,7 +21,7 @@ const TABS = [
 
 type TabValue = typeof TABS[number]['value']
 
-export function ScenarioTabs({ scenario, actuals: _actuals, validation, activities }: ScenarioTabsProps) {
+export function ScenarioTabs({ scenario, actuals: _actuals, activities }: ScenarioTabsProps) {
   const [active, setActive] = useState<TabValue>('calculator')
 
   return (
@@ -48,13 +45,6 @@ export function ScenarioTabs({ scenario, actuals: _actuals, validation, activiti
           </button>
         ))}
       </div>
-
-      {/* Plan vs Recipe banner — always visible below tabs */}
-      {validation && (
-        <div className="mb-8">
-          <RecipePlanBanner validation={validation} />
-        </div>
-      )}
 
       {active === 'calculator' && (
         <RecipeCalculator scenario={scenario} activities={activities} />
