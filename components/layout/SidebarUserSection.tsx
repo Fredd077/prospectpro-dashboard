@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { LogOut } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
+import { useSidebar } from './SidebarContext'
 
 interface SidebarUserSectionProps {
   fullName: string | null
@@ -26,6 +27,7 @@ function Initials({ name, email }: { name: string | null; email: string }) {
 
 export function SidebarUserSection({ fullName, email, avatarUrl }: SidebarUserSectionProps) {
   const [loading, setLoading] = useState(false)
+  const { collapsed } = useSidebar()
 
   function handleSignOut() {
     setLoading(true)
@@ -45,28 +47,30 @@ export function SidebarUserSection({ fullName, email, avatarUrl }: SidebarUserSe
         ) : (
           <Initials name={fullName} email={email} />
         )}
-        <div className="hidden lg:block min-w-0 flex-1">
-          {fullName && (
-            <p className="text-xs font-semibold text-foreground truncate leading-tight">
-              {fullName}
-            </p>
-          )}
-          <p className="text-[10px] text-muted-foreground/70 truncate leading-tight">{email}</p>
-        </div>
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            {fullName && (
+              <p className="text-xs font-semibold text-foreground truncate leading-tight">
+                {fullName}
+              </p>
+            )}
+            <p className="text-[10px] text-muted-foreground/70 truncate leading-tight">{email}</p>
+          </div>
+        )}
       </div>
 
-      {/* Theme toggle */}
-      <ThemeToggle />
+      {/* Theme toggle — hide when collapsed */}
+      {!collapsed && <ThemeToggle />}
 
       {/* Sign out */}
       <button
         onClick={handleSignOut}
         disabled={loading}
-        className="flex w-full items-center justify-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-50 lg:justify-start"
+        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-50 ${collapsed ? 'justify-center' : 'justify-start'}`}
         title="Cerrar sesión"
       >
         <LogOut className="h-3.5 w-3.5 shrink-0" />
-        <span className="hidden lg:block">Cerrar sesión</span>
+        {!collapsed && <span>Cerrar sesión</span>}
       </button>
     </div>
   )

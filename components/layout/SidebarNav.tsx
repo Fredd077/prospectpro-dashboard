@@ -17,6 +17,7 @@ import {
   Webhook,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useSidebar } from './SidebarContext'
 
 const navItems = [
   { href: '/dashboard',    label: 'Dashboard',         icon: LayoutDashboard },
@@ -38,6 +39,7 @@ interface SidebarNavProps {
 export function SidebarNav({ isAdmin, isManager = false, unreadCoachCount }: SidebarNavProps) {
   const pathname = usePathname()
   const isTeamView = pathname.startsWith('/team')
+  const { collapsed } = useSidebar()
 
   const allItems = [
     ...navItems,
@@ -55,7 +57,7 @@ export function SidebarNav({ isAdmin, isManager = false, unreadCoachCount }: Sid
     <nav className="flex-1 overflow-y-auto py-3 px-2 flex flex-col">
       {/* Context toggle — admin and managers */}
       {(isAdmin || isManager) && (
-        <div className="mb-2 px-1 hidden lg:block">
+        <div className={`mb-2 px-1 ${collapsed ? 'hidden' : 'block'}`}>
           <div className="flex rounded-md bg-muted/40 p-0.5 text-[10px] font-semibold">
             <Link
               href="/dashboard"
@@ -93,7 +95,7 @@ export function SidebarNav({ isAdmin, isManager = false, unreadCoachCount }: Sid
                 href={href}
                 title={label}
                 className={cn(
-                  'relative flex items-center justify-center rounded-md px-2 py-2.5 text-sm font-medium transition-all duration-200 lg:justify-start lg:gap-3 lg:px-3',
+                  `relative flex items-center rounded-md py-2.5 text-sm font-medium transition-all duration-200 ${collapsed ? 'justify-center px-2' : 'justify-start gap-3 px-3'}`,
                   isActive
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
@@ -115,9 +117,9 @@ export function SidebarNav({ isAdmin, isManager = false, unreadCoachCount }: Sid
                     </span>
                   )}
                 </span>
-                <span className="hidden flex-1 lg:block">{label}</span>
-                {showBadge && (
-                  <span className="hidden lg:flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                {!collapsed && <span className="flex-1">{label}</span>}
+                {showBadge && !collapsed && (
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
                     {unreadCoachCount > 9 ? '9+' : unreadCoachCount}
                   </span>
                 )}
