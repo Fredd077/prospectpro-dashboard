@@ -19,7 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Sidebar />
         </Suspense>
         <MainContentShift>
-          <main className="flex-1 overflow-y-auto">{children}</main>
+          <main className="flex-1 overflow-x-auto overflow-y-auto">{children}</main>
         </MainContentShift>
       </div>
     </SidebarProvider>
