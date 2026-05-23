@@ -18,9 +18,9 @@ interface ActivityRow {
   type: 'OUTBOUND' | 'INBOUND'
   convRate: number
   meetingsExpected: number
-  citasMetaMes: number
-  citasMetaSem: number
-  citasMetaDia: number
+  actReqMes: number | null  // null when convRate = 0
+  actReqSem: number | null
+  actReqDia: number | null
   reunionesReales: number
   eficienciaCanal: number | null  // null when meetingsExpected = 0
   cierresReales: number
@@ -220,32 +220,24 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
   const outboundPct  = scenario.outbound_pct / 100
   const inboundPct   = 1 - outboundPct
   const workingDays  = scenario.working_days_per_month ?? 22
-  const lastOutRate  = ((scenario.outbound_rates ?? [])[(scenario.outbound_rates?.length ?? 1) - 1] ?? 30) / 100
-
-  const cierresReq    = avgTicket > 0 ? monthlyGoal / avgTicket : 0
-  const citasReqTotal = lastOutRate > 0 ? cierresReq / lastOutRate : 0
-  const citasReqOut   = citasReqTotal * outboundPct
-  const citasReqIn    = citasReqTotal * inboundPct
-  const metaOut       = monthlyGoal * outboundPct
-  const metaIn        = monthlyGoal * inboundPct
+  const metaOut      = monthlyGoal * outboundPct
+  const metaIn       = monthlyGoal * inboundPct
 
   const outActivities = activities.filter((a) => a.type === 'OUTBOUND')
   const inActivities  = activities.filter((a) => a.type === 'INBOUND')
 
   function buildRows(
     list: ActivityForSupervision[],
-    citasReqGroup: number,
     metaGroup: number,
   ): ActivityRow[] {
-    const withRate = list.filter((a) => (localRates[a.id] ?? 0) > 0)
-    const sumRates = withRate.reduce((s, a) => s + (localRates[a.id] ?? 0), 0)
-
     return list.map((a) => {
       const convRate         = localRates[a.id] ?? 0
       const meetingsExpected = localExpected[a.id] ?? 0
-      const citasMetaMes     = sumRates > 0 ? citasReqGroup * (convRate / sumRates) : 0
-      const citasMetaSem     = workingDays > 0 ? citasMetaMes * 5 / workingDays : 0
-      const citasMetaDia     = workingDays > 0 ? citasMetaMes / workingDays : 0
+      // ACT REQUERIDAS/MES = REUNIONES ESPERADAS / (TASA% / 100)
+      // null = tasa is 0 → show "—"
+      const actReqMes        = convRate > 0 ? meetingsExpected / (convRate / 100) : null
+      const actReqSem        = actReqMes !== null ? actReqMes / 4 : null
+      const actReqDia        = actReqMes !== null && workingDays > 0 ? actReqMes / workingDays : null
       const reunionesReales  = reunionesMap[a.id] ?? 0
       const eficienciaCanal  = meetingsExpected > 0
         ? (reunionesReales / meetingsExpected) * 100
@@ -259,7 +251,7 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
       return {
         id: a.id, name: a.name, type: a.type,
         convRate, meetingsExpected,
-        citasMetaMes, citasMetaSem, citasMetaDia,
+        actReqMes, actReqSem, actReqDia,
         reunionesReales, eficienciaCanal,
         cierresReales, contribGroupUsd, contribGroupPct,
         contribGlobalUsd, contribGlobalPct,
@@ -267,55 +259,38 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
     })
   }
 
-  const outRows = buildRows(outActivities, citasReqOut, metaOut)
-  const inRows  = buildRows(inActivities,  citasReqIn,  metaIn)
+  const outRows = buildRows(outActivities, metaOut)
+  const inRows  = buildRows(inActivities,  metaIn)
   const allRows = [...outRows, ...inRows]
 
   function groupTotals(rows: ActivityRow[], metaGroup: number) {
-    const totalCitasMes    = rows.reduce((s, r) => s + r.citasMetaMes, 0)
-    const totalReuniones   = rows.reduce((s, r) => s + r.reunionesReales, 0)
-    const totalExpected    = rows.reduce((s, r) => s + r.meetingsExpected, 0)
-    const totalCierres     = rows.reduce((s, r) => s + r.cierresReales, 0)
-    const totalGroupUsd    = totalCierres * avgTicket
-    const totalGlobalUsd   = totalCierres * avgTicket
-    const eficiencia       = totalExpected > 0 ? (totalReuniones / totalExpected) * 100 : null
+    // Sum only non-null actReq values
+    const hasActReq      = rows.filter((r) => r.actReqMes !== null)
+    const totalActReqMes = hasActReq.length > 0 ? hasActReq.reduce((s, r) => s + r.actReqMes!, 0) : null
+    const totalActReqSem = totalActReqMes !== null ? totalActReqMes / 4 : null
+    const totalActReqDia = totalActReqMes !== null && workingDays > 0 ? totalActReqMes / workingDays : null
+    const totalReuniones = rows.reduce((s, r) => s + r.reunionesReales, 0)
+    const totalExpected  = rows.reduce((s, r) => s + r.meetingsExpected, 0)
+    const totalCierres   = rows.reduce((s, r) => s + r.cierresReales, 0)
+    const totalGroupUsd  = totalCierres * avgTicket
     return {
-      citasMetaMes:    totalCitasMes,
-      citasMetaSem:    workingDays > 0 ? totalCitasMes * 5 / workingDays : 0,
-      citasMetaDia:    workingDays > 0 ? totalCitasMes / workingDays : 0,
+      actReqMes:       totalActReqMes,
+      actReqSem:       totalActReqSem,
+      actReqDia:       totalActReqDia,
       meetingsExpected: totalExpected,
       reunionesReales: totalReuniones,
-      eficienciaCanal: eficiencia,
+      eficienciaCanal: totalExpected > 0 ? (totalReuniones / totalExpected) * 100 : null,
       cierresReales:   totalCierres,
       contribGroupUsd: totalGroupUsd,
       contribGroupPct: metaGroup > 0 ? (totalGroupUsd / metaGroup) * 100 : 0,
-      contribGlobalUsd: totalGlobalUsd,
-      contribGlobalPct: monthlyGoal > 0 ? (totalGlobalUsd / monthlyGoal) * 100 : 0,
+      contribGlobalUsd: totalGroupUsd,
+      contribGlobalPct: monthlyGoal > 0 ? (totalGroupUsd / monthlyGoal) * 100 : 0,
     }
   }
 
   const outTotals = groupTotals(outRows, metaOut)
   const inTotals  = groupTotals(inRows,  metaIn)
-  const allTotals = (() => {
-    const totalCitasMes  = allRows.reduce((s, r) => s + r.citasMetaMes, 0)
-    const totalReuniones = allRows.reduce((s, r) => s + r.reunionesReales, 0)
-    const totalExpected  = allRows.reduce((s, r) => s + r.meetingsExpected, 0)
-    const totalCierres   = allRows.reduce((s, r) => s + r.cierresReales, 0)
-    const totalUsd       = totalCierres * avgTicket
-    return {
-      citasMetaMes:    totalCitasMes,
-      citasMetaSem:    workingDays > 0 ? totalCitasMes * 5 / workingDays : 0,
-      citasMetaDia:    workingDays > 0 ? totalCitasMes / workingDays : 0,
-      meetingsExpected: totalExpected,
-      reunionesReales: totalReuniones,
-      eficienciaCanal: totalExpected > 0 ? (totalReuniones / totalExpected) * 100 : null,
-      cierresReales:   totalCierres,
-      contribGroupUsd: totalUsd,
-      contribGroupPct: monthlyGoal > 0 ? (totalUsd / monthlyGoal) * 100 : 0,
-      contribGlobalUsd: totalUsd,
-      contribGlobalPct: monthlyGoal > 0 ? (totalUsd / monthlyGoal) * 100 : 0,
-    }
-  })()
+  const allTotals = groupTotals(allRows, monthlyGoal)
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const th  = 'px-3 py-2.5 text-[9px] font-bold uppercase tracking-wider text-center whitespace-nowrap text-zinc-400'
@@ -343,9 +318,9 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
         <td className={`${tdL} font-bold ${color}`}>{label}</td>
         <td className={`${td} font-bold ${color}`}>{totals.meetingsExpected || '—'}</td>
         <td className={`${td} text-zinc-500`}>—</td>
-        <td className={`${td} font-bold ${color}`}>{fmtNum(totals.citasMetaMes)}</td>
-        <td className={`${td} font-bold ${color}`}>{fmtNum(totals.citasMetaSem)}</td>
-        <td className={`${td} font-bold ${color}`}>{fmtNum(totals.citasMetaDia)}</td>
+        <td className={`${td} font-bold ${color}`}>{totals.actReqMes !== null ? fmtNum(totals.actReqMes) : '—'}</td>
+        <td className={`${td} font-bold ${color}`}>{totals.actReqSem !== null ? fmtNum(totals.actReqSem) : '—'}</td>
+        <td className={`${td} font-bold ${color}`}>{totals.actReqDia !== null ? fmtNum(totals.actReqDia) : '—'}</td>
         <td className={`${td} font-bold ${color}`}>{totals.reunionesReales}</td>
         <td className={td}>
           {totals.eficienciaCanal !== null ? (
@@ -408,14 +383,20 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
           />
         </td>
 
-        {/* Citas Meta /mes */}
-        <td className={`${td} text-zinc-300`}>{fmtNum(row.citasMetaMes)}</td>
+        {/* Act. Requeridas /mes */}
+        <td className={`${td} text-zinc-300`}>
+          {row.actReqMes !== null ? fmtNum(row.actReqMes) : <span className="text-zinc-600">—</span>}
+        </td>
 
-        {/* Citas Meta /sem */}
-        <td className={`${td} text-zinc-400`}>{fmtNum(row.citasMetaSem)}</td>
+        {/* Act. Requeridas /sem */}
+        <td className={`${td} text-zinc-400`}>
+          {row.actReqSem !== null ? fmtNum(row.actReqSem) : <span className="text-zinc-600">—</span>}
+        </td>
 
-        {/* Citas Meta /día */}
-        <td className={`${td} text-zinc-400`}>{fmtNum(row.citasMetaDia)}</td>
+        {/* Act. Requeridas /día */}
+        <td className={`${td} text-zinc-400`}>
+          {row.actReqDia !== null ? fmtNum(row.actReqDia) : <span className="text-zinc-600">—</span>}
+        </td>
 
         {/* Reuniones Reales */}
         <td className={`${td} font-semibold ${row.reunionesReales > 0 ? 'text-zinc-100' : 'text-zinc-600'}`}>
@@ -492,7 +473,7 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Citas meta (mes)', value: fmtNum(citasReqTotal), color: 'text-zinc-200' },
+          { label: 'Act. requeridas (mes)', value: allTotals.actReqMes !== null ? fmtNum(allTotals.actReqMes) : '—', color: 'text-zinc-200' },
           {
             label: 'Reuniones reales',
             value: String(allTotals.reunionesReales),
@@ -536,9 +517,9 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
               <th className={`${thL} min-w-[140px]`}>Actividad</th>
               <th className={th}>Reuniones<br />Esperadas</th>
               <th className={th}>Tasa %</th>
-              <th className={th}>Citas Meta<br />/mes</th>
-              <th className={th}>Citas Meta<br />/sem</th>
-              <th className={th}>Citas Meta<br />/día</th>
+              <th className={th}>Act. Req.<br />/mes</th>
+              <th className={th}>Act. Req.<br />/sem</th>
+              <th className={th}>Act. Req.<br />/día</th>
               <th className={th}>Reuniones<br />Reales</th>
               <th className={th}>Eficiencia<br />Canal %</th>
               <th className={th}>Cierres<br />Reales</th>
