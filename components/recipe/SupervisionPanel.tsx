@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { Save, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { saveActivityConversionRates } from '@/lib/actions/activities'
@@ -314,30 +314,10 @@ export function SupervisionPanel({
   const citasReqOut    = group === 'INBOUND' ? 0 : group === 'OUTBOUND' ? citasReqTotal : citasReqTotal * (outboundPct / 100)
   const citasReqIn     = group === 'OUTBOUND' ? 0 : group === 'INBOUND' ? citasReqTotal : citasReqTotal * (inboundPct  / 100)
 
-  // ── Per-activity projected citas (contribution = 0 if convRate=0) ──────
-  const { citasProyOut, citasProyIn } = useMemo(() => {
-    const out = outActivities.reduce((s, a) => {
-      const w  = actState[a.id]?.weight ?? 0
-      const cr = actState[a.id]?.convRate ?? 0
-      const { citasAsignadas } = calcCitasProyectadasPorActividad({
-        citasReqGrupo: citasReqOut,
-        pesoPct: w,
-        conversionRatePct: cr,
-      })
-      return s + (cr > 0 ? citasAsignadas : 0)
-    }, 0)
-    const inb = inActivities.reduce((s, a) => {
-      const w  = actState[a.id]?.weight ?? 0
-      const cr = actState[a.id]?.convRate ?? 0
-      const { citasAsignadas } = calcCitasProyectadasPorActividad({
-        citasReqGrupo: citasReqIn,
-        pesoPct: w,
-        conversionRatePct: cr,
-      })
-      return s + (cr > 0 ? citasAsignadas : 0)
-    }, 0)
-    return { citasProyOut: out, citasProyIn: inb }
-  }, [actState, citasReqOut, citasReqIn]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ── Citas proyectadas = meetings_expected ingresadas en Rendimiento (fijas) ──
+  // No deben variar con el funnel — son el plan de citas del usuario
+  const citasProyOut = outActivities.reduce((s, a) => s + (a.meetings_expected ?? 0), 0)
+  const citasProyIn  = inActivities.reduce((s,  a) => s + (a.meetings_expected ?? 0), 0)
 
   const citasProyTotal = group === 'OUTBOUND' ? citasProyOut
     : group === 'INBOUND' ? citasProyIn
