@@ -20,6 +20,7 @@ export type ActivityForSupervision = {
   channel: string
   weight: number
   conversion_rate_pct: number | null
+  meetings_expected: number | null
 }
 
 interface SupervisionPanelProps {

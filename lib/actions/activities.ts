@@ -4,6 +4,22 @@ import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 
+export async function saveActivityMeetingsExpected(
+  activityId: string,
+  meetingsExpected: number,
+): Promise<void> {
+  const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  await sb.from('activities')
+    .update({ meetings_expected: meetingsExpected })
+    .eq('id', activityId)
+    .eq('user_id', user.id)
+
+  revalidatePath('/recipe', 'layout')
+}
+
 export async function saveActivityConversionRates(
   rates: Array<{ activityId: string; conversionRatePct: number | null; weight?: number | null }>,
 ): Promise<void> {

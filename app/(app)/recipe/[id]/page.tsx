@@ -21,7 +21,7 @@ export default async function RecipeDetailPage({ params }: Props) {
     sb.from('recipe_actuals').select('*').eq('scenario_id', id).order('period_start', { ascending: false }),
     sb
       .from('activities')
-      .select('id, name, type, channel, weight, conversion_rate_pct, status, daily_goal, weekly_goal, monthly_goal')
+      .select('id, name, type, channel, weight, conversion_rate_pct, meetings_expected, status, daily_goal, weekly_goal, monthly_goal')
       .eq('status', 'active')
       .order('type', { ascending: true })
       .order('sort_order', { ascending: true }),
