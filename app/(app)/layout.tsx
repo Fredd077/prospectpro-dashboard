@@ -19,7 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Sidebar />
         </Suspense>
         <MainContentShift>
-          <main className="min-h-full">{children}</main>
+          <main className="h-full">{children}</main>
         </MainContentShift>
       </div>
     </SidebarProvider>
