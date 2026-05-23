@@ -45,7 +45,6 @@ const schema = z.object({
   name: z.string().min(2, 'Mínimo 2 caracteres').max(100),
   type: z.enum(['OUTBOUND', 'INBOUND']),
   channel: z.string().min(1, 'Por favor escribe el nombre de tu canal personalizado'),
-  weight: z.number().min(0, 'Mínimo 0').max(100, 'Máximo 100'),
   status: z.enum(['active', 'inactive']),
   description: z.string().max(500).optional(),
 })
@@ -72,7 +71,6 @@ export function ActivityForm({ activity }: ActivityFormProps) {
       name: activity?.name ?? '',
       type: activity?.type ?? 'OUTBOUND',
       channel: activity?.channel ?? '',
-      weight: activity?.weight ?? 0,
       status: activity?.status ?? 'active',
       description: activity?.description ?? '',
     },
@@ -198,24 +196,6 @@ export function ActivityForm({ activity }: ActivityFormProps) {
             <FieldError errors={[errors.channel]} />
           </Field>
         </div>
-
-        {/* Weight — replaces manual monthly_goal */}
-        <Field data-invalid={!!errors.weight}>
-          <FieldLabel>Peso relativo (%)</FieldLabel>
-          <Input
-            type="number"
-            min={0}
-            max={100}
-            step={0.01}
-            placeholder="0 – 100"
-            {...register('weight', { valueAsNumber: true })}
-          />
-          <FieldError errors={[errors.weight]} />
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            La meta mensual se calcula automáticamente en la página de Actividades
-            según el peso asignado y tu Recetario activo.
-          </p>
-        </Field>
 
         {/* Description */}
         <Field>

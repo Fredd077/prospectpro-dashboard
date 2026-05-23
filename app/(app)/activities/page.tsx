@@ -41,7 +41,7 @@ export default async function ActivitiesPage() {
     <div className="flex flex-col h-full">
       <TopBar
         title="Actividades"
-        description="Distribuye el peso de cada actividad para calcular tus metas automáticamente"
+        description="Gestiona tus actividades de prospección comercial"
         action={
           <Link href="/activities/new" className={buttonVariants({ size: 'sm' })}>
             <Plus className="mr-2 h-4 w-4" />
