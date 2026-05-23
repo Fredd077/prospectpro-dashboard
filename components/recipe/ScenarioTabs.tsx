@@ -2,10 +2,8 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { SlidersHorizontal, FlaskConical, GitCompare, BarChart3 } from 'lucide-react'
+import { SlidersHorizontal, BarChart3 } from 'lucide-react'
 import { RecipeCalculator } from './RecipeCalculator'
-import { RecipeSimulator } from './RecipeSimulator'
-import { ScenarioComparison } from './ScenarioComparison'
 import { RecipePlanBanner } from './RecipePlanBanner'
 import { ActivityPerformanceTab } from './ActivityPerformanceTab'
 import type { RecipeScenario, RecipeActual } from '@/lib/types/database'
@@ -20,15 +18,13 @@ interface ScenarioTabsProps {
 }
 
 const TABS = [
-  { value: 'calculator',   label: 'Escenario',    icon: SlidersHorizontal },
-  { value: 'simulator',    label: 'Simulador',    icon: FlaskConical },
-  { value: 'comparison',   label: 'Plan vs Real', icon: GitCompare },
-  { value: 'rendimiento',  label: 'Rendimiento',  icon: BarChart3 },
+  { value: 'calculator',  label: 'Escenario',   icon: SlidersHorizontal },
+  { value: 'rendimiento', label: 'Rendimiento',  icon: BarChart3 },
 ] as const
 
 type TabValue = typeof TABS[number]['value']
 
-export function ScenarioTabs({ scenario, actuals, validation, activities }: ScenarioTabsProps) {
+export function ScenarioTabs({ scenario, actuals: _actuals, validation, activities }: ScenarioTabsProps) {
   const [active, setActive] = useState<TabValue>('calculator')
 
   return (
@@ -60,11 +56,9 @@ export function ScenarioTabs({ scenario, actuals, validation, activities }: Scen
         </div>
       )}
 
-      {active === 'calculator'  && (
+      {active === 'calculator' && (
         <RecipeCalculator scenario={scenario} activities={activities} />
       )}
-      {active === 'simulator'   && <RecipeSimulator scenario={scenario} />}
-      {active === 'comparison'  && <ScenarioComparison scenario={scenario} actuals={actuals} />}
       {active === 'rendimiento' && activities && activities.length > 0 && (
         <ActivityPerformanceTab scenario={scenario} activities={activities} />
       )}
