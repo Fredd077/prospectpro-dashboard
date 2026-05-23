@@ -272,9 +272,10 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
   const eficiencia    = allTotals.eficienciaCanal
 
   // ── Section 2 ─────────────────────────────────────────────────────────────
-  // Projected income = sum(meetingsExpected × convRate% × avgTicket)
+  // Projected income = sum(reunionesReales × convRate% × avgTicket)
+  // "Based on meetings already held this month, how much should close?"
   const ingresoProyectado = allRows.reduce(
-    (s, r) => s + r.meetingsExpected * (r.convRate / 100) * avgTicket, 0,
+    (s, r) => s + r.reunionesReales * (r.convRate / 100) * avgTicket, 0,
   )
   const ingresoReal = allTotals.cierresReales * avgTicket
 
@@ -287,8 +288,8 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
     return (metaGroup / avgTicket) / (avgConvRate / 100)
   }
 
-  const outIngresoProy = outRows.reduce((s, r) => s + r.meetingsExpected * (r.convRate / 100) * avgTicket, 0)
-  const inIngresoProy  = inRows.reduce((s, r) => s + r.meetingsExpected * (r.convRate / 100) * avgTicket, 0)
+  const outIngresoProy = outRows.reduce((s, r) => s + r.reunionesReales * (r.convRate / 100) * avgTicket, 0)
+  const inIngresoProy  = inRows.reduce((s, r) => s + r.reunionesReales * (r.convRate / 100) * avgTicket, 0)
 
   const outDesvPct = metaOut > 0 ? ((outIngresoProy - metaOut) / metaOut) * 100 : null
   const inDesvPct  = metaIn  > 0 ? ((inIngresoProy  - metaIn)  / metaIn)  * 100 : null
@@ -701,7 +702,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
           <IncomeKpiCard
             label="Ingreso proyectado"
             value={fmtCop(ingresoProyectado)}
-            sub="cierres proyectados × ticket"
+            sub="reuniones reales × conv% × ticket"
             valueColor={GREEN}
             delta={
               deltaProyVsMeta !== null
