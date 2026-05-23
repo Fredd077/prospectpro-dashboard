@@ -190,8 +190,39 @@ function InlineNumberCell({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Month picker helpers ──────────────────────────────────────────────────────
+
+function buildMonthOptions(n = 12) {
+  const opts: { value: string; label: string }[] = []
+  const now = new Date()
+  for (let i = 0; i < n; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = d.toLocaleDateString('es', { month: 'long', year: 'numeric' })
+    opts.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) })
+  }
+  return opts
+}
+
+function monthRange(ym: string): { start: string; end: string } {
+  const [y, m] = ym.split('-').map(Number)
+  const last = new Date(y, m, 0)
+  return {
+    start: `${ym}-01`,
+    end:   `${y}-${String(m).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function ActivityPerformanceTab({ scenario, activities }: ActivityPerformanceTabProps) {
   const COLS = 14
+
+  // ── Month selector ─────────────────────────────────────────────────────────
+  const monthOptions = buildMonthOptions(18)
+  const currentMonth = monthOptions[0].value
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth)
+  const isCurrentMonth = selectedMonth === currentMonth
 
   // ── Local editable state ───────────────────────────────────────────────────
   const [localRates, setLocalRates] = useState<Record<string, number>>(() =>
@@ -212,16 +243,13 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
   const [loading, setLoading]           = useState(true)
 
   useEffect(() => {
-    const today      = new Date()
-    const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
-    const last       = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-    const monthEnd   = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`
-
+    setLoading(true)
+    const { start, end } = monthRange(selectedMonth)
     const sb = getSupabaseBrowserClient()
     sb.from('pipeline_simple')
       .select('origin_activity_id,status')
-      .gte('entry_date', monthStart)
-      .lte('entry_date', monthEnd)
+      .gte('entry_date', start)
+      .lte('entry_date', end)
       .not('origin_activity_id', 'is', null)
       .then(({ data }) => {
         const rMap: Record<string, number> = {}
@@ -236,7 +264,7 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
         setCierresMap(cMap)
         setLoading(false)
       })
-  }, [])
+  }, [selectedMonth])
 
   // ── Inline edit state — rate ───────────────────────────────────────────────
   const [editingRateId,  setEditingRateId]  = useState<string | null>(null)
@@ -561,14 +589,6 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
 
   // ── Early returns ──────────────────────────────────────────────────────────
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <p className="text-sm text-zinc-500">Cargando datos del pipeline…</p>
-      </div>
-    )
-  }
-
   if (activities.length === 0) {
     return (
       <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-8 text-center">
@@ -581,6 +601,32 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
 
   return (
     <div className="space-y-5">
+      {/* Month filter */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Período</span>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="bg-transparent text-sm font-medium text-zinc-200 outline-none cursor-pointer pr-1"
+          >
+            {monthOptions.map((o) => (
+              <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {!isCurrentMonth && (
+          <span className="text-[10px] font-semibold px-2.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-400/10 text-amber-400">
+            Datos históricos — Reuniones y cierres reales del período seleccionado
+          </span>
+        )}
+        {loading && (
+          <span className="text-[10px] text-zinc-500 animate-pulse">Cargando…</span>
+        )}
+      </div>
+
       {/* Alignment section */}
       <div className="space-y-2">
         <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 px-1">
@@ -671,8 +717,8 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
       </div>
 
       <p className="text-[10px] text-zinc-600">
-        Reuniones Reales y Cierres Reales = registros en Pipeline del mes actual con actividad de origen asignada.
-        Haz clic en Reuniones Esperadas o Tasa % para editar inline.
+        Reuniones Reales y Cierres Reales = registros en Pipeline del período seleccionado con actividad de origen asignada.
+        Haz clic en Reuniones Esperadas o Tasa % para editar inline (valores de configuración, aplican a todos los períodos).
       </p>
     </div>
   )
