@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { SlidersHorizontal, BarChart3 } from 'lucide-react'
+import { SlidersHorizontal, BarChart3, LayoutDashboard } from 'lucide-react'
 import { RecipeCalculator } from './RecipeCalculator'
 import { ActivityPerformanceTab } from './ActivityPerformanceTab'
+import { RecipeDashboardTab } from './RecipeDashboardTab'
 import type { RecipeScenario, RecipeActual } from '@/lib/types/database'
 import type { ActivityForSupervision } from './SupervisionPanel'
 
@@ -17,6 +18,7 @@ interface ScenarioTabsProps {
 const TABS = [
   { value: 'calculator',  label: 'Escenario',   icon: SlidersHorizontal },
   { value: 'rendimiento', label: 'Rendimiento',  icon: BarChart3 },
+  { value: 'dashboard',   label: 'Dashboard',    icon: LayoutDashboard },
 ] as const
 
 type TabValue = typeof TABS[number]['value']
@@ -56,6 +58,16 @@ export function ScenarioTabs({ scenario, actuals: _actuals, activities }: Scenar
         <div className="rounded-lg border border-border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">
             Configura tus actividades primero para ver el rendimiento por actividad.
+          </p>
+        </div>
+      )}
+      {active === 'dashboard' && activities && activities.length > 0 && (
+        <RecipeDashboardTab scenario={scenario} activities={activities} />
+      )}
+      {active === 'dashboard' && (!activities || activities.length === 0) && (
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            Configura tus actividades primero para ver el dashboard.
           </p>
         </div>
       )}
