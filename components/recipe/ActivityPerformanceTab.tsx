@@ -2,8 +2,15 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { toast } from 'sonner'
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { saveActivityConversionRates, saveActivityMeetingsExpected } from '@/lib/actions/activities'
+import {
+  calcCierresRequeridos,
+  calcCitasRequeridas,
+  calcIngresoProy,
+  calcDesviacion,
+} from '@/lib/calculations/recipe-supervision'
 import type { RecipeScenario } from '@/lib/types/database'
 import type { ActivityForSupervision } from './SupervisionPanel'
 
@@ -38,6 +45,81 @@ function fmtPct(n: number) {
 }
 function fmtNum(n: number, decimals = 1) {
   return n.toFixed(decimals)
+}
+
+// ── Alignment card (dark zinc themed) ────────────────────────────────────────
+
+function AlignmentCard({
+  label,
+  accentColor,
+  citasProy,
+  citasReq,
+  ingresoProy,
+  metaMensual,
+}: {
+  label: string
+  accentColor: string
+  citasProy: number
+  citasReq: number
+  ingresoProy: number
+  metaMensual: number
+}) {
+  const dev = calcDesviacion(ingresoProy, metaMensual)
+  const faltanCitas = Math.round((citasReq - citasProy) * 10) / 10
+
+  const statusMap = {
+    ok:     { badge: 'bg-emerald-400/10 text-emerald-400 border-emerald-500/30', icon: TrendingUp,   label: dev.pct >= 0 ? 'Por encima de meta' : 'En rango' },
+    warn:   { badge: 'bg-amber-400/10  text-amber-400  border-amber-500/30',  icon: Minus,       label: 'Brecha moderada' },
+    danger: { badge: 'bg-red-400/10    text-red-400    border-red-500/30',    icon: TrendingDown, label: 'Brecha crítica' },
+  }
+  const { badge, icon: Icon, label: statusLabel } = statusMap[dev.estado]
+
+  function fmtUsdAbs(n: number) {
+    return '$' + Math.round(Math.abs(n)).toLocaleString('es', { maximumFractionDigits: 0 })
+  }
+
+  return (
+    <div className={`rounded-lg border px-4 py-3 space-y-2 bg-zinc-900/60 ${badge}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <p className={`text-[10px] font-bold uppercase tracking-wider ${accentColor}`}>{label}</p>
+        </div>
+        <span className={`inline-flex items-center gap-1 text-[10px] font-semibold rounded-full border px-2 py-0.5 ${badge}`}>
+          <Icon className="h-3 w-3" />
+          {statusLabel}
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-3 text-center">
+        <div>
+          <p className="text-[10px] text-current/60 mb-0.5">Citas proyectadas</p>
+          <p className={`font-mono font-bold text-sm ${accentColor}`}>{citasProy.toFixed(1)}</p>
+          <p className="text-[9px] text-zinc-600 mt-0.5">de reuniones esperadas</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-current/60 mb-0.5">Citas requeridas</p>
+          <p className="font-mono font-bold text-sm">{citasReq.toFixed(1)}</p>
+          <p className="text-[9px] text-zinc-600 mt-0.5">según receta</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-current/60 mb-0.5">
+            {faltanCitas > 0 ? 'Faltan' : 'Excedente'}
+          </p>
+          <p className={`font-mono font-bold text-sm ${faltanCitas > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+            {faltanCitas > 0 ? `−${faltanCitas}` : `+${Math.abs(faltanCitas)}`}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 pt-1 border-t border-current/20 text-[10px]">
+        <span>
+          Ingreso proy: <strong>{fmtUsdAbs(ingresoProy)}</strong>
+        </span>
+        <span>
+          Desv: <strong>{dev.pct >= 0 ? '+' : ''}{dev.pct}%</strong>
+          {' '}({dev.valor >= 0 ? '+' : '−'}{fmtUsdAbs(dev.valor)})
+        </span>
+      </div>
+    </div>
+  )
 }
 
 function Semaforo({ pct }: { pct: number }) {
@@ -291,6 +373,25 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
   const outTotals = groupTotals(outRows, metaOut)
   const inTotals  = groupTotals(inRows,  metaIn)
   const allTotals = groupTotals(allRows, monthlyGoal)
+
+  // ── Alignment calculations ────────────────────────────────────────────────
+  const outRates  = (scenario.outbound_rates as number[] | null) ?? [30]
+  const inRates   = (scenario.inbound_rates  as number[] | null) ?? [30]
+  const lastOutRate = outRates[outRates.length - 1] ?? 30
+  const lastInRate  = inRates[inRates.length  - 1] ?? 30
+
+  const cierresReq    = calcCierresRequeridos(monthlyGoal, avgTicket)
+  const citasReqTotal = calcCitasRequeridas(cierresReq, lastOutRate)
+  const citasReqOut   = citasReqTotal * outboundPct
+  const citasReqIn    = citasReqTotal * inboundPct
+
+  const citasProyOut   = outTotals.meetingsExpected
+  const citasProyIn    = inTotals.meetingsExpected
+  const citasProyTotal = citasProyOut + citasProyIn
+
+  const ingresoProyOut   = calcIngresoProy(citasProyOut,   lastOutRate, avgTicket)
+  const ingresoProyIn    = calcIngresoProy(citasProyIn,    lastInRate,  avgTicket)
+  const ingresoProyTotal = calcIngresoProy(citasProyTotal, lastOutRate, avgTicket)
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const th  = 'px-3 py-2.5 text-[9px] font-bold uppercase tracking-wider text-center whitespace-nowrap text-zinc-400'
@@ -552,6 +653,46 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
             <TotalRow totals={allTotals} label="TOTAL GLOBAL" color="text-zinc-100" />
           </tbody>
         </table>
+      </div>
+
+      {/* Alignment section */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 px-1">
+          Alineación de citas
+        </p>
+        <p className="text-[10px] text-zinc-600 px-1">
+          Compara tus reuniones esperadas (columna de la tabla) contra lo que la receta requiere para alcanzar la meta.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {outActivities.length > 0 && (
+            <AlignmentCard
+              label="Alineación Outbound"
+              accentColor="text-[#00D9FF]"
+              citasProy={citasProyOut}
+              citasReq={citasReqOut}
+              ingresoProy={ingresoProyOut}
+              metaMensual={metaOut}
+            />
+          )}
+          {inActivities.length > 0 && (
+            <AlignmentCard
+              label="Alineación Inbound"
+              accentColor="text-violet-400"
+              citasProy={citasProyIn}
+              citasReq={citasReqIn}
+              ingresoProy={ingresoProyIn}
+              metaMensual={metaIn}
+            />
+          )}
+          <AlignmentCard
+            label="Alineación Total"
+            accentColor="text-zinc-100"
+            citasProy={citasProyTotal}
+            citasReq={citasReqTotal}
+            ingresoProy={ingresoProyTotal}
+            metaMensual={monthlyGoal}
+          />
+        </div>
       </div>
 
       <p className="text-[10px] text-zinc-600">
