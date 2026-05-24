@@ -108,13 +108,23 @@ function periodLabel(periodType: string, periodStart: string, periodEnd: string)
   return `${names[parseInt(month) - 1]} ${year}`
 }
 
+const VENDEDOR_CONFIG_DEFAULTS = { tone: 'motivacional', maxTokens: 900, extraInstructions: '' }
+const GERENTE_CONFIG_DEFAULTS  = { tone: 'analítico',    maxTokens: 900, extraInstructions: '' }
+
 export async function generateVendedorReport(params: VendedorReportParams): Promise<IntelligenceReport> {
   const { userId, periodType, periodStart, periodEnd } = params
+  console.log('[generateVendedorReport] start', { userId, periodType, periodStart })
 
-  const [data, aiConfig] = await Promise.all([
+  const [data, rawConfig] = await Promise.all([
     gatherData(params),
-    getAiConfig('intelligence_vendedor', getSupabaseServiceClient()),
+    getAiConfig('intelligence_vendedor', getSupabaseServiceClient()).catch((err: unknown) => {
+      console.warn('[generateVendedorReport] getAiConfig failed, using defaults:', (err as Error)?.message)
+      return null
+    }),
   ])
+  const aiConfig = rawConfig ?? VENDEDOR_CONFIG_DEFAULTS
+  console.log('[generateVendedorReport] config loaded', { tone: aiConfig.tone, maxTokens: aiConfig.maxTokens })
+
   const dataHash = hashReportData({ ...data, periodType, periodStart, periodEnd, configTone: aiConfig.tone, configMaxTokens: aiConfig.maxTokens })
 
   const cached = await getCachedReport(userId, 'vendedor', periodType, periodStart, periodEnd, dataHash)
@@ -134,6 +144,7 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
     pipeline: data.pipeline,
     overall_compliance: data.overall_compliance,
   }
+  console.log('[generateVendedorReport] running diagnostico agent')
   const diagnostico = await runAgentDiagnostico(diagnosticoInput)
 
   const prediccionInput: PrediccionInput = {
@@ -148,6 +159,7 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
     open_amount: data.pipeline.open_amount,
     avg_ticket: data.recipe?.avg_ticket ?? 0,
   }
+  console.log('[generateVendedorReport] running prediccion agent')
   const prediccion = await runAgentPrediccion(prediccionInput)
 
   const redactorInput: RedactorInput = {
@@ -156,6 +168,7 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
     diagnostico,
     prediccion,
   }
+  console.log('[generateVendedorReport] running redactor agent')
   const reportContent = await runAgentRedactor(redactorInput, {
     tone: aiConfig.tone,
     maxTokens: aiConfig.maxTokens,
@@ -166,6 +179,7 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
     daysElapsed <= 5 ? 'inicial' :
     daysElapsed <= 20 ? 'parcial' : 'completo'
 
+  console.log('[generateVendedorReport] saving report')
   return saveReport({
     user_id: userId,
     report_audience: 'vendedor',
@@ -294,11 +308,18 @@ async function gatherTeamData(
 
 export async function generateGerenteReport(params: GerenteReportParams): Promise<IntelligenceReport> {
   const { managerUserId, periodType, periodStart, periodEnd } = params
+  console.log('[generateGerenteReport] start', { managerUserId, periodType, periodStart })
 
-  const [teamData, aiConfig] = await Promise.all([
+  const [teamData, rawConfig] = await Promise.all([
     gatherTeamData(managerUserId, periodType, periodStart),
-    getAiConfig('intelligence_gerente', getSupabaseServiceClient()),
+    getAiConfig('intelligence_gerente', getSupabaseServiceClient()).catch((err: unknown) => {
+      console.warn('[generateGerenteReport] getAiConfig failed, using defaults:', (err as Error)?.message)
+      return null
+    }),
   ])
+  const aiConfig = rawConfig ?? GERENTE_CONFIG_DEFAULTS
+  console.log('[generateGerenteReport] config loaded', { tone: aiConfig.tone, maxTokens: aiConfig.maxTokens })
+
   const dataHash = hashReportData({ ...teamData, periodType, periodStart, periodEnd, configTone: aiConfig.tone, configMaxTokens: aiConfig.maxTokens })
 
   const cached = await getCachedReport(managerUserId, 'gerente', periodType, periodStart, periodEnd, dataHash)

@@ -55,7 +55,9 @@ export async function POST(req: Request) {
 
     return Response.json(report)
   } catch (err) {
-    console.error('[intelligence/gerente] Error:', err)
-    return Response.json({ error: 'Internal server error' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : String(err)
+    const stack = err instanceof Error ? err.stack : undefined
+    console.error('[intelligence/gerente] Error:', msg, stack)
+    return Response.json({ error: 'Internal server error', detail: msg }, { status: 500 })
   }
 }
