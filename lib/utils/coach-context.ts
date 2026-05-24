@@ -16,6 +16,16 @@ export interface ActivityCompliance {
   pct: number
 }
 
+export interface ActivityEffectivenessItem {
+  name: string
+  type: 'OUTBOUND' | 'INBOUND'
+  executions: number
+  estimatedMeetings: number
+  estimatedCloses: number
+  conversionToMeeting: number
+  closeProbability: number
+}
+
 export interface ActivityPerformance {
   name: string
   type: 'OUTBOUND' | 'INBOUND'
@@ -93,6 +103,8 @@ export interface CoachContext {
   pipeline?: PipelineCoachData
   // Activity performance (pipeline origin tracking)
   activityPerformance?: ActivityPerformance[]
+  // Channel effectiveness (weekly + monthly only)
+  activityEffectiveness?: ActivityEffectivenessItem[]
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -172,6 +184,89 @@ async function _fetchActivityPerformance(
   }
 
   return [...rowsForGroup(outActs, citasReqOut), ...rowsForGroup(inActs, citasReqIn)]
+}
+
+// ─── Activity effectiveness helper ───────────────────────────────────────────
+
+async function _fetchActivityEffectiveness(
+  sb: SbClient,
+  dateStart: string,
+  dateEnd: string,
+  userId?: string,
+): Promise<ActivityEffectivenessItem[]> {
+  const activitiesQ = (() => {
+    let q = sb.from('activities').select('id,name,type').eq('status', 'active')
+    if (userId) q = q.eq('user_id', userId)
+    return q
+  })()
+
+  const logsQ = (() => {
+    let q = sb.from('activity_logs').select('activity_id,real_executed')
+      .gte('log_date', dateStart)
+      .lte('log_date', dateEnd)
+    if (userId) q = q.eq('user_id', userId)
+    return q
+  })()
+
+  const pipelineQ = (() => {
+    let q = sb.from('pipeline_simple').select('prospect_type,stage,status')
+      .gte('entry_date', dateStart)
+      .lte('entry_date', dateEnd)
+    if (userId) q = q.eq('user_id', userId)
+    return q
+  })()
+
+  const [{ data: activities }, { data: logs }, { data: pipeline }] = await Promise.all([
+    activitiesQ, logsQ, pipelineQ,
+  ])
+
+  if (!activities?.length) return []
+
+  const execMap: Record<string, number> = {}
+  for (const log of logs ?? []) {
+    execMap[log.activity_id] = (execMap[log.activity_id] ?? 0) + log.real_executed
+  }
+
+  const meetingsByType: Record<string, number> = { OUTBOUND: 0, INBOUND: 0 }
+  const closesByType: Record<string, number>   = { OUTBOUND: 0, INBOUND: 0 }
+  for (const entry of pipeline ?? []) {
+    const t = (entry.prospect_type ?? '').toUpperCase()
+    if (t !== 'OUTBOUND' && t !== 'INBOUND') continue
+    meetingsByType[t] = (meetingsByType[t] ?? 0) + 1
+    if (entry.status === 'ganado') closesByType[t] = (closesByType[t] ?? 0) + 1
+  }
+
+  const totalExecByType: Record<string, number> = { OUTBOUND: 0, INBOUND: 0 }
+  for (const act of activities) {
+    const t = (act.type ?? '').toUpperCase()
+    if (t !== 'OUTBOUND' && t !== 'INBOUND') continue
+    totalExecByType[t] = (totalExecByType[t] ?? 0) + (execMap[act.id] ?? 0)
+  }
+
+  return activities
+    .filter((a) => {
+      const t = (a.type ?? '').toUpperCase()
+      return t === 'OUTBOUND' || t === 'INBOUND'
+    })
+    .map((a) => {
+      const t = (a.type ?? '').toUpperCase() as 'OUTBOUND' | 'INBOUND'
+      const executions  = execMap[a.id] ?? 0
+      const totalExec   = totalExecByType[t] ?? 0
+      const share       = totalExec > 0 ? executions / totalExec : 0
+      const estMeetings = Math.round(meetingsByType[t] * share * 10) / 10
+      const estCloses   = Math.round(closesByType[t] * share * 10) / 10
+      return {
+        name: a.name,
+        type: t,
+        executions,
+        estimatedMeetings: estMeetings,
+        estimatedCloses: estCloses,
+        conversionToMeeting: executions > 0 ? Math.round((estMeetings / executions) * 100) : 0,
+        closeProbability: estMeetings > 0 ? Math.round((estCloses / estMeetings) * 100) : 0,
+      }
+    })
+    .filter((a) => a.executions > 0)
+    .sort((a, b) => b.conversionToMeeting - a.conversionToMeeting)
 }
 
 // ─── Pipeline helper ─────────────────────────────────────────────────────────
@@ -442,7 +537,7 @@ export async function buildWeeklyContext(weekStart: string): Promise<CoachContex
     activities_needed_monthly:  activeScenario.activities_needed_monthly ?? 0,
   } : null
 
-  const [weeklyPipeline, weeklyActivityPerformance] = await Promise.all([
+  const [weeklyPipeline, weeklyActivityPerformance, weeklyEffectiveness] = await Promise.all([
     activeScenario ? _fetchPipelineData(
       sb, weekStart, weekEnd, totalReal,
       activeScenario.funnel_stages ?? [],
@@ -452,6 +547,7 @@ export async function buildWeeklyContext(weekStart: string): Promise<CoachContex
       activeScenario.monthly_revenue_goal,
     ) : Promise.resolve(undefined),
     _fetchActivityPerformance(sb, weekStart, weekEnd, activeScenario),
+    _fetchActivityEffectiveness(sb, weekStart, weekEnd),
   ])
 
   return {
@@ -474,6 +570,7 @@ export async function buildWeeklyContext(weekStart: string): Promise<CoachContex
     weeksBelow70,
     pipeline: weeklyPipeline,
     activityPerformance: weeklyActivityPerformance ?? undefined,
+    activityEffectiveness: weeklyEffectiveness.length ? weeklyEffectiveness : undefined,
   }
 }
 
@@ -627,6 +724,28 @@ export function formatContextForPrompt(ctx: CoachContext): string {
       lines.push(
         `  • ${ap.name} [${ap.type}]: citas meta ${ap.citasMeta.toFixed(1)} | reales ${ap.citasReales} | cumplimiento ${ap.cumplimiento}% ${cumTag} | contribución global ${ap.contribGlobalPct}%`
       )
+    }
+  }
+
+  // ── Activity Effectiveness section ─────────────────────────────────────────
+  if (ctx.activityEffectiveness && ctx.activityEffectiveness.length >= 2 && ctx.period !== 'daily') {
+    const withExec = ctx.activityEffectiveness.filter((a) => a.executions > 0)
+    if (withExec.length >= 2) {
+      lines.push('', 'EFECTIVIDAD POR CANAL:')
+      const byConv     = [...withExec].sort((a, b) => b.conversionToMeeting - a.conversionToMeeting)
+      const topConv    = byConv[0]
+      const bottomConv = byConv[byConv.length - 1]
+      lines.push(`  MEJOR conversión a cita: ${topConv.name} [${topConv.type}] — ${topConv.conversionToMeeting}% (${topConv.executions} ejecuciones → ~${topConv.estimatedMeetings} reuniones)`)
+      lines.push(`  PEOR conversión a cita: ${bottomConv.name} [${bottomConv.type}] — ${bottomConv.conversionToMeeting}% (${bottomConv.executions} ejecuciones → ~${bottomConv.estimatedMeetings} reuniones)`)
+      const withMeetings = withExec.filter((a) => a.estimatedMeetings > 0)
+      if (withMeetings.length >= 2) {
+        const byClose     = [...withMeetings].sort((a, b) => b.closeProbability - a.closeProbability)
+        const topClose    = byClose[0]
+        const bottomClose = byClose[byClose.length - 1]
+        lines.push(`  MAYOR probabilidad de cierre: ${topClose.name} [${topClose.type}] — ${topClose.closeProbability}%`)
+        lines.push(`  MENOR probabilidad de cierre: ${bottomClose.name} [${bottomClose.type}] — ${bottomClose.closeProbability}%`)
+      }
+      lines.push(`  NOTA: Atribución estimada — las reuniones/cierres se distribuyen proporcionalmente por ejecuciones dentro de cada tipo.`)
     }
   }
 
@@ -802,13 +921,14 @@ async function _buildWeeklyContextCron(
   const monthReal = (monthLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
 
   const withGoal = actCompliance.filter((a) => a.goal > 0)
-  const [cronWeeklyPipeline, cronWeeklyPerformance] = await Promise.all([
+  const [cronWeeklyPipeline, cronWeeklyPerformance, cronWeeklyEffectiveness] = await Promise.all([
     scenario ? _fetchPipelineData(
       sb, weekStart, weekEnd, totalReal,
       scenario.funnel_stages ?? [], scenario.outbound_rates ?? [], scenario.inbound_rates ?? [],
       scenario.outbound_pct ?? 80, scenario.monthly_revenue_goal, userId,
     ) : Promise.resolve(undefined),
     _fetchActivityPerformance(sb, weekStart, weekEnd, scenario, userId),
+    _fetchActivityEffectiveness(sb, weekStart, weekEnd, userId),
   ])
   return {
     userName, period: 'weekly', periodDate: weekStart,
@@ -825,6 +945,7 @@ async function _buildWeeklyContextCron(
     weeksBelow70: overallCompliance < 70 && prevCompliance < 70 ? 2 : overallCompliance < 70 ? 1 : 0,
     pipeline: cronWeeklyPipeline,
     activityPerformance: cronWeeklyPerformance ?? undefined,
+    activityEffectiveness: cronWeeklyEffectiveness.length ? cronWeeklyEffectiveness : undefined,
   }
 }
 
@@ -897,7 +1018,10 @@ async function _buildMonthlyContext(
   const worstWeek = weekEntries.length ? weekEntries.reduce((m, w) => w.compliance < m.compliance ? w : m) : undefined
 
   const withGoal = actCompliance.filter((a) => a.goal > 0)
-  const monthlyPerformance = await _fetchActivityPerformance(sb, monthStart, monthEnd, scenario, userId)
+  const [monthlyPerformance, monthlyEffectiveness] = await Promise.all([
+    _fetchActivityPerformance(sb, monthStart, monthEnd, scenario, userId),
+    _fetchActivityEffectiveness(sb, monthStart, monthEnd, userId),
+  ])
   return {
     userName, period: 'monthly', periodDate: monthStart,
     recipe: recipeFromData(scenario),
@@ -909,5 +1033,6 @@ async function _buildMonthlyContext(
     bestWeek, worstWeek,
     totalActivitiesDone: totalReal, totalActivitiesGoal: totalGoal,
     activityPerformance: monthlyPerformance ?? undefined,
+    activityEffectiveness: monthlyEffectiveness.length ? monthlyEffectiveness : undefined,
   }
 }

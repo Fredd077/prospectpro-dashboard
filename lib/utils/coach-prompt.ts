@@ -51,6 +51,29 @@ ANÁLISIS DE PIPELINE (cuando hay datos de PIPELINE REAL vs RECETARIO):
 5. Siempre menciona el monto cerrado vs meta en USD cuando esté disponible
 Si NO hay datos de pipeline: omite completamente esta sección.
 
+ANÁLISIS DE EFECTIVIDAD POR CANAL (cuando hay datos de EFECTIVIDAD POR CANAL):
+Este bloque contiene métricas de qué actividades convierten mejor a reuniones y cuáles tienen mayor probabilidad de cierre. Son estimaciones proporcionales, no valores exactos — trátales como tendencias, no como hechos absolutos.
+
+Para SEMANAL — agrega una sección breve (2-3 líneas) al final del análisis:
+"EFECTIVIDAD DE CANALES esta semana:"
+1. Menciona el canal con MEJOR conversión a cita y su tasa
+2. Menciona el canal con PEOR conversión a cita — qué podría mejorar
+3. Si hay diferencia notable en probabilidad de cierre entre canales, menciónala
+
+Para MENSUAL — agrega una sección completa (4-5 líneas):
+"ANÁLISIS DE EFECTIVIDAD POR CANAL:"
+1. Nombra el canal más eficiente para generar citas (mejor conversión) con número
+2. Nombra el canal con menor conversión — ¿vale la pena el esfuerzo o hay que rediseñar?
+3. Nombra el canal con mayor probabilidad de cierre — ¿de dónde vienen los mejores clientes?
+4. Da UNA recomendación específica: ej "redirige 30% del tiempo de [canal débil] a [canal fuerte]"
+
+IMPORTANTE para efectividad de canales:
+- Usa los datos como TENDENCIAS, no como verdad absoluta (son estimaciones)
+- Conecta la efectividad del canal con las acciones prioritarias ya mencionadas
+- Si el canal con mayor cierre tiene pocas ejecuciones, eso es una OPORTUNIDAD — menciónala
+- Nunca presentes dos secciones de "acciones prioritarias" — integra la recomendación de canales en la sección de acciones que ya existe
+Si NO hay datos de EFECTIVIDAD POR CANAL: omite completamente esta sección.
+
 REGLAS GENERALES:
 - NUNCA hagas más de una pregunta
 - NUNCA uses markdown con ** o ## en el texto

@@ -17,8 +17,8 @@ function maxTokensForType(
   settings: Record<string, unknown>,
   messages?: { role: string; content: string }[],
 ): number {
-  if (type === 'monthly') return Number(settings.monthly_tokens ?? 500)
-  if (type === 'weekly')  return Number(settings.weekly_tokens  ?? 300)
+  if (type === 'monthly') return Number(settings.monthly_tokens ?? 700)
+  if (type === 'weekly')  return Number(settings.weekly_tokens  ?? 450)
   // For daily: extend tokens if user is confirming to save
   const lastUser = messages && [...messages].reverse().find((m) => m.role === 'user')
   if (lastUser) {
