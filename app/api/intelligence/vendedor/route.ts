@@ -44,6 +44,10 @@ export async function POST(req: Request) {
 
     return Response.json(report)
   } catch (err) {
+    if ((err as { code?: string }).code === 'NO_DATA') {
+      const msg = err instanceof Error ? err.message : 'No hay datos registrados en este período'
+      return Response.json({ error: msg }, { status: 422 })
+    }
     const msg = err instanceof Error ? err.message : String(err)
     const stack = err instanceof Error ? err.stack : undefined
     console.error('[intelligence/vendedor] Error:', msg, stack)

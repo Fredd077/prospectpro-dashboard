@@ -1,9 +1,10 @@
 'use client'
 
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { AlertTriangle, TrendingUp, TrendingDown, Minus, Users, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { todayISO } from '@/lib/utils/dates'
 
 interface VendedorContent {
   resumen_ejecutivo?: string
@@ -80,6 +81,13 @@ export function IntelligenceReportCard(props: IntelligenceReportCardProps) {
   const isGerente = report_audience === 'gerente'
   const content = report_content as VendedorContent & GerenteContent
 
+  const today = todayISO()
+  const isClosed = today > period_end
+  const totalDaysInPeriod = differenceInDays(parseISO(period_end), parseISO(period_start)) + 1
+  const dayX = isClosed
+    ? totalDaysInPeriod
+    : Math.min(differenceInDays(parseISO(today), parseISO(period_start)) + 1, totalDaysInPeriod)
+
   return (
     <div className={cn('rounded-xl border bg-card p-4 space-y-4', confidence_level === 'inicial' && 'border-amber-500/20')}>
       {/* Header */}
@@ -99,6 +107,15 @@ export function IntelligenceReportCard(props: IntelligenceReportCardProps) {
           </span>
         )}
         <span className="text-xs text-cyan-400/80 capitalize">{pLabel}</span>
+        {isClosed ? (
+          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
+            FINALIZADO
+          </span>
+        ) : (
+          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400">
+            EN CURSO · día {dayX} de {totalDaysInPeriod}
+          </span>
+        )}
         {confidence_level === 'inicial' && (
           <span className="ml-auto text-[10px] text-amber-400 font-medium">Período inicial</span>
         )}
