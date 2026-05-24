@@ -43,6 +43,11 @@ Reglas:
 - Responde en español
 - NO incluyas markdown, SOLO el JSON puro`
 
+function extractJSON(raw: string): string {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+  return fenced ? fenced[1].trim() : raw.trim()
+}
+
 export async function runAgentRedactor(input: RedactorInput): Promise<ReportContent> {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
@@ -51,6 +56,11 @@ export async function runAgentRedactor(input: RedactorInput): Promise<ReportCont
     messages: [{ role: 'user', content: JSON.stringify(input) }],
   })
 
-  const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '{}'
-  return JSON.parse(text) as ReportContent
+  const raw = response.content[0].type === 'text' ? response.content[0].text : ''
+  try {
+    return JSON.parse(extractJSON(raw)) as ReportContent
+  } catch {
+    console.error('[agent-redactor] JSON parse failed. Raw response:', raw)
+    throw new Error('agent-redactor returned invalid JSON')
+  }
 }

@@ -62,6 +62,11 @@ Reglas:
 - Responde en español
 - NO incluyas markdown, NO incluyas \`\`\`json, SOLO el JSON puro`
 
+function extractJSON(raw: string): string {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+  return fenced ? fenced[1].trim() : raw.trim()
+}
+
 export async function runAgentDiagnostico(input: DiagnosticoInput): Promise<DiagnosticoOutput> {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
@@ -70,6 +75,11 @@ export async function runAgentDiagnostico(input: DiagnosticoInput): Promise<Diag
     messages: [{ role: 'user', content: JSON.stringify(input) }],
   })
 
-  const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '{}'
-  return JSON.parse(text) as DiagnosticoOutput
+  const raw = response.content[0].type === 'text' ? response.content[0].text : ''
+  try {
+    return JSON.parse(extractJSON(raw)) as DiagnosticoOutput
+  } catch {
+    console.error('[agent-diagnostico] JSON parse failed. Raw response:', raw)
+    throw new Error('agent-diagnostico returned invalid JSON')
+  }
 }
