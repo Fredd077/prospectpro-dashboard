@@ -8,8 +8,12 @@ export interface PrediccionInput {
   periodType: 'daily' | 'weekly' | 'monthly'
   periodStart: string
   periodEnd: string
+  period_status: 'en_curso' | 'cerrado'
   daysElapsed: number
   totalDaysInPeriod: number
+  dias_habiles_transcurridos: number
+  dias_habiles_restantes: number
+  dias_habiles_totales: number
   monthly_goal: number
   closed_amount: number
   open_amount: number
@@ -26,7 +30,7 @@ export interface PrediccionOutput {
   escenario_pesimista: string
 }
 
-const SYSTEM_PROMPT = `Eres un analista de predicción comercial. Basándote en el diagnóstico y los datos del período, proyecta el resultado esperado y devuelve ÚNICAMENTE un JSON válido sin markdown.
+const SYSTEM_PROMPT = `Eres un analista de predicción comercial. Basándote en el diagnóstico y los datos del período, evalúa o proyecta el resultado y devuelve ÚNICAMENTE un JSON válido sin markdown.
 
 El JSON debe tener exactamente esta estructura:
 {
@@ -39,24 +43,28 @@ El JSON debe tener exactamente esta estructura:
   "escenario_pesimista": string
 }
 
-Reglas:
+REGLA CRÍTICA — ESTADO DEL PERÍODO:
+- Si period_status = 'en_curso': el período sigue abierto. Usa dias_habiles_restantes para proyectar el cierre realista. ingreso_proyectado es extrapolación lineal al cierre del período completo. Las actividades_criticas son acciones ejecutables en los días hábiles que quedan.
+- Si period_status = 'cerrado': el período ya terminó. NO proyectes — evalúa el resultado final definitivo. ingreso_proyectado = ingreso cerrado real (sin extrapolación). probabilidad_meta_pct refleja si se alcanzó la meta (100 = superó, 0-49 = no alcanzó). actividades_criticas deben ser aprendizajes para el siguiente período, no acciones futuras. Los escenarios describen lo que ocurrió realmente.
+
+Reglas generales:
 - tendencia: basada en cumplimiento actual y ritmo vs meta
-- ingreso_proyectado: extrapolación lineal del ingreso_cerrado al cierre del mes completo
-- probabilidad_meta_pct: 0-100, qué tan probable es alcanzar la meta mensual con el ritmo actual
-- brecha_meta: monthly_goal - ingreso_proyectado (positivo = falta dinero, negativo = la supera)
-- actividades_criticas: 2-3 acciones específicas y medibles que más impactarían el resultado
-- escenarios: 1 oración cada uno describiendo el mejor y peor caso realista con números
+- brecha_meta: monthly_goal - ingreso_proyectado (positivo = falta, negativo = superó)
 - Responde en español
 - NO incluyas markdown, SOLO el JSON puro`
 
 export interface PrediccionGerenteInput {
   diagnostico: import('./agent-diagnostico').DiagnosticoGerenteOutput
   periodType: 'daily' | 'weekly' | 'monthly'
+  period_status: 'en_curso' | 'cerrado'
   monthly_goal_total: number
   closed_amount_total: number
   open_amount_total: number
   daysElapsed: number
   totalDaysInPeriod: number
+  dias_habiles_transcurridos: number
+  dias_habiles_restantes: number
+  dias_habiles_totales: number
   teamSize: number
 }
 
@@ -92,7 +100,7 @@ export async function runAgentPrediccion(input: PrediccionInput): Promise<Predic
   }
 }
 
-const GERENTE_SYSTEM_PROMPT = `Eres un analista predictivo de equipos comerciales. Proyecta el resultado del equipo y devuelve ÚNICAMENTE un JSON válido sin markdown.
+const GERENTE_SYSTEM_PROMPT = `Eres un analista predictivo de equipos comerciales. Evalúa o proyecta el resultado del equipo y devuelve ÚNICAMENTE un JSON válido sin markdown.
 
 El JSON debe tener exactamente esta estructura:
 {
@@ -105,12 +113,14 @@ El JSON debe tener exactamente esta estructura:
   "escenario_pesimista": string
 }
 
-Reglas:
-- tendencia_equipo: basada en cumplimiento promedio y ritmo actual vs meta del equipo
-- ingreso_proyectado_equipo: extrapolación lineal del cierre del equipo al mes completo
-- probabilidad_meta_equipo_pct: 0-100, qué tan probable que el equipo alcance su meta agregada
-- miembros_necesitan_intervencion: máximo 3, los que más impactan el riesgo del equipo
-- riesgo_principal: el mayor riesgo del equipo en 1 oración con número concreto
+REGLA CRÍTICA — ESTADO DEL PERÍODO:
+- Si period_status = 'en_curso': proyecta el cierre del equipo usando dias_habiles_restantes. Las intervenciones de miembros son acciones ejecutables en el tiempo restante.
+- Si period_status = 'cerrado': evalúa el resultado final real del equipo. ingreso_proyectado_equipo = cierre real. miembros_necesitan_intervencion describe qué aprender de cada miembro para el próximo período.
+
+Reglas generales:
+- tendencia_equipo: basada en cumplimiento promedio y ritmo actual vs meta
+- probabilidad_meta_equipo_pct: 0-100
+- riesgo_principal: 1 oración con número concreto
 - escenarios: 1 oración cada uno con números reales
 - Responde en español
 - SOLO el JSON puro`

@@ -30,6 +30,9 @@ function buildPrompt(base: string, config?: RedactorConfig): string {
 export interface RedactorInput {
   userName: string
   periodLabel: string
+  period_status: 'en_curso' | 'cerrado'
+  dias_habiles_restantes: number
+  dias_habiles_totales: number
   diagnostico: DiagnosticoOutput
   prediccion: PrediccionOutput
 }
@@ -43,7 +46,7 @@ export interface ReportContent {
   mensaje_motivacional: string
 }
 
-const SYSTEM_PROMPT = `Eres un coach comercial experto. Redacta el reporte de rendimiento del vendedor de forma clara, directa y motivadora. Devuelve ÚNICAMENTE un JSON válido sin markdown.
+const SYSTEM_PROMPT = `Eres un coach comercial experto. Redacta el reporte de rendimiento del vendedor de forma clara y directa. Devuelve ÚNICAMENTE un JSON válido sin markdown.
 
 El JSON debe tener exactamente esta estructura:
 {
@@ -55,14 +58,19 @@ El JSON debe tener exactamente esta estructura:
   "mensaje_motivacional": string
 }
 
-Reglas:
+REGLA CRÍTICA — ESTADO DEL PERÍODO (leer antes de redactar):
+- Si period_status = 'en_curso': Redacta TODO en PRESENTE. El período sigue abierto. Menciona explícitamente los días hábiles restantes (dias_habiles_restantes) en el resumen o prediccion_narrativa. Las acciones_prioritarias deben ser ejecutables dentro del tiempo que queda. Usa frases como "Llevas X de Y", "Te quedan N días hábiles para...", "Este período cierra en...".
+- Si period_status = 'cerrado': Redacta TODO en PASADO. Este es un reporte de resultado final, NO un plan. acciones_prioritarias se convierte en aprendizajes o ajustes para el SIGUIENTE período — NUNCA acciones ejecutables en el período cerrado. prediccion_narrativa describe el resultado final que ocurrió. Usa frases como "El período cerró con...", "Abril terminó en...", "Para el próximo período, considera...". El campo "plazo" en acciones debe decir "Próximo período".
+- NUNCA mezcles el tono: no uses presente si cerrado, no uses pasado si en_curso.
+
+Reglas generales:
 - resumen_ejecutivo: 2-3 oraciones con los números más importantes del período
 - diagnostico_narrativo: párrafo de 3-4 oraciones describiendo qué pasó y por qué con datos específicos
-- prediccion_narrativa: párrafo de 2-3 oraciones sobre el resultado proyectado si continúa el ritmo actual
-- acciones_prioritarias: exactamente 3 acciones concretas y medibles ordenadas de mayor a menor impacto
-- alerta: null si el negocio va bien; 1 oración de alerta si hay riesgo crítico (compliance < 50% o probabilidad_meta < 30%)
-- mensaje_motivacional: 1 oración energizante y personalizada usando el nombre del vendedor, basada en los datos reales
-- Tono: directo, específico con números, nunca genérico ni vago
+- prediccion_narrativa: si en_curso → proyección al cierre con días restantes; si cerrado → evaluación del resultado final
+- acciones_prioritarias: exactamente 3, ordenadas de mayor a menor impacto
+- alerta: null si el negocio va bien; 1 oración de alerta si hay riesgo crítico
+- mensaje_motivacional: 1 oración personalizada con el nombre del vendedor y datos reales
+- Específico con números, nunca genérico ni vago
 - Responde en español
 - NO incluyas markdown, SOLO el JSON puro`
 
@@ -79,6 +87,9 @@ export interface ReportGerenteContent {
 export interface RedactorGerenteInput {
   managerName: string
   periodLabel: string
+  period_status: 'en_curso' | 'cerrado'
+  dias_habiles_restantes: number
+  dias_habiles_totales: number
   diagnostico: import('./agent-diagnostico').DiagnosticoGerenteOutput
   prediccion: import('./agent-prediccion').PrediccionGerenteOutput
   members: { userName: string; overall_compliance: number }[]
@@ -119,14 +130,18 @@ El JSON debe tener exactamente esta estructura:
   "mensaje_gerente": string
 }
 
-Reglas:
-- resumen_ejecutivo: 2-3 oraciones con los KPIs más importantes del equipo y números reales
-- diagnostico_equipo: párrafo de 3-4 oraciones sobre el estado del equipo con datos específicos
-- ranking_rendimiento: TODOS los miembros, ordenados de mejor a peor; estado: destacado >= 80%, en_camino 50-79%, en_riesgo < 50%
-- alertas_individuales: solo miembros con compliance < 70%, máximo 3; con alerta concreta y acción inmediata
-- prediccion_narrativa: 2-3 oraciones sobre el resultado proyectado del equipo
-- acciones_gestion: exactamente 3 acciones de gestión con deadline concreto (esta semana, esta quincena, etc.)
-- mensaje_gerente: 1 oración motivadora para el gerente personalizada con su nombre y datos reales
+REGLA CRÍTICA — ESTADO DEL PERÍODO:
+- Si period_status = 'en_curso': Redacta en PRESENTE. Menciona los días hábiles restantes (dias_habiles_restantes) en el resumen o prediccion_narrativa. acciones_gestion deben ser ejecutables en el tiempo que queda, con deadlines concretos dentro del período.
+- Si period_status = 'cerrado': Redacta en PASADO. acciones_gestion se convierte en acciones para el PRÓXIMO período — NUNCA para el período cerrado. prediccion_narrativa describe el resultado final real. El deadline en acciones debe decir "Próximo período" o la próxima semana/mes según corresponda.
+
+Reglas generales:
+- resumen_ejecutivo: 2-3 oraciones con los KPIs del equipo y números reales
+- diagnostico_equipo: 3-4 oraciones sobre el estado del equipo con datos específicos
+- ranking_rendimiento: TODOS los miembros, ordenados de mejor a peor; destacado >= 80%, en_camino 50-79%, en_riesgo < 50%
+- alertas_individuales: solo compliance < 70%, máximo 3; con alerta concreta y acción
+- prediccion_narrativa: en_curso → proyección al cierre; cerrado → resultado final
+- acciones_gestion: exactamente 3 acciones de gestión
+- mensaje_gerente: 1 oración motivadora con nombre del gerente y datos reales
 - Responde en español
 - SOLO el JSON puro`
 

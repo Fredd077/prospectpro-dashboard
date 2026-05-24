@@ -6,8 +6,71 @@ import { runAgentDiagnostico, runAgentDiagnosticoGerente, type DiagnosticoInput,
 import { runAgentPrediccion, runAgentPrediccionGerente, type PrediccionInput, type PrediccionGerenteInput } from './agent-prediccion'
 import { runAgentRedactor, runAgentRedactorGerente, type RedactorInput, type RedactorGerenteInput } from './agent-redactor'
 import type { IntelligenceReport, Json } from '@/lib/types/database'
-import { toISODate } from '@/lib/utils/dates'
+import { toISODate, todayISO } from '@/lib/utils/dates'
 import { getAiConfig } from '@/lib/utils/ai-config'
+
+/** Count working days (Mon-Fri) from startISO to endISO inclusive. Pure UTC arithmetic. */
+function workingDaysBetween(startISO: string, endISO: string): number {
+  if (startISO > endISO) return 0
+  let [y, m, d] = startISO.split('-').map(Number)
+  const [ey, em, ed] = endISO.split('-').map(Number)
+  let count = 0
+  while (y < ey || (y === ey && m < em) || (y === ey && m === em && d <= ed)) {
+    const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+    if (dow > 0 && dow < 6) count++
+    d++
+    const dim = new Date(Date.UTC(y, m, 0)).getUTCDate()
+    if (d > dim) { d = 1; m++ }
+    if (m > 12) { m = 1; y++ }
+  }
+  return count
+}
+
+/** Compute period status and working-day breakdown relative to today (Colombia time). */
+function computePeriodContext(periodStart: string, periodEnd: string, periodType: 'daily' | 'weekly' | 'monthly') {
+  const today = todayISO()
+  const period_status: 'en_curso' | 'cerrado' = today <= periodEnd ? 'en_curso' : 'cerrado'
+
+  // Compute total calendar days in period
+  let totalDaysInPeriod: number
+  let daysElapsed: number
+  if (periodType === 'daily') {
+    totalDaysInPeriod = 1
+    daysElapsed = 1
+  } else if (periodType === 'weekly') {
+    totalDaysInPeriod = differenceInDays(parseISO(periodEnd), parseISO(periodStart)) + 1
+    const cap = period_status === 'en_curso' ? today : periodEnd
+    daysElapsed = Math.min(differenceInDays(parseISO(cap), parseISO(periodStart)) + 1, totalDaysInPeriod)
+  } else {
+    const monthBase = parseISO(periodStart.slice(0, 8) + '01')
+    totalDaysInPeriod = getDaysInMonth(monthBase)
+    if (period_status === 'cerrado') {
+      daysElapsed = totalDaysInPeriod
+    } else {
+      daysElapsed = Math.min(differenceInDays(parseISO(today), monthBase) + 1, totalDaysInPeriod)
+    }
+  }
+
+  // Working-day breakdown
+  const effectiveEnd = period_status === 'en_curso' ? today : periodEnd
+  const dias_habiles_transcurridos = workingDaysBetween(periodStart, effectiveEnd)
+  const dias_habiles_totales = workingDaysBetween(periodStart, periodEnd)
+
+  // Tomorrow in Bogota (UTC-safe noon)
+  const [ty, tm, td] = today.split('-').map(Number)
+  const tomorrow = toISODate(new Date(Date.UTC(ty, tm - 1, td + 1, 12)))
+  const dias_habiles_restantes =
+    period_status === 'en_curso' && tomorrow <= periodEnd
+      ? workingDaysBetween(tomorrow, periodEnd)
+      : 0
+
+  return { today, period_status, totalDaysInPeriod, daysElapsed, dias_habiles_transcurridos, dias_habiles_restantes, dias_habiles_totales }
+}
+
+class NoDataError extends Error {
+  code = 'NO_DATA'
+  constructor(msg: string) { super(msg) }
+}
 
 export interface VendedorReportParams {
   userId: string
@@ -125,16 +188,26 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
   const aiConfig = rawConfig ?? VENDEDOR_CONFIG_DEFAULTS
   console.log('[generateVendedorReport] config loaded', { tone: aiConfig.tone, maxTokens: aiConfig.maxTokens })
 
-  const dataHash = hashReportData({ ...data, periodType, periodStart, periodEnd, configTone: aiConfig.tone, configMaxTokens: aiConfig.maxTokens })
+  // No-data guard — don't call agents if period has no meaningful data
+  const totalActivity = data.activities.reduce((s, a) => s + a.real, 0)
+  const totalPipeline = data.pipeline.closed_amount + data.pipeline.open_amount
+  if (totalActivity === 0 && totalPipeline === 0) {
+    throw new NoDataError('No hay datos registrados en este período. Selecciona otro período o registra actividad.')
+  }
+
+  const ctx = computePeriodContext(periodStart, periodEnd, periodType)
+  const { today, period_status, totalDaysInPeriod, daysElapsed, dias_habiles_transcurridos, dias_habiles_restantes, dias_habiles_totales } = ctx
+
+  const dataHash = hashReportData({
+    ...data, periodType, periodStart, periodEnd,
+    configTone: aiConfig.tone, configMaxTokens: aiConfig.maxTokens,
+    ...(period_status === 'en_curso' ? { generation_date: today } : {}),
+  })
 
   const cached = await getCachedReport(userId, 'vendedor', periodType, periodStart, periodEnd, dataHash)
   if (cached) return cached
 
   const label = periodLabel(periodType, periodStart, periodEnd)
-  const now = new Date()
-  const monthStart = parseISO(periodStart.slice(0, 8) + '01')
-  const daysElapsed = Math.min(differenceInDays(now, monthStart) + 1, getDaysInMonth(monthStart))
-  const totalDaysInPeriod = getDaysInMonth(monthStart)
 
   const diagnosticoInput: DiagnosticoInput = {
     userName: data.userName,
@@ -152,8 +225,12 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
     periodType,
     periodStart,
     periodEnd,
+    period_status,
     daysElapsed,
     totalDaysInPeriod,
+    dias_habiles_transcurridos,
+    dias_habiles_restantes,
+    dias_habiles_totales,
     monthly_goal: data.recipe?.monthly_goal ?? 0,
     closed_amount: data.pipeline.closed_amount,
     open_amount: data.pipeline.open_amount,
@@ -165,6 +242,9 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
   const redactorInput: RedactorInput = {
     userName: data.userName,
     periodLabel: label,
+    period_status,
+    dias_habiles_restantes,
+    dias_habiles_totales,
     diagnostico,
     prediccion,
   }
@@ -176,6 +256,7 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
   })
 
   const confidence_level: 'inicial' | 'parcial' | 'completo' =
+    period_status === 'cerrado' ? 'completo' :
     daysElapsed <= 5 ? 'inicial' :
     daysElapsed <= 20 ? 'parcial' : 'completo'
 
@@ -320,7 +401,14 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
   const aiConfig = rawConfig ?? GERENTE_CONFIG_DEFAULTS
   console.log('[generateGerenteReport] config loaded', { tone: aiConfig.tone, maxTokens: aiConfig.maxTokens })
 
-  const dataHash = hashReportData({ ...teamData, periodType, periodStart, periodEnd, configTone: aiConfig.tone, configMaxTokens: aiConfig.maxTokens })
+  const ctx = computePeriodContext(periodStart, periodEnd, periodType)
+  const { today, period_status, totalDaysInPeriod, daysElapsed, dias_habiles_transcurridos, dias_habiles_restantes, dias_habiles_totales } = ctx
+
+  const dataHash = hashReportData({
+    ...teamData, periodType, periodStart, periodEnd,
+    configTone: aiConfig.tone, configMaxTokens: aiConfig.maxTokens,
+    ...(period_status === 'en_curso' ? { generation_date: today } : {}),
+  })
 
   const cached = await getCachedReport(managerUserId, 'gerente', periodType, periodStart, periodEnd, dataHash)
   if (cached) return cached
@@ -354,18 +442,18 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
   }
   const diagnostico = await runAgentDiagnosticoGerente(diagnosticoInput)
 
-  const now = new Date()
-  const monthBase = parseISO(periodStart.slice(0, 8) + '01')
-  const daysElapsed = Math.min(differenceInDays(now, monthBase) + 1, getDaysInMonth(monthBase))
-
   const prediccionInput: PrediccionGerenteInput = {
     diagnostico,
     periodType,
+    period_status,
     monthly_goal_total: teamData.monthly_goal_total,
     closed_amount_total: total_closed,
     open_amount_total: total_open,
     daysElapsed,
-    totalDaysInPeriod: getDaysInMonth(monthBase),
+    totalDaysInPeriod,
+    dias_habiles_transcurridos,
+    dias_habiles_restantes,
+    dias_habiles_totales,
     teamSize: members.length,
   }
   const prediccion = await runAgentPrediccionGerente(prediccionInput)
@@ -373,6 +461,9 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
   const redactorInput: RedactorGerenteInput = {
     managerName: teamData.managerName,
     periodLabel: label,
+    period_status,
+    dias_habiles_restantes,
+    dias_habiles_totales,
     diagnostico,
     prediccion,
     members: members.map((m) => ({ userName: m.userName, overall_compliance: m.overall_compliance })),
@@ -384,7 +475,9 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
   })
 
   const confidence_level: 'inicial' | 'parcial' | 'completo' =
-    daysElapsed <= 5 ? 'inicial' : daysElapsed <= 20 ? 'parcial' : 'completo'
+    period_status === 'cerrado' ? 'completo' :
+    daysElapsed <= 5 ? 'inicial' :
+    daysElapsed <= 20 ? 'parcial' : 'completo'
 
   return saveReport({
     user_id: managerUserId,
