@@ -58,7 +58,22 @@ export const AI_SECTIONS: Array<{
     description: 'Genera reportes automáticos de desempeño del equipo por email.',
     icon:        'FileText',
   },
+  {
+    key:         'intelligence_vendedor',
+    displayName: 'Reporte Vendedor IA',
+    description: 'Motor de inteligencia: reporte narrativo para vendedores.',
+    icon:        'TrendingUp',
+  },
+  {
+    key:         'intelligence_gerente',
+    displayName: 'Reporte Gerente IA',
+    description: 'Motor de inteligencia: reporte narrativo para gerentes de equipo.',
+    icon:        'Users',
+  },
 ]
+
+/** Keys that belong to the intelligence engine — system_prompt is informational only. */
+export const INTELLIGENCE_SECTION_KEYS = new Set(['intelligence_vendedor', 'intelligence_gerente'])
 
 // ── Hardcoded defaults (used when no DB record exists) ────────────────────────
 
@@ -153,6 +168,28 @@ export const AI_CONFIG_DEFAULTS: Record<string, Omit<AiConfig, 'updatedAt' | 'up
     displayName:       'Reportes de Equipo',
     description:       'Genera reportes automáticos de desempeño del equipo por email.',
     systemPrompt:      TEAM_REPORT_DEFAULT_PROMPT,
+    maxTokens:         900,
+    tone:              'analítico',
+    language:          'es',
+    extraInstructions: '',
+    settings:          {},
+  },
+  intelligence_vendedor: {
+    sectionKey:        'intelligence_vendedor',
+    displayName:       'Reporte Vendedor IA',
+    description:       'Motor de inteligencia: reporte narrativo para vendedores.',
+    systemPrompt:      'NOTA: Este motor usa prompts internos optimizados. El system prompt no se aplica aquí. Usa Tono, Tokens máximos e Instrucciones adicionales para personalizar el estilo de redacción.',
+    maxTokens:         900,
+    tone:              'motivacional',
+    language:          'es',
+    extraInstructions: '',
+    settings:          {},
+  },
+  intelligence_gerente: {
+    sectionKey:        'intelligence_gerente',
+    displayName:       'Reporte Gerente IA',
+    description:       'Motor de inteligencia: reporte narrativo para gerentes de equipo.',
+    systemPrompt:      'NOTA: Este motor usa prompts internos optimizados. El system prompt no se aplica aquí. Usa Tono, Tokens máximos e Instrucciones adicionales para personalizar el estilo de redacción.',
     maxTokens:         900,
     tone:              'analítico',
     language:          'es',

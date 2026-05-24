@@ -4,6 +4,29 @@ import type { PrediccionOutput } from './agent-prediccion'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+export interface RedactorConfig {
+  tone: string
+  maxTokens: number
+  extraInstructions: string
+}
+
+const TONE_INSTRUCTIONS: Record<string, string> = {
+  profesional:  'Mantén un tono profesional, preciso y orientado a negocios.',
+  motivacional: 'Mantén un tono motivacional, energizante y orientado a la acción.',
+  'analítico':  'Mantén un tono analítico, detallado y basado en datos concretos.',
+  directo:      'Sé directo y conciso. Ve al punto sin rodeos.',
+  amigable:     'Mantén un tono cercano, empático y conversacional.',
+}
+
+function buildPrompt(base: string, config?: RedactorConfig): string {
+  if (!config) return base
+  const parts = [base]
+  const toneInstruction = TONE_INSTRUCTIONS[config.tone]
+  if (toneInstruction) parts.push(`[TONO]: ${toneInstruction}`)
+  if (config.extraInstructions) parts.push(`INSTRUCCIONES ADICIONALES:\n${config.extraInstructions}`)
+  return parts.join('\n\n')
+}
+
 export interface RedactorInput {
   userName: string
   periodLabel: string
@@ -66,11 +89,11 @@ function extractJSON(raw: string): string {
   return fenced ? fenced[1].trim() : raw.trim()
 }
 
-export async function runAgentRedactor(input: RedactorInput): Promise<ReportContent> {
+export async function runAgentRedactor(input: RedactorInput, config?: RedactorConfig): Promise<ReportContent> {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
-    system: SYSTEM_PROMPT,
+    max_tokens: config?.maxTokens ?? 2048,
+    system: buildPrompt(SYSTEM_PROMPT, config),
     messages: [{ role: 'user', content: JSON.stringify(input) }],
   })
 
@@ -107,11 +130,11 @@ Reglas:
 - Responde en español
 - SOLO el JSON puro`
 
-export async function runAgentRedactorGerente(input: RedactorGerenteInput): Promise<ReportGerenteContent> {
+export async function runAgentRedactorGerente(input: RedactorGerenteInput, config?: RedactorConfig): Promise<ReportGerenteContent> {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
-    system: GERENTE_SYSTEM_PROMPT,
+    max_tokens: config?.maxTokens ?? 2048,
+    system: buildPrompt(GERENTE_SYSTEM_PROMPT, config),
     messages: [{ role: 'user', content: JSON.stringify(input) }],
   })
   const raw = response.content[0].type === 'text' ? response.content[0].text : ''

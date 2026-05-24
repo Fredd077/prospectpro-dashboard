@@ -7,6 +7,7 @@ import { runAgentPrediccion, runAgentPrediccionGerente, type PrediccionInput, ty
 import { runAgentRedactor, runAgentRedactorGerente, type RedactorInput, type RedactorGerenteInput } from './agent-redactor'
 import type { IntelligenceReport, Json } from '@/lib/types/database'
 import { toISODate } from '@/lib/utils/dates'
+import { getAiConfig } from '@/lib/utils/ai-config'
 
 export interface VendedorReportParams {
   userId: string
@@ -110,8 +111,11 @@ function periodLabel(periodType: string, periodStart: string, periodEnd: string)
 export async function generateVendedorReport(params: VendedorReportParams): Promise<IntelligenceReport> {
   const { userId, periodType, periodStart, periodEnd } = params
 
-  const data = await gatherData(params)
-  const dataHash = hashReportData({ ...data, periodType, periodStart, periodEnd })
+  const [data, aiConfig] = await Promise.all([
+    gatherData(params),
+    getAiConfig('intelligence_vendedor', getSupabaseServiceClient()),
+  ])
+  const dataHash = hashReportData({ ...data, periodType, periodStart, periodEnd, configTone: aiConfig.tone, configMaxTokens: aiConfig.maxTokens })
 
   const cached = await getCachedReport(userId, 'vendedor', periodType, periodStart, periodEnd, dataHash)
   if (cached) return cached
@@ -152,7 +156,11 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
     diagnostico,
     prediccion,
   }
-  const reportContent = await runAgentRedactor(redactorInput)
+  const reportContent = await runAgentRedactor(redactorInput, {
+    tone: aiConfig.tone,
+    maxTokens: aiConfig.maxTokens,
+    extraInstructions: aiConfig.extraInstructions,
+  })
 
   const confidence_level: 'inicial' | 'parcial' | 'completo' =
     daysElapsed <= 5 ? 'inicial' :
@@ -287,8 +295,11 @@ async function gatherTeamData(
 export async function generateGerenteReport(params: GerenteReportParams): Promise<IntelligenceReport> {
   const { managerUserId, periodType, periodStart, periodEnd } = params
 
-  const teamData = await gatherTeamData(managerUserId, periodType, periodStart)
-  const dataHash = hashReportData({ ...teamData, periodType, periodStart, periodEnd })
+  const [teamData, aiConfig] = await Promise.all([
+    gatherTeamData(managerUserId, periodType, periodStart),
+    getAiConfig('intelligence_gerente', getSupabaseServiceClient()),
+  ])
+  const dataHash = hashReportData({ ...teamData, periodType, periodStart, periodEnd, configTone: aiConfig.tone, configMaxTokens: aiConfig.maxTokens })
 
   const cached = await getCachedReport(managerUserId, 'gerente', periodType, periodStart, periodEnd, dataHash)
   if (cached) return cached
@@ -345,7 +356,11 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
     prediccion,
     members: members.map((m) => ({ userName: m.userName, overall_compliance: m.overall_compliance })),
   }
-  const reportContent = await runAgentRedactorGerente(redactorInput)
+  const reportContent = await runAgentRedactorGerente(redactorInput, {
+    tone: aiConfig.tone,
+    maxTokens: aiConfig.maxTokens,
+    extraInstructions: aiConfig.extraInstructions,
+  })
 
   const confidence_level: 'inicial' | 'parcial' | 'completo' =
     daysElapsed <= 5 ? 'inicial' : daysElapsed <= 20 ? 'parcial' : 'completo'

@@ -2,14 +2,14 @@
 
 import { useState, useCallback } from 'react'
 import {
-  Brain, BookOpen, BrainCircuit, FileText,
+  Brain, BookOpen, BrainCircuit, FileText, TrendingUp, Users,
   Save, RotateCcw, ChevronDown, ChevronUp,
   AlertTriangle, CheckCircle2, Info, Loader2,
   Sliders, Type, Zap, Settings2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { AiConfig, AiTone } from '@/lib/utils/ai-config'
-import { AI_SECTIONS, AI_CONFIG_DEFAULTS } from '@/lib/utils/ai-config'
+import { AI_SECTIONS, AI_CONFIG_DEFAULTS, INTELLIGENCE_SECTION_KEYS } from '@/lib/utils/ai-config'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -20,10 +20,12 @@ interface Props {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const SECTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  coach:        Brain,
-  recipe:       BookOpen,
-  gerente_chat: BrainCircuit,
-  team_report:  FileText,
+  coach:                  Brain,
+  recipe:                 BookOpen,
+  gerente_chat:           BrainCircuit,
+  team_report:            FileText,
+  intelligence_vendedor:  TrendingUp,
+  intelligence_gerente:   Users,
 }
 
 const TONES: { value: AiTone; label: string; description: string; color: string }[] = [
@@ -56,6 +58,7 @@ export function AiConfigEditor({ initialConfigs }: Props) {
 
   const current = configs[activeSection]!
   const defaults = AI_CONFIG_DEFAULTS[activeSection]!
+  const isIntelligenceSection = INTELLIGENCE_SECTION_KEYS.has(activeSection)
 
   const isDirty = current.systemPrompt      !== defaults.systemPrompt      ||
                   current.maxTokens         !== defaults.maxTokens         ||
@@ -284,37 +287,55 @@ export function AiConfigEditor({ initialConfigs }: Props) {
         </div>
 
         {/* ── System prompt ─────────────────────────────────────────── */}
-        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
+        {isIntelligenceSection ? (
+          <div className="rounded-lg bg-[#0d1117] border border-cyan-400/20 p-5">
+            <div className="flex items-center gap-2 mb-3">
               <Zap className="h-4 w-4 text-cyan-400" />
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-white/50">System prompt</p>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-xs font-mono text-white/30">
-                {current.systemPrompt.length.toLocaleString()} caracteres
-              </span>
-              <button onClick={() => patch('systemPrompt', defaults.systemPrompt)}
-                className="text-xs text-white/30 hover:text-white/60 underline transition-colors">
-                Restaurar default
-              </button>
+            <div className="flex items-start gap-3 rounded-md border border-cyan-400/15 bg-cyan-400/5 px-4 py-3">
+              <Info className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-cyan-300/70 leading-relaxed">
+                El motor de inteligencia usa prompts internos optimizados para garantizar una salida JSON estructurada correcta.
+                El system prompt no es editable aquí. Usa <strong className="text-cyan-300">Tono</strong>,{' '}
+                <strong className="text-cyan-300">Tokens máximos</strong> e{' '}
+                <strong className="text-cyan-300">Instrucciones adicionales</strong> para personalizar el estilo de redacción de los reportes.
+              </p>
             </div>
           </div>
-          <textarea
-            value={current.systemPrompt}
-            onChange={(e) => patch('systemPrompt', e.target.value)}
-            rows={18}
-            spellCheck={false}
-            className="w-full rounded bg-[#080b12] border border-white/[0.06] px-4 py-3 text-sm font-mono text-white/70 placeholder-white/20 focus:outline-none focus:border-cyan-400/30 resize-y leading-relaxed"
-            placeholder="Ingresa las instrucciones del sistema para este módulo de IA..."
-          />
-          <div className="flex items-start gap-2 mt-3">
-            <Info className="h-3.5 w-3.5 text-white/20 shrink-0 mt-0.5" />
-            <p className="text-xs text-white/30">
-              El contexto de datos (actividades, pipeline, métricas) se inyecta automáticamente. Este prompt define la personalidad, estilo y reglas de comportamiento del AI.
-            </p>
+        ) : (
+          <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-cyan-400" />
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-white/50">System prompt</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-xs font-mono text-white/30">
+                  {current.systemPrompt.length.toLocaleString()} caracteres
+                </span>
+                <button onClick={() => patch('systemPrompt', defaults.systemPrompt)}
+                  className="text-xs text-white/30 hover:text-white/60 underline transition-colors">
+                  Restaurar default
+                </button>
+              </div>
+            </div>
+            <textarea
+              value={current.systemPrompt}
+              onChange={(e) => patch('systemPrompt', e.target.value)}
+              rows={18}
+              spellCheck={false}
+              className="w-full rounded bg-[#080b12] border border-white/[0.06] px-4 py-3 text-sm font-mono text-white/70 placeholder-white/20 focus:outline-none focus:border-cyan-400/30 resize-y leading-relaxed"
+              placeholder="Ingresa las instrucciones del sistema para este módulo de IA..."
+            />
+            <div className="flex items-start gap-2 mt-3">
+              <Info className="h-3.5 w-3.5 text-white/20 shrink-0 mt-0.5" />
+              <p className="text-xs text-white/30">
+                El contexto de datos (actividades, pipeline, métricas) se inyecta automáticamente. Este prompt define la personalidad, estilo y reglas de comportamiento del AI.
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── Extra instructions ────────────────────────────────────── */}
         <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] p-5">
@@ -332,8 +353,8 @@ export function AiConfigEditor({ initialConfigs }: Props) {
           />
         </div>
 
-        {/* ── Preview prompt ────────────────────────────────────────── */}
-        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] overflow-hidden">
+        {/* ── Preview prompt (hidden for intelligence sections) ─────── */}
+        {!isIntelligenceSection && <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] overflow-hidden">
           <button onClick={() => setShowPreview((v) => !v)}
             className="w-full flex items-center justify-between px-5 py-4 text-xs font-bold uppercase tracking-[0.12em] text-white/40 hover:text-white/70 hover:bg-white/[0.02] transition-all">
             <span className="flex items-center gap-2">
@@ -349,7 +370,7 @@ export function AiConfigEditor({ initialConfigs }: Props) {
               </pre>
             </div>
           )}
-        </div>
+        </div>}
 
         {/* Metadata */}
         {current.updatedAt && (
