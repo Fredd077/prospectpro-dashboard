@@ -171,8 +171,8 @@ function periodLabel(periodType: string, periodStart: string, periodEnd: string)
   return `${names[parseInt(month) - 1]} ${year}`
 }
 
-const VENDEDOR_CONFIG_DEFAULTS = { tone: 'motivacional', maxTokens: 900, extraInstructions: '' }
-const GERENTE_CONFIG_DEFAULTS  = { tone: 'analítico',    maxTokens: 900, extraInstructions: '' }
+const VENDEDOR_CONFIG_DEFAULTS = { tone: 'motivacional', maxTokens: 1500, extraInstructions: '' }
+const GERENTE_CONFIG_DEFAULTS  = { tone: 'analítico',    maxTokens: 2000, extraInstructions: '' }
 
 export async function generateVendedorReport(params: VendedorReportParams): Promise<IntelligenceReport> {
   const { userId, periodType, periodStart, periodEnd } = params

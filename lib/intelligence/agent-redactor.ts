@@ -46,7 +46,9 @@ export interface ReportContent {
   mensaje_motivacional: string
 }
 
-const SYSTEM_PROMPT = `Eres un coach comercial experto. Redacta el reporte de rendimiento del vendedor de forma clara y directa. Devuelve ÚNICAMENTE un JSON válido sin markdown.
+const SYSTEM_PROMPT = `RESPONDE ÚNICAMENTE CON EL JSON PURO. Sin texto antes. Sin texto después. Sin markdown. Si agregas cualquier texto fuera del JSON el sistema falla.
+
+Eres un coach comercial experto. Redacta el reporte de rendimiento del vendedor de forma clara y directa.
 
 El JSON debe tener exactamente esta estructura:
 {
@@ -72,7 +74,8 @@ Reglas generales:
 - mensaje_motivacional: 1 oración personalizada con el nombre del vendedor y datos reales
 - Específico con números, nunca genérico ni vago
 - Responde en español
-- NO incluyas markdown, SOLO el JSON puro`
+- NO incluyas markdown, SOLO el JSON puro
+- El tono aplica al ESTILO de redacción dentro de los campos de texto, nunca para agregar texto fuera del JSON`
 
 export interface ReportGerenteContent {
   resumen_ejecutivo: string
@@ -97,27 +100,35 @@ export interface RedactorGerenteInput {
 
 function extractJSON(raw: string): string {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
-  return fenced ? fenced[1].trim() : raw.trim()
+  if (fenced) return fenced[1].trim()
+  // Find the outermost {...} block even if model adds text before/after
+  const obj = raw.match(/\{[\s\S]*\}/)
+  return obj ? obj[0].trim() : raw.trim()
 }
 
 export async function runAgentRedactor(input: RedactorInput, config?: RedactorConfig): Promise<ReportContent> {
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: config?.maxTokens ?? 2048,
-    system: buildPrompt(SYSTEM_PROMPT, config),
-    messages: [{ role: 'user', content: JSON.stringify(input) }],
-  })
-
-  const raw = response.content[0].type === 'text' ? response.content[0].text : ''
-  try {
-    return JSON.parse(extractJSON(raw)) as ReportContent
-  } catch {
-    console.error('[agent-redactor] JSON parse failed. Raw response:', raw)
-    throw new Error('agent-redactor returned invalid JSON')
+  const maxAttempts = 2
+  let lastRaw = ''
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: config?.maxTokens ?? 2048,
+      system: buildPrompt(SYSTEM_PROMPT, config),
+      messages: [{ role: 'user', content: JSON.stringify(input) }],
+    })
+    lastRaw = response.content[0].type === 'text' ? response.content[0].text : ''
+    try {
+      return JSON.parse(extractJSON(lastRaw)) as ReportContent
+    } catch {
+      console.error(`[agent-redactor] JSON parse failed (attempt ${attempt}/${maxAttempts}). Raw:`, lastRaw)
+    }
   }
+  throw new Error('agent-redactor returned invalid JSON')
 }
 
-const GERENTE_SYSTEM_PROMPT = `Eres un coach ejecutivo de ventas. Redacta el reporte del equipo para el gerente de forma clara y accionable. Devuelve ÚNICAMENTE un JSON válido sin markdown.
+const GERENTE_SYSTEM_PROMPT = `RESPONDE ÚNICAMENTE CON EL JSON PURO. Sin texto antes. Sin texto después. Sin markdown. Si agregas cualquier texto fuera del JSON el sistema falla.
+
+Eres un coach ejecutivo de ventas. Redacta el reporte del equipo para el gerente de forma clara y accionable.
 
 El JSON debe tener exactamente esta estructura:
 {
@@ -143,20 +154,25 @@ Reglas generales:
 - acciones_gestion: exactamente 3 acciones de gestión
 - mensaje_gerente: 1 oración motivadora con nombre del gerente y datos reales
 - Responde en español
-- SOLO el JSON puro`
+- SOLO el JSON puro
+- El tono aplica al ESTILO de redacción dentro de los campos de texto, nunca para agregar texto fuera del JSON`
 
 export async function runAgentRedactorGerente(input: RedactorGerenteInput, config?: RedactorConfig): Promise<ReportGerenteContent> {
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: config?.maxTokens ?? 2048,
-    system: buildPrompt(GERENTE_SYSTEM_PROMPT, config),
-    messages: [{ role: 'user', content: JSON.stringify(input) }],
-  })
-  const raw = response.content[0].type === 'text' ? response.content[0].text : ''
-  try {
-    return JSON.parse(extractJSON(raw)) as ReportGerenteContent
-  } catch {
-    console.error('[agent-redactor-gerente] JSON parse failed. Raw:', raw)
-    throw new Error('agent-redactor-gerente returned invalid JSON')
+  const maxAttempts = 2
+  let lastRaw = ''
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: config?.maxTokens ?? 2048,
+      system: buildPrompt(GERENTE_SYSTEM_PROMPT, config),
+      messages: [{ role: 'user', content: JSON.stringify(input) }],
+    })
+    lastRaw = response.content[0].type === 'text' ? response.content[0].text : ''
+    try {
+      return JSON.parse(extractJSON(lastRaw)) as ReportGerenteContent
+    } catch {
+      console.error(`[agent-redactor-gerente] JSON parse failed (attempt ${attempt}/${maxAttempts}). Raw:`, lastRaw)
+    }
   }
+  throw new Error('agent-redactor-gerente returned invalid JSON')
 }
