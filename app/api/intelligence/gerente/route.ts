@@ -3,6 +3,10 @@ import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabas
 import { generateGerenteReport } from '@/lib/intelligence/intelligence-engine'
 import { todayISO, toISODate } from '@/lib/utils/dates'
 
+function reanchorNoon(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0))
+}
+
 export async function POST(req: Request) {
   try {
     const sb = await getSupabaseServerClient()
@@ -38,12 +42,12 @@ export async function POST(req: Request) {
       periodEnd = periodStart
     } else if (periodType === 'weekly') {
       const base = parseISO(body.periodStart ?? today)
-      periodStart = toISODate(startOfWeek(base, { weekStartsOn: 1 }))
-      periodEnd = toISODate(endOfWeek(base, { weekStartsOn: 1 }))
+      periodStart = body.periodStart ?? toISODate(reanchorNoon(startOfWeek(base, { weekStartsOn: 1 })))
+      periodEnd = toISODate(endOfWeek(parseISO(periodStart), { weekStartsOn: 1 }))
     } else {
       const base = parseISO(body.periodStart ?? today)
-      periodStart = toISODate(startOfMonth(base))
-      periodEnd = toISODate(endOfMonth(base))
+      periodStart = body.periodStart ?? toISODate(reanchorNoon(startOfMonth(base)))
+      periodEnd = toISODate(endOfMonth(parseISO(periodStart)))
     }
 
     const report = await generateGerenteReport({

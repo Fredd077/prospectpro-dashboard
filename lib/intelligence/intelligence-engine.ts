@@ -298,6 +298,7 @@ async function gatherTeamData(
   managerUserId: string,
   periodType: VendedorReportParams['periodType'],
   periodStart: string,
+  periodEnd: string,
 ) {
   const sb = getSupabaseServiceClient()
   const monthStart = periodStart.slice(0, 8) + '01'
@@ -335,7 +336,7 @@ async function gatherTeamData(
     { data: allScenarios },
   ] = await Promise.all([
     sb.from('activities').select('id,user_id,name,type,daily_goal,weekly_goal,monthly_goal').in('user_id', memberIds).eq('status', 'active'),
-    sb.from('activity_logs').select('user_id,activity_id,real_executed').in('user_id', memberIds).gte('log_date', periodStart).lte('log_date', monthEnd),
+    sb.from('activity_logs').select('user_id,activity_id,real_executed').in('user_id', memberIds).gte('log_date', periodStart).lte('log_date', periodEnd),
     sb.from('pipeline_simple').select('user_id,status,amount_usd').in('user_id', memberIds).gte('entry_date', monthStart).lte('entry_date', monthEnd),
     sb.from('recipe_scenarios').select('user_id,monthly_revenue_goal').in('user_id', memberIds).eq('is_active', true),
   ])
@@ -392,7 +393,7 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
   console.log('[generateGerenteReport] start', { managerUserId, periodType, periodStart })
 
   const [teamData, rawConfig] = await Promise.all([
-    gatherTeamData(managerUserId, periodType, periodStart),
+    gatherTeamData(managerUserId, periodType, periodStart, periodEnd),
     getAiConfig('intelligence_gerente', getSupabaseServiceClient()).catch((err: unknown) => {
       console.warn('[generateGerenteReport] getAiConfig failed, using defaults:', (err as Error)?.message)
       return null
@@ -400,6 +401,17 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
   ])
   const aiConfig = rawConfig ?? GERENTE_CONFIG_DEFAULTS
   console.log('[generateGerenteReport] config loaded', { tone: aiConfig.tone, maxTokens: aiConfig.maxTokens })
+
+  // No-data guard — don't call agents if team has no meaningful data for the period
+  const totalTeamActivity = teamData.members.reduce(
+    (s, m) => s + m.activities.reduce((as, a) => as + a.real, 0), 0
+  )
+  const totalTeamPipeline = teamData.members.reduce(
+    (s, m) => s + m.pipeline.closed_amount + m.pipeline.open_amount, 0
+  )
+  if (totalTeamActivity === 0 && totalTeamPipeline === 0) {
+    throw new NoDataError('No hay datos registrados en este período para el equipo. Selecciona otro período o registra actividad.')
+  }
 
   const ctx = computePeriodContext(periodStart, periodEnd, periodType)
   const { today, period_status, totalDaysInPeriod, daysElapsed, dias_habiles_transcurridos, dias_habiles_restantes, dias_habiles_totales } = ctx
