@@ -49,6 +49,27 @@ Reglas:
 - Responde en español
 - NO incluyas markdown, SOLO el JSON puro`
 
+export interface PrediccionGerenteInput {
+  diagnostico: import('./agent-diagnostico').DiagnosticoGerenteOutput
+  periodType: 'daily' | 'weekly' | 'monthly'
+  monthly_goal_total: number
+  closed_amount_total: number
+  open_amount_total: number
+  daysElapsed: number
+  totalDaysInPeriod: number
+  teamSize: number
+}
+
+export interface PrediccionGerenteOutput {
+  tendencia_equipo: 'positiva' | 'negativa' | 'estable'
+  ingreso_proyectado_equipo: number
+  probabilidad_meta_equipo_pct: number
+  miembros_necesitan_intervencion: { nombre: string; accion_recomendada: string }[]
+  riesgo_principal: string
+  escenario_optimista: string
+  escenario_pesimista: string
+}
+
 function extractJSON(raw: string): string {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
   return fenced ? fenced[1].trim() : raw.trim()
@@ -68,5 +89,44 @@ export async function runAgentPrediccion(input: PrediccionInput): Promise<Predic
   } catch {
     console.error('[agent-prediccion] JSON parse failed. Raw response:', raw)
     throw new Error('agent-prediccion returned invalid JSON')
+  }
+}
+
+const GERENTE_SYSTEM_PROMPT = `Eres un analista predictivo de equipos comerciales. Proyecta el resultado del equipo y devuelve ÚNICAMENTE un JSON válido sin markdown.
+
+El JSON debe tener exactamente esta estructura:
+{
+  "tendencia_equipo": "positiva"|"negativa"|"estable",
+  "ingreso_proyectado_equipo": number,
+  "probabilidad_meta_equipo_pct": number,
+  "miembros_necesitan_intervencion": [{"nombre": string, "accion_recomendada": string}],
+  "riesgo_principal": string,
+  "escenario_optimista": string,
+  "escenario_pesimista": string
+}
+
+Reglas:
+- tendencia_equipo: basada en cumplimiento promedio y ritmo actual vs meta del equipo
+- ingreso_proyectado_equipo: extrapolación lineal del cierre del equipo al mes completo
+- probabilidad_meta_equipo_pct: 0-100, qué tan probable que el equipo alcance su meta agregada
+- miembros_necesitan_intervencion: máximo 3, los que más impactan el riesgo del equipo
+- riesgo_principal: el mayor riesgo del equipo en 1 oración con número concreto
+- escenarios: 1 oración cada uno con números reales
+- Responde en español
+- SOLO el JSON puro`
+
+export async function runAgentPrediccionGerente(input: PrediccionGerenteInput): Promise<PrediccionGerenteOutput> {
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1500,
+    system: GERENTE_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: JSON.stringify(input) }],
+  })
+  const raw = response.content[0].type === 'text' ? response.content[0].text : ''
+  try {
+    return JSON.parse(extractJSON(raw)) as PrediccionGerenteOutput
+  } catch {
+    console.error('[agent-prediccion-gerente] JSON parse failed. Raw:', raw)
+    throw new Error('agent-prediccion-gerente returned invalid JSON')
   }
 }

@@ -62,6 +62,35 @@ Reglas:
 - Responde en español
 - NO incluyas markdown, NO incluyas \`\`\`json, SOLO el JSON puro`
 
+export interface DiagnosticoGerenteInput {
+  managerName: string
+  periodLabel: string
+  teamSize: number
+  members: {
+    userName: string
+    overall_compliance: number
+    activities: { name: string; type: string; goal: number; real: number; compliance_pct: number }[]
+    pipeline: { open_amount: number; closed_amount: number; won_count: number; lost_count: number }
+  }[]
+  teamAggregates: {
+    avg_compliance: number
+    total_closed_amount: number
+    total_open_amount: number
+    members_at_risk: number
+    members_on_track: number
+    monthly_goal_total: number
+  }
+}
+
+export interface DiagnosticoGerenteOutput {
+  avg_compliance_pct: number
+  at_risk_members: { nombre: string; compliance: number; motivo: string }[]
+  fortalezas_equipo: string[]
+  debilidades_equipo: string[]
+  patron_fallo_comun: string
+  nivel_urgencia: 'alto' | 'medio' | 'bajo'
+}
+
 function extractJSON(raw: string): string {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
   return fenced ? fenced[1].trim() : raw.trim()
@@ -81,5 +110,43 @@ export async function runAgentDiagnostico(input: DiagnosticoInput): Promise<Diag
   } catch {
     console.error('[agent-diagnostico] JSON parse failed. Raw response:', raw)
     throw new Error('agent-diagnostico returned invalid JSON')
+  }
+}
+
+const GERENTE_SYSTEM_PROMPT = `Eres un analista de rendimiento de equipos comerciales. Analiza los datos del equipo y devuelve ÚNICAMENTE un JSON válido sin markdown.
+
+El JSON debe tener exactamente esta estructura:
+{
+  "avg_compliance_pct": number,
+  "at_risk_members": [{"nombre": string, "compliance": number, "motivo": string}],
+  "fortalezas_equipo": string[],
+  "debilidades_equipo": string[],
+  "patron_fallo_comun": string,
+  "nivel_urgencia": "alto"|"medio"|"bajo"
+}
+
+Reglas:
+- avg_compliance_pct: cumplimiento promedio del equipo en el período
+- at_risk_members: miembros con cumplimiento < 70%, con motivo específico basado en datos reales
+- fortalezas_equipo: 2-3 fortalezas del equipo con números reales
+- debilidades_equipo: 2-3 debilidades con acciones concretas
+- patron_fallo_comun: actividad o comportamiento donde más miembros fallan simultáneamente
+- nivel_urgencia: alto si avg_compliance < 50%, medio si 50-75%, bajo si > 75%
+- Responde en español
+- NO incluyas markdown, SOLO el JSON puro`
+
+export async function runAgentDiagnosticoGerente(input: DiagnosticoGerenteInput): Promise<DiagnosticoGerenteOutput> {
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1500,
+    system: GERENTE_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: JSON.stringify(input) }],
+  })
+  const raw = response.content[0].type === 'text' ? response.content[0].text : ''
+  try {
+    return JSON.parse(extractJSON(raw)) as DiagnosticoGerenteOutput
+  } catch {
+    console.error('[agent-diagnostico-gerente] JSON parse failed. Raw:', raw)
+    throw new Error('agent-diagnostico-gerente returned invalid JSON')
   }
 }

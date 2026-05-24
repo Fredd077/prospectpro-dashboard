@@ -1,9 +1,7 @@
 import { startOfWeek } from 'date-fns'
 import { getSupabaseServiceClient } from '@/lib/supabase/server'
 import { todayISO, toISODate } from '@/lib/utils/dates'
-import { buildWeeklyContextForCron } from '@/lib/utils/coach-context'
-import { generateAndSaveCoachMessage } from '@/lib/utils/coach-generator'
-import { generateTeamReport } from '@/lib/utils/team-report'
+import { generateVendedorReport, generateGerenteReport } from '@/lib/intelligence/intelligence-engine'
 
 export const maxDuration = 300
 
@@ -16,19 +14,14 @@ export async function GET(req: Request) {
   const sb    = getSupabaseServiceClient()
   const today = todayISO()
 
-  // Weekly runs Friday — analyse Mon-Fri of current week
-  // startOfWeek returns local midnight; re-anchor to noon UTC so toISODate never
-  // rolls back a day on negative-UTC-offset servers (e.g. Bogota UTC-5 on Vercel)
+  // Compute thisMonday and thisFriday (timezone-safe, anchored to noon UTC)
   const [ty, tm, td] = today.split('-').map(Number)
-  const todayNoon = new Date(Date.UTC(ty, tm - 1, td, 12, 0, 0))
-  const rawMonday = startOfWeek(todayNoon, { weekStartsOn: 1 })
-  const mondayNoon = new Date(Date.UTC(
-    rawMonday.getUTCFullYear(),
-    rawMonday.getUTCMonth(),
-    rawMonday.getUTCDate(),
-    12, 0, 0,
-  ))
-  const thisMonday = toISODate(mondayNoon)
+  const todayNoon   = new Date(Date.UTC(ty, tm - 1, td, 12, 0, 0))
+  const rawMonday   = startOfWeek(todayNoon, { weekStartsOn: 1 })
+  const mondayNoon  = new Date(Date.UTC(rawMonday.getUTCFullYear(), rawMonday.getUTCMonth(), rawMonday.getUTCDate(), 12, 0, 0))
+  const fridayNoon  = new Date(mondayNoon.getTime() + 4 * 24 * 60 * 60 * 1000)
+  const thisMonday  = toISODate(mondayNoon)
+  const thisFriday  = toISODate(fridayNoon)
 
   const { data: users, error } = await sb
     .from('profiles')
@@ -43,22 +36,21 @@ export async function GET(req: Request) {
   const allUsers = users ?? []
   const userIds  = allUsers.map((u) => u.id)
 
-  // ── Bulk pre-fetch all skip checks (2 queries instead of N×2) ─────────────
-  const [doneRes, logsRes] = await Promise.all([
-    sb.from('coach_messages').select('user_id').eq('type', 'weekly').eq('period_date', thisMonday).in('user_id', userIds),
-    sb.from('activity_logs').select('user_id,log_date').gte('log_date', thisMonday).lte('log_date', today).in('user_id', userIds),
-  ])
+  // Skip users with fewer than 2 active days this week
+  const { data: logsData } = await sb
+    .from('activity_logs')
+    .select('user_id,log_date')
+    .gte('log_date', thisMonday)
+    .lte('log_date', today)
+    .in('user_id', userIds)
 
-  const alreadyDone = new Set((doneRes.data ?? []).map((r) => r.user_id))
-  const daysByUser  = new Map<string, Set<string>>()
-  for (const log of logsRes.data ?? []) {
+  const daysByUser = new Map<string, Set<string>>()
+  for (const log of logsData ?? []) {
     if (!daysByUser.has(log.user_id)) daysByUser.set(log.user_id, new Set())
     daysByUser.get(log.user_id)!.add(log.log_date as string)
   }
 
-  const eligible = allUsers.filter((u) =>
-    !alreadyDone.has(u.id) && (daysByUser.get(u.id)?.size ?? 0) >= 2
-  )
+  const eligible = allUsers.filter((u) => (daysByUser.get(u.id)?.size ?? 0) >= 2)
 
   let generated = 0
   const skipped = allUsers.length - eligible.length
@@ -69,11 +61,7 @@ export async function GET(req: Request) {
     const batch = eligible.slice(i, i + BATCH_SIZE)
     await Promise.all(batch.map(async (user) => {
       try {
-        const ctx    = await buildWeeklyContextForCron(user.id, thisMonday, sb)
-        const result = await generateAndSaveCoachMessage(ctx, 'weekly', thisMonday, sb)
-        if (result.id) {
-          await sb.from('coach_messages').update({ user_id: user.id } as never).eq('id', result.id)
-        }
+        await generateVendedorReport({ userId: user.id, periodType: 'weekly', periodStart: thisMonday, periodEnd: thisFriday })
         generated++
         console.log(`[cron/weekly-coach] Generated for ${user.id} (${user.full_name ?? 'unknown'})`)
       } catch (err) {
@@ -87,77 +75,28 @@ export async function GET(req: Request) {
   const summary = { date: today, weekStart: thisMonday, generated, skipped, errors: errors.length ? errors : undefined }
   console.log('[cron/weekly-coach]', JSON.stringify(summary))
 
-  // ── Admin team report: fire after all individual messages, fail silently ────
-  try {
-    const { data: admin } = await sb
-      .from('profiles')
-      .select('id, email')
-      .eq('role', 'admin')
-      .limit(1)
-      .single()
-
-    if (admin?.email) {
-      await generateTeamReport(
-        {
-          scope:        'team',
-          weekStart:    thisMonday,
-          adminUserId:  admin.id,
-          adminEmail:   admin.email,
-          triggeredBy:  'auto',
-        },
-        sb,
-      )
-      console.log('[cron/weekly-coach] Admin team report sent to', admin.email)
-    }
-  } catch (err) {
-    console.error('[cron/weekly-coach] Admin team report failed (non-blocking):', err)
-  }
-
-  // ── Manager team reports: one per manager, scoped to their company ────────
+  // ── Manager team reports ──────────────────────────────────────────────────
+  let gerenteGenerated = 0
   try {
     const { data: managers } = await sb
       .from('profiles')
-      .select('id, email, company')
+      .select('id')
       .eq('org_role', 'manager')
       .in('role', ['active', 'admin'])
-      .not('email', 'is', null)
       .not('company', 'is', null)
 
     for (const mgr of managers ?? []) {
       try {
-        // Skip if already generated for this Monday
-        const { data: existing } = await sb
-          .from('coach_messages')
-          .select('id')
-          .eq('user_id', mgr.id)
-          .eq('type', 'team_report')
-          .eq('period_date', thisMonday)
-          .maybeSingle()
-
-        if (existing) {
-          console.log(`[cron/weekly-coach] Manager report already exists for ${mgr.id}`)
-          continue
-        }
-
-        await generateTeamReport(
-          {
-            scope:         'team',
-            weekStart:     thisMonday,
-            adminUserId:   mgr.id,
-            adminEmail:    mgr.email!,
-            triggeredBy:   'auto',
-            filterCompany: mgr.company!,
-          },
-          sb,
-        )
-        console.log(`[cron/weekly-coach] Manager report sent to ${mgr.email} (${mgr.company})`)
-      } catch (mgrErr) {
-        console.error(`[cron/weekly-coach] Manager report failed for ${mgr.id}:`, mgrErr)
+        await generateGerenteReport({ managerUserId: mgr.id, periodType: 'weekly', periodStart: thisMonday, periodEnd: thisFriday })
+        gerenteGenerated++
+        console.log(`[cron/weekly-coach] Gerente report for ${mgr.id}`)
+      } catch (err) {
+        console.error(`[cron/weekly-coach] Gerente report failed for ${mgr.id}:`, err)
       }
     }
   } catch (err) {
-    console.error('[cron/weekly-coach] Manager reports loop failed (non-blocking):', err)
+    console.error('[cron/weekly-coach] Manager reports loop failed:', err)
   }
 
-  return Response.json(summary)
+  return Response.json({ ...summary, gerenteGenerated })
 }

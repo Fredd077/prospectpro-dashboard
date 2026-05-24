@@ -43,6 +43,24 @@ Reglas:
 - Responde en español
 - NO incluyas markdown, SOLO el JSON puro`
 
+export interface ReportGerenteContent {
+  resumen_ejecutivo: string
+  diagnostico_equipo: string
+  ranking_rendimiento: { posicion: number; nombre: string; compliance: number; estado: 'en_riesgo' | 'en_camino' | 'destacado' }[]
+  alertas_individuales: { nombre: string; alerta: string; accion: string }[]
+  prediccion_narrativa: string
+  acciones_gestion: { accion: string; prioridad: 'alta' | 'media' | 'baja'; deadline: string }[]
+  mensaje_gerente: string
+}
+
+export interface RedactorGerenteInput {
+  managerName: string
+  periodLabel: string
+  diagnostico: import('./agent-diagnostico').DiagnosticoGerenteOutput
+  prediccion: import('./agent-prediccion').PrediccionGerenteOutput
+  members: { userName: string; overall_compliance: number }[]
+}
+
 function extractJSON(raw: string): string {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
   return fenced ? fenced[1].trim() : raw.trim()
@@ -62,5 +80,45 @@ export async function runAgentRedactor(input: RedactorInput): Promise<ReportCont
   } catch {
     console.error('[agent-redactor] JSON parse failed. Raw response:', raw)
     throw new Error('agent-redactor returned invalid JSON')
+  }
+}
+
+const GERENTE_SYSTEM_PROMPT = `Eres un coach ejecutivo de ventas. Redacta el reporte del equipo para el gerente de forma clara y accionable. Devuelve ÚNICAMENTE un JSON válido sin markdown.
+
+El JSON debe tener exactamente esta estructura:
+{
+  "resumen_ejecutivo": string,
+  "diagnostico_equipo": string,
+  "ranking_rendimiento": [{"posicion": number, "nombre": string, "compliance": number, "estado": "en_riesgo"|"en_camino"|"destacado"}],
+  "alertas_individuales": [{"nombre": string, "alerta": string, "accion": string}],
+  "prediccion_narrativa": string,
+  "acciones_gestion": [{"accion": string, "prioridad": "alta"|"media"|"baja", "deadline": string}],
+  "mensaje_gerente": string
+}
+
+Reglas:
+- resumen_ejecutivo: 2-3 oraciones con los KPIs más importantes del equipo y números reales
+- diagnostico_equipo: párrafo de 3-4 oraciones sobre el estado del equipo con datos específicos
+- ranking_rendimiento: TODOS los miembros, ordenados de mejor a peor; estado: destacado >= 80%, en_camino 50-79%, en_riesgo < 50%
+- alertas_individuales: solo miembros con compliance < 70%, máximo 3; con alerta concreta y acción inmediata
+- prediccion_narrativa: 2-3 oraciones sobre el resultado proyectado del equipo
+- acciones_gestion: exactamente 3 acciones de gestión con deadline concreto (esta semana, esta quincena, etc.)
+- mensaje_gerente: 1 oración motivadora para el gerente personalizada con su nombre y datos reales
+- Responde en español
+- SOLO el JSON puro`
+
+export async function runAgentRedactorGerente(input: RedactorGerenteInput): Promise<ReportGerenteContent> {
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 2048,
+    system: GERENTE_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: JSON.stringify(input) }],
+  })
+  const raw = response.content[0].type === 'text' ? response.content[0].text : ''
+  try {
+    return JSON.parse(extractJSON(raw)) as ReportGerenteContent
+  } catch {
+    console.error('[agent-redactor-gerente] JSON parse failed. Raw:', raw)
+    throw new Error('agent-redactor-gerente returned invalid JSON')
   }
 }

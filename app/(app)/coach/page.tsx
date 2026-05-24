@@ -1,46 +1,52 @@
 import type { Metadata } from 'next'
-import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
 import { TopBar } from '@/components/layout/TopBar'
-import { CoachHistoryClient } from '@/components/coach/CoachHistoryClient'
+import { IntelligenceHistoryClient } from '@/components/coach/IntelligenceHistoryClient'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import type { IntelligenceReportCardProps } from '@/components/coach/IntelligenceReportCard'
 
 export const metadata: Metadata = {
   title: 'Reportes Coach IA — ProspectPro',
   description: 'Todos tus reportes de prospección en un lugar',
 }
 
-interface PageProps {
-  searchParams: Promise<{ type?: string; month?: string }>
-}
-
-export default async function CoachPage({ searchParams }: PageProps) {
-  const { type: typeFilter = 'all', month: monthFilter } = await searchParams
+export default async function CoachPage() {
   const sb = await getSupabaseServerClient()
 
-  // Build query — exclude team_report (admin-only, shown in Admin Command Center)
-  let query = sb
-    .from('coach_messages')
-    .select('id,type,message,context,period_date,user_comment,is_read,created_at')
-    .neq('type', 'team_report')
-    .order('period_date', { ascending: false })
-    .order('created_at', { ascending: false })
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) return null
 
-  if (typeFilter !== 'all') query = query.eq('type', typeFilter as 'daily' | 'weekly' | 'monthly')
-  if (monthFilter) {
-    const start = `${monthFilter}-01`
-    const [y, m] = monthFilter.split('-').map(Number)
-    const end = `${monthFilter}-${new Date(y, m, 0).getDate().toString().padStart(2, '0')}`
-    query = query.gte('period_date', start).lte('period_date', end)
-  }
-
-  const [{ data: messages }, { data: allMonths }, { count: unreadCount }] = await Promise.all([
-    query,
-    sb.from('coach_messages').select('period_date').order('period_date', { ascending: false }),
-    sb.from('coach_messages').select('id', { count: 'exact', head: true }).eq('is_read', false),
+  const [{ data: profile }, { data: vendedorRows }, { data: gerenteRows }] = await Promise.all([
+    sb.from('profiles').select('org_role').eq('id', user.id).maybeSingle(),
+    sb.from('intelligence_reports')
+      .select('id,report_audience,period_type,period_start,period_end,report_content,confidence_level,periods_analyzed,created_at')
+      .eq('user_id', user.id)
+      .eq('report_audience', 'vendedor')
+      .order('period_start', { ascending: false })
+      .order('created_at', { ascending: false }),
+    sb.from('intelligence_reports')
+      .select('id,report_audience,period_type,period_start,period_end,report_content,confidence_level,periods_analyzed,created_at')
+      .eq('user_id', user.id)
+      .eq('report_audience', 'gerente')
+      .order('period_start', { ascending: false })
+      .order('created_at', { ascending: false }),
   ])
 
-  const uniqueMonths = [...new Set((allMonths ?? []).map((m) => m.period_date.slice(0, 7)))]
+  const isManager = profile?.org_role === 'manager'
+
+  const toCardProps = (row: typeof vendedorRows extends (infer R)[] | null ? R : never): IntelligenceReportCardProps => ({
+    id: row.id as string,
+    report_audience: row.report_audience as 'vendedor' | 'gerente',
+    period_type: row.period_type as 'daily' | 'weekly' | 'monthly',
+    period_start: row.period_start as string,
+    period_end: row.period_end as string,
+    report_content: row.report_content,
+    confidence_level: row.confidence_level as string | null,
+    periods_analyzed: row.periods_analyzed as number | null,
+    created_at: row.created_at as string,
+  })
+
+  const vendedorReports = (vendedorRows ?? []).map(toCardProps)
+  const gerenteReports = (gerenteRows ?? []).map(toCardProps)
 
   return (
     <div className="flex flex-col h-full">
@@ -49,12 +55,10 @@ export default async function CoachPage({ searchParams }: PageProps) {
         description="Historial de análisis de tu prospección"
       />
       <div className="flex-1 overflow-y-auto p-8">
-        <CoachHistoryClient
-          messages={(messages ?? []).map(m => ({ ...m, context: m.context as Record<string, unknown> | null }))}
-          uniqueMonths={uniqueMonths}
-          typeFilter={typeFilter}
-          monthFilter={monthFilter ?? null}
-          unreadCount={unreadCount ?? 0}
+        <IntelligenceHistoryClient
+          vendedorReports={vendedorReports}
+          gerenteReports={gerenteReports}
+          isManager={isManager}
         />
       </div>
     </div>

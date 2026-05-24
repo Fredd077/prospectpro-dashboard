@@ -1,6 +1,6 @@
 /**
- * Shared coach message generator.
- * Used by cron routes to generate & persist coach messages for any user.
+ * @deprecated Replaced by lib/intelligence/intelligence-engine.ts (generateVendedorReport / generateGerenteReport).
+ * Cron routes no longer call this. Retained for reference only.
  */
 import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
