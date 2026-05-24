@@ -596,6 +596,51 @@ export interface Database {
         }
         Relationships: []
       }
+      intelligence_reports: {
+        Row: {
+          id: string
+          user_id: string
+          report_audience: 'vendedor' | 'gerente'
+          period_type: 'daily' | 'weekly' | 'monthly'
+          period_start: string
+          period_end: string
+          data_hash: string
+          report_content: Json
+          agent_diagnostico: Json | null
+          agent_prediccion: Json | null
+          confidence_level: 'inicial' | 'parcial' | 'completo' | null
+          periods_analyzed: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          report_audience: 'vendedor' | 'gerente'
+          period_type: 'daily' | 'weekly' | 'monthly'
+          period_start: string
+          period_end: string
+          data_hash: string
+          report_content: Json
+          agent_diagnostico?: Json | null
+          agent_prediccion?: Json | null
+          confidence_level?: 'inicial' | 'parcial' | 'completo' | null
+          periods_analyzed?: number | null
+          created_at?: string
+        }
+        Update: {
+          report_audience?: 'vendedor' | 'gerente'
+          period_type?: 'daily' | 'weekly' | 'monthly'
+          period_start?: string
+          period_end?: string
+          data_hash?: string
+          report_content?: Json
+          agent_diagnostico?: Json | null
+          agent_prediccion?: Json | null
+          confidence_level?: 'inicial' | 'parcial' | 'completo' | null
+          periods_analyzed?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       vw_daily_compliance: {
@@ -666,3 +711,6 @@ export type PipelineSimpleUpdate = Database['public']['Tables']['pipeline_simple
 export type Integration = Database['public']['Tables']['integrations']['Row']
 export type IntegrationApiKey = Database['public']['Tables']['integration_api_keys']['Row']
 export type WebhookLog = Database['public']['Tables']['webhook_logs']['Row']
+
+export type IntelligenceReport = Database['public']['Tables']['intelligence_reports']['Row']
+export type IntelligenceReportInsert = Database['public']['Tables']['intelligence_reports']['Insert']
