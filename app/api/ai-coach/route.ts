@@ -32,6 +32,13 @@ export async function POST(req: Request) {
   const { type } = await req.json() as { type: 'daily' | 'weekly' | 'monthly' }
 
   const sb      = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
   const service = getSupabaseServiceClient()
   const today   = todayISO()
 
@@ -69,6 +76,7 @@ export async function POST(req: Request) {
         const { data: cached } = await sb
           .from('coach_messages')
           .select('id,message')
+          .eq('user_id', user.id)
           .eq('type', type)
           .eq('period_date', periodDate)
           .maybeSingle()
@@ -112,9 +120,10 @@ export async function POST(req: Request) {
         // ── Save to DB ──────────────────────────────────────────────────────
         let savedId: string | null = null
         try {
-          const { data: saved } = await sb
+          const { data: saved, error: saveError } = await sb
             .from('coach_messages')
             .insert({
+              user_id:     user.id,
               type,
               message:     fullText,
               context:     JSON.parse(JSON.stringify(ctx)),
@@ -123,6 +132,9 @@ export async function POST(req: Request) {
             })
             .select('id')
             .single()
+          if (saveError) {
+            console.error('[ai-coach] Failed to save coach message:', saveError.message)
+          }
           savedId = saved?.id ?? null
         } catch {
           console.error('[ai-coach] Failed to save coach message to DB')
