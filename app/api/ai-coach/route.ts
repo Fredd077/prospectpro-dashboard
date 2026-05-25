@@ -10,6 +10,9 @@ import {
 } from '@/lib/utils/coach-context'
 import { getAiConfig, buildSystemPrompt } from '@/lib/utils/ai-config'
 
+export const dynamic   = 'force-dynamic'
+export const revalidate = 0
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 function maxTokensForType(
@@ -122,22 +125,27 @@ export async function POST(req: Request) {
         try {
           const { data: saved, error: saveError } = await sb
             .from('coach_messages')
-            .insert({
+            .upsert({
               user_id:     user.id,
               type,
               message:     fullText,
               context:     JSON.parse(JSON.stringify(ctx)),
               period_date: periodDate,
               is_read:     false,
-            })
+            }, { onConflict: 'user_id,type,period_date' })
             .select('id')
             .single()
           if (saveError) {
-            console.error('[ai-coach] Failed to save coach message:', saveError.message)
+            console.error('[ai-coach] INSERT FAILED:', JSON.stringify(saveError))
+            send({ save_error: saveError.message, save_code: saveError.code })
+          } else {
+            send({ saved: true, id: saved?.id })
+            savedId = saved?.id ?? null
           }
-          savedId = saved?.id ?? null
-        } catch {
-          console.error('[ai-coach] Failed to save coach message to DB')
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          console.error('[ai-coach] INSERT EXCEPTION:', msg)
+          send({ save_error: msg })
         }
 
         send({ done: true, id: savedId })
