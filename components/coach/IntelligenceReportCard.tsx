@@ -12,6 +12,7 @@ interface VendedorContent {
   prediccion_narrativa?: string
   acciones_prioritarias?: { accion: string; impacto: string; plazo: string }[]
   alerta?: string | null
+  efectividad_canales?: string | null
   mensaje_motivacional?: string
 }
 
@@ -212,6 +213,18 @@ export function IntelligenceReportCard(props: IntelligenceReportCardProps) {
                 <p className="text-[10px] text-muted-foreground">{a.deadline}</p>
               </div>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* Channel effectiveness */}
+      {!isGerente && content.efectividad_canales && (
+        <div className="space-y-1 rounded-md border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan-400/70">Efectividad de canales</p>
+          {content.efectividad_canales.split('\n').filter(Boolean).map((line, i) => (
+            <p key={i} className={cn('text-xs', i === 0 ? 'hidden' : line.toLowerCase().startsWith('recomendación') ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+              {line}
+            </p>
           ))}
         </div>
       )}

@@ -188,7 +188,7 @@ async function _fetchActivityPerformance(
 
 // ─── Activity effectiveness helper ───────────────────────────────────────────
 
-async function _fetchActivityEffectiveness(
+export async function _fetchActivityEffectiveness(
   sb: SbClient,
   dateStart: string,
   dateEnd: string,

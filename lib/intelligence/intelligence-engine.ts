@@ -8,6 +8,7 @@ import { runAgentRedactor, runAgentRedactorGerente, type RedactorInput, type Red
 import type { IntelligenceReport, Json } from '@/lib/types/database'
 import { toISODate, todayISO } from '@/lib/utils/dates'
 import { getAiConfig } from '@/lib/utils/ai-config'
+import { _fetchActivityEffectiveness, type ActivityEffectivenessItem } from '@/lib/utils/coach-context'
 
 /** Count working days (Mon-Fri) from startISO to endISO inclusive. Pure UTC arithmetic. */
 function workingDaysBetween(startISO: string, endISO: string): number {
@@ -148,6 +149,11 @@ async function gatherData(params: VendedorReportParams) {
 
   const by_stage = Object.entries(stageMap).map(([stage, { count, amount }]) => ({ stage, count, amount }))
 
+  const activityEffectiveness = await _fetchActivityEffectiveness(
+    sb as Parameters<typeof _fetchActivityEffectiveness>[0],
+    periodStart, periodEnd, userId,
+  )
+
   return {
     userName,
     activities: activityData,
@@ -160,6 +166,7 @@ async function gatherData(params: VendedorReportParams) {
       outbound_pct: scenario.outbound_pct,
       funnel_stages: (scenario.funnel_stages ?? []) as string[],
     } : null,
+    activityEffectiveness,
   }
 }
 
@@ -247,6 +254,7 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
     dias_habiles_totales,
     diagnostico,
     prediccion,
+    activityEffectiveness: data.activityEffectiveness.length ? data.activityEffectiveness : undefined,
   }
   console.log('[generateVendedorReport] running redactor agent')
   const reportContent = await runAgentRedactor(redactorInput, {

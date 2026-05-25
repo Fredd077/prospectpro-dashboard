@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { DiagnosticoOutput } from './agent-diagnostico'
 import type { PrediccionOutput } from './agent-prediccion'
+import type { ActivityEffectivenessItem } from '@/lib/utils/coach-context'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -35,6 +36,7 @@ export interface RedactorInput {
   dias_habiles_totales: number
   diagnostico: DiagnosticoOutput
   prediccion: PrediccionOutput
+  activityEffectiveness?: ActivityEffectivenessItem[]
 }
 
 export interface ReportContent {
@@ -43,6 +45,7 @@ export interface ReportContent {
   prediccion_narrativa: string
   acciones_prioritarias: { accion: string; impacto: 'alto' | 'medio' | 'bajo'; plazo: string }[]
   alerta: string | null
+  efectividad_canales: string | null
   mensaje_motivacional: string
 }
 
@@ -57,6 +60,7 @@ El JSON debe tener exactamente esta estructura:
   "prediccion_narrativa": string,
   "acciones_prioritarias": [{"accion": string, "impacto": "alto"|"medio"|"bajo", "plazo": string}],
   "alerta": string | null,
+  "efectividad_canales": string | null,
   "mensaje_motivacional": string
 }
 
@@ -71,6 +75,9 @@ Reglas generales:
 - prediccion_narrativa: si en_curso → proyección al cierre con días restantes; si cerrado → evaluación del resultado final
 - acciones_prioritarias: exactamente 3, ordenadas de mayor a menor impacto
 - alerta: null si el negocio va bien; 1 oración de alerta si hay riesgo crítico
+- efectividad_canales: si el input incluye activityEffectiveness con al menos 2 actividades con executions > 0, genera este texto exacto (usa saltos de línea \\n dentro del string JSON):
+  "EFECTIVIDAD DE CANALES\\n[Canal con mayor conversión]: [X]% conversión a cita — [observación de 1 línea]\\n[Canal con menor conversión]: [Y]% conversión a cita — [observación de 1 línea]\\nRecomendación: [una acción específica sobre qué canal priorizar]"
+  Si no hay datos de activityEffectiveness: null
 - mensaje_motivacional: 1 oración personalizada con el nombre del vendedor y datos reales
 - Específico con números, nunca genérico ni vago
 - Responde en español
