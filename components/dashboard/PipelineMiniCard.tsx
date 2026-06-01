@@ -16,18 +16,18 @@ interface PipelineMiniCardProps {
 }
 
 const STAGES = [
-  { key: 'Cita agendada',                                          label: 'Citas',    color: 'text-blue-400'    },
-  { key: 'Reagendar',                                              label: 'Reag.',    color: 'text-rose-400'    },
-  { key: 'Primera reu ejecutada/Propuesta en preparación',         label: '1ra Reu.', color: 'text-cyan-400'    },
-  { key: 'Propuesta Presentada',                                   label: 'Prop.',    color: 'text-amber-400'   },
-  { key: 'Por facturar/cobrar',                                    label: 'Cierre',   color: 'text-emerald-400' },
+  { key: 'Cita agendada',                                          label: 'Cita',      color: 'text-blue-400'    },
+  { key: 'Reagendar',                                              label: 'Reagendar', color: 'text-rose-400'    },
+  { key: 'Primera reu ejecutada/Propuesta en preparación',         label: '1ª Reunión',color: 'text-cyan-400'    },
+  { key: 'Propuesta Presentada',                                   label: 'Propuesta', color: 'text-amber-400'   },
+  { key: 'Por facturar/cobrar',                                    label: 'Cierre',    color: 'text-emerald-400' },
 ]
 
 function pct(num: number, den: number) {
   return den > 0 ? Math.round((num / den) * 100) : null
 }
 
-function SemColor(v: number | null, hi = 80, lo = 50) {
+function semColor(v: number | null, hi: number, lo: number) {
   if (v === null) return 'text-muted-foreground/40'
   return v >= hi ? 'text-emerald-400' : v >= lo ? 'text-amber-400' : 'text-red-400'
 }
@@ -37,17 +37,16 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
     return (
       <div className="rounded-lg border border-border bg-card overflow-hidden h-full flex flex-col">
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/50">
-          <span className="text-xs font-semibold text-foreground">Funnel Real — {periodLabel}</span>
-          <Link href="/pipeline" className="text-[10px] text-primary hover:text-primary/80 transition-colors">Ver →</Link>
+          <span className="text-sm font-semibold text-foreground">Funnel Real — {periodLabel}</span>
+          <Link href="/pipeline" className="text-xs text-primary hover:text-primary/80 transition-colors">Ver →</Link>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-xs text-muted-foreground">Sin registros en este período</p>
+          <p className="text-sm text-muted-foreground">Sin registros en este período</p>
         </div>
       </div>
     )
   }
 
-  // Stage buckets — same definitions as PipelineAnalysis.tsx
   const citas      = rows.filter(r => r.stage === 'Cita agendada')
   const reagendar  = rows.filter(r => r.stage === 'Reagendar')
   const reuniones  = rows.filter(r => r.stage === 'Primera reu ejecutada/Propuesta en preparación')
@@ -58,7 +57,6 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
   const propGanadas  = propuestas.filter(r => r.status === 'ganado')
   const propPerdidas = propuestas.filter(r => r.status === 'perdido')
 
-  // Revenue — same as PipelineAnalysis.tsx
   const revenueGanado   = cierres.reduce((s, r) => s + (r.amount_usd ?? 0), 0)
   const revenuePipeline = propAbiertas.reduce((s, r) => s + (r.amount_usd ?? 0), 0)
   const revenuePerdido  = propPerdidas.reduce((s, r) => s + (r.amount_usd ?? 0), 0)
@@ -66,18 +64,14 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
   const sumaAmonto      = rows.reduce((s, r) => s + (r.amount_usd ?? 0), 0)
   const avgTicket       = totalConAmonto > 0 ? sumaAmonto / totalConAmonto : 0
 
-  const progress = monthlyRevenueGoal > 0
-    ? Math.min(Math.round((revenueGanado / monthlyRevenueGoal) * 100), 100)
-    : 0
-  const barColor = progress >= 100 ? 'bg-emerald-500' : progress >= 60 ? 'bg-amber-500' : 'bg-primary'
-  const pctColor = progress >= 100 ? 'text-emerald-400' : progress >= 60 ? 'text-amber-400' : 'text-primary'
+  const progress  = monthlyRevenueGoal > 0 ? Math.min(Math.round((revenueGanado / monthlyRevenueGoal) * 100), 100) : 0
+  const barColor  = progress >= 100 ? 'bg-emerald-500' : progress >= 60 ? 'bg-amber-500' : 'bg-primary'
+  const pctColor  = progress >= 100 ? 'text-emerald-400' : progress >= 60 ? 'text-amber-400' : 'text-primary'
 
-  // Conversion rates — exact same formulas as PipelineAnalysis.tsx
   const convReunProp   = pct(propuestas.length, reuniones.length)
   const convPropCierre = pct(cierres.length, propuestas.length)
   const tasaGanado     = pct(propGanadas.length + cierres.length, propuestas.length + cierres.length)
 
-  // Origin breakdown
   const reunionesOut  = reuniones.filter(r => r.prospect_type === 'outbound').length
   const reunionesIn   = reuniones.filter(r => r.prospect_type === 'inbound').length
   const propuestasOut = propuestas.filter(r => r.prospect_type === 'outbound').length
@@ -90,130 +84,115 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/50">
-        <span className="text-xs font-semibold text-foreground">Funnel Real — {periodLabel}</span>
-        <Link href="/pipeline" className="text-[10px] text-primary hover:text-primary/80 transition-colors">Ver →</Link>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+        <span className="text-sm font-semibold text-foreground">Funnel Real — {periodLabel}</span>
+        <Link href="/pipeline" className="text-xs text-primary hover:text-primary/80 transition-colors font-medium">Ver →</Link>
       </div>
 
       {/* Stage counts */}
       <div className="grid grid-cols-5 divide-x divide-border/50 border-b border-border/50">
         {STAGES.map((s, i) => (
-          <div key={s.key} className="px-2 py-2.5 text-center">
-            <p className={`text-lg font-bold tabular-nums ${s.color}`}>{stageCounts[i]}</p>
-            <p className="text-[9px] text-muted-foreground mt-0.5">{s.label}</p>
+          <div key={s.key} className="px-2 py-3 text-center">
+            <p className={`text-xl font-bold tabular-nums ${s.color}`}>{stageCounts[i]}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{s.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="p-3 space-y-4">
-        {/* Revenue */}
-        <div className="space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Revenue</p>
+      <div className="p-4 space-y-4">
+
+        {/* ── Revenue ── */}
+        <div className="space-y-3">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">Revenue</p>
           {monthlyRevenueGoal > 0 && (
-            <div className="space-y-1">
-              <div className="flex justify-between text-[10px]">
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Progreso hacia meta</span>
                 <span className={`font-bold tabular-nums ${pctColor}`}>{progress}%</span>
               </div>
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${progress}%` }} />
               </div>
             </div>
           )}
-          <div className="grid grid-cols-4 gap-1 text-center">
-            <div>
-              <p className="text-[9px] text-muted-foreground/60">Ganado</p>
-              <p className="text-xs font-semibold text-emerald-400 tabular-nums">{fmtUSD(revenueGanado)}</p>
-            </div>
-            <div>
-              <p className="text-[9px] text-muted-foreground/60">Pipeline</p>
-              <p className="text-xs font-semibold text-amber-400 tabular-nums">{fmtUSD(revenuePipeline)}</p>
-              {propAbiertas.length > 0 && (
-                <p className="text-[8px] text-muted-foreground/40">{propAbiertas.length} prop.</p>
-              )}
-            </div>
-            <div>
-              <p className="text-[9px] text-muted-foreground/60">Perdido</p>
-              <p className="text-xs font-semibold text-red-400 tabular-nums">{fmtUSD(revenuePerdido)}</p>
-            </div>
-            <div>
-              <p className="text-[9px] text-muted-foreground/60">Ticket prom.</p>
-              <p className="text-xs font-semibold text-foreground tabular-nums">{avgTicket > 0 ? fmtUSD(avgTicket) : '—'}</p>
-            </div>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: 'Ganado',       value: fmtUSD(revenueGanado),   color: 'text-emerald-400' },
+              { label: 'Pipeline',     value: fmtUSD(revenuePipeline),  color: 'text-amber-400',  sub: propAbiertas.length > 0 ? `${propAbiertas.length} prop.` : undefined },
+              { label: 'Perdido',      value: fmtUSD(revenuePerdido),   color: 'text-red-400'     },
+              { label: 'Ticket prom.', value: avgTicket > 0 ? fmtUSD(avgTicket) : '—', color: 'text-foreground' },
+            ].map(({ label, value, color, sub }) => (
+              <div key={label} className="rounded-md bg-muted/20 p-2 text-center">
+                <p className="text-[10px] text-muted-foreground/60 leading-tight mb-1">{label}</p>
+                <p className={`text-xs font-bold tabular-nums ${color}`}>{value}</p>
+                {sub && <p className="text-[9px] text-muted-foreground/40 mt-0.5">{sub}</p>}
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Conversion */}
-        <div className="space-y-2 border-t border-border/40 pt-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Conversión</p>
-          <div className="grid grid-cols-3 gap-1 text-center">
-            <div>
-              <p className="text-[9px] text-muted-foreground/60 leading-tight">Reu→Prop</p>
-              <p className={`text-sm font-bold tabular-nums mt-0.5 ${SemColor(convReunProp, 80, 50)}`}>
-                {convReunProp !== null ? `${convReunProp}%` : '—'}
-              </p>
-              <p className="text-[8px] text-muted-foreground/40">{propuestas.length}/{reuniones.length}</p>
-            </div>
-            <div>
-              <p className="text-[9px] text-muted-foreground/60 leading-tight">Prop→Cierre</p>
-              <p className={`text-sm font-bold tabular-nums mt-0.5 ${SemColor(convPropCierre, 40, 20)}`}>
-                {convPropCierre !== null ? `${convPropCierre}%` : '—'}
-              </p>
-              <p className="text-[8px] text-muted-foreground/40">{cierres.length}/{propuestas.length}</p>
-            </div>
-            <div>
-              <p className="text-[9px] text-muted-foreground/60 leading-tight">Tasa ganados</p>
-              <p className={`text-sm font-bold tabular-nums mt-0.5 ${SemColor(tasaGanado, 60, 30)}`}>
-                {tasaGanado !== null ? `${tasaGanado}%` : '—'}
-              </p>
-              <p className="text-[8px] text-muted-foreground/40">
-                {propGanadas.length + cierres.length}/{propuestas.length + cierres.length}
-              </p>
-            </div>
+        {/* ── Conversión ── */}
+        <div className="space-y-3 border-t border-border/40 pt-4">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">Conversión</p>
+
+          {/* Rate cards */}
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: 'Reunión → Propuesta', value: convReunProp,   hi: 80, lo: 50, num: propuestas.length, den: reuniones.length },
+              { label: 'Propuesta → Cierre',  value: convPropCierre, hi: 40, lo: 20, num: cierres.length,    den: propuestas.length },
+              { label: 'Tasa ganados',         value: tasaGanado,    hi: 60, lo: 30, num: propGanadas.length + cierres.length, den: propuestas.length + cierres.length },
+            ].map(({ label, value, hi, lo, num, den }) => (
+              <div key={label} className="rounded-md bg-muted/20 p-2.5 text-center">
+                <p className="text-[10px] text-muted-foreground/60 leading-tight mb-1.5">{label}</p>
+                <p className={`text-2xl font-bold tabular-nums leading-none ${semColor(value, hi, lo)}`}>
+                  {value !== null ? `${value}%` : '—'}
+                </p>
+                <p className="text-[10px] text-muted-foreground/40 mt-1">{num}/{den}</p>
+              </div>
+            ))}
           </div>
 
           {/* Estado de propuestas */}
-          <div className="grid grid-cols-3 gap-1 text-center mt-1">
-            <div className="rounded bg-muted/20 px-1 py-1">
-              <p className="text-[8px] text-muted-foreground/50">Abiertas</p>
-              <p className="text-xs font-bold text-amber-400 tabular-nums">{propAbiertas.length}</p>
-            </div>
-            <div className="rounded bg-muted/20 px-1 py-1">
-              <p className="text-[8px] text-muted-foreground/50">Ganadas</p>
-              <p className="text-xs font-bold text-emerald-400 tabular-nums">{propGanadas.length + cierres.length}</p>
-            </div>
-            <div className="rounded bg-muted/20 px-1 py-1">
-              <p className="text-[8px] text-muted-foreground/50">Perdidas</p>
-              <p className="text-xs font-bold text-red-400 tabular-nums">{propPerdidas.length}</p>
-            </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: 'Abiertas',  count: propAbiertas.length,                  color: 'text-amber-400',   bg: 'bg-amber-400/5   border-amber-400/20'   },
+              { label: 'Ganadas',   count: propGanadas.length + cierres.length,  color: 'text-emerald-400', bg: 'bg-emerald-400/5 border-emerald-400/20' },
+              { label: 'Perdidas',  count: propPerdidas.length,                  color: 'text-red-400',     bg: 'bg-red-400/5     border-red-400/20'      },
+            ].map(({ label, count, color, bg }) => (
+              <div key={label} className={`rounded-md border px-3 py-2 text-center ${bg}`}>
+                <p className="text-[10px] text-muted-foreground/60 mb-0.5">{label}</p>
+                <p className={`text-lg font-bold tabular-nums ${color}`}>{count}</p>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Activity by stage & origin */}
-        <div className="space-y-2 border-t border-border/40 pt-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Por etapa y origen</p>
-            <p className="text-[9px] text-muted-foreground/40">{rows.length} total</p>
+        {/* ── Por etapa y origen ── */}
+        <div className="space-y-2 border-t border-border/40 pt-4">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">Por etapa y origen</p>
+            <p className="text-xs text-muted-foreground/40 tabular-nums">{rows.length} total</p>
           </div>
           {[
             { label: 'Reuniones',  out: reunionesOut,  inn: reunionesIn,  total: reuniones.length,  color: 'text-cyan-400'    },
             { label: 'Propuestas', out: propuestasOut, inn: propuestasIn, total: propuestas.length, color: 'text-amber-400'   },
             { label: 'Cierres',    out: cierresOut,    inn: cierresIn,    total: cierres.length,    color: 'text-emerald-400' },
           ].map(({ label, out, inn, total, color }) => (
-            <div key={label} className="flex items-center justify-between py-1 border-b border-border/30 last:border-0">
-              <span className={`text-xs font-semibold ${color}`}>{label}</span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border bg-orange-500/10 text-orange-400 border-orange-500/20">
-                  OUT {out}
+            <div key={label} className="flex items-center justify-between py-1.5 border-b border-border/30 last:border-0">
+              <span className={`text-sm font-semibold ${color}`}>{label}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border bg-orange-500/10 text-orange-400 border-orange-500/20">
+                  OUTBOUND {out}
                 </span>
-                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border bg-sky-500/10 text-sky-400 border-sky-500/20">
-                  IN {inn}
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border bg-sky-500/10 text-sky-400 border-sky-500/20">
+                  INBOUND {inn}
                 </span>
-                <span className="text-xs font-bold tabular-nums text-foreground w-4 text-right">{total}</span>
+                <span className="text-sm font-bold tabular-nums text-foreground w-5 text-right">{total}</span>
               </div>
             </div>
           ))}
         </div>
+
       </div>
     </div>
   )
