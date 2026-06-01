@@ -187,7 +187,7 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
                 <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border bg-sky-500/10 text-sky-400 border-sky-500/20">
                   INBOUND {inn}
                 </span>
-                <span className={`text-base font-bold tabular-nums min-w-[1.5rem] text-right ${color}`}>{total}</span>
+                <span className={`text-2xl font-bold tabular-nums min-w-[2rem] text-right ${color}`}>{total}</span>
               </div>
             </div>
           ))}
