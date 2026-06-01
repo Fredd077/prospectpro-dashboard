@@ -9,6 +9,7 @@ const PERIODS: { value: PeriodType; label: string }[] = [
   { value: 'weekly', label: 'Semana' },
   { value: 'monthly', label: 'Mes' },
   { value: 'quarterly', label: 'Trimestre' },
+  { value: 'yearly', label: 'Año' },
 ]
 
 interface PeriodSelectorProps {

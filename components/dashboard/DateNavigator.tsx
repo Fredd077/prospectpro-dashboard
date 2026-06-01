@@ -25,6 +25,14 @@ function shiftDate(period: PeriodType, date: Date, direction: -1 | 1): Date {
   }
 }
 
+const QUICK_JUMP_LABEL: Record<PeriodType, string> = {
+  daily:     'Ayer',
+  weekly:    'Sem. ant.',
+  monthly:   'Mes ant.',
+  quarterly: 'Trim. ant.',
+  yearly:    'Año ant.',
+}
+
 export function DateNavigator({ period, refDate }: DateNavigatorProps) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
@@ -50,6 +58,15 @@ export function DateNavigator({ period, refDate }: DateNavigatorProps) {
 
   return (
     <div className="flex items-center gap-2">
+      {isCurrentOrFuture && (
+        <button
+          onClick={() => navigate(-1)}
+          className="px-2 py-1 rounded-md border border-border hover:border-primary/40 hover:text-primary transition-colors text-[11px] text-muted-foreground font-medium"
+          title={`Ir a ${QUICK_JUMP_LABEL[period]}`}
+        >
+          {QUICK_JUMP_LABEL[period]}
+        </button>
+      )}
       <button
         onClick={() => navigate(-1)}
         className="p-1.5 rounded-md border border-border hover:border-primary/40 hover:text-primary transition-colors text-muted-foreground"

@@ -15,9 +15,10 @@ import { ChartSwitcher } from '@/components/charts/ChartSwitcher'
 import { ActivityBreakdownTable } from '@/components/dashboard/ActivityBreakdownTable'
 import type { ActivityBreakdownRow } from '@/components/dashboard/ActivityBreakdownTable'
 import { TodayWidget } from '@/components/dashboard/TodayWidget'
-import { RecipeValidationCard } from '@/components/dashboard/RecipeValidationCard'
 import { CoachProCard } from '@/components/dashboard/CoachProCard'
 import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
+import type { PipelineMiniRow } from '@/components/dashboard/PipelineMiniCard'
+import { RecetarioFunnelCard } from '@/components/dashboard/RecetarioFunnelCard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
 import { calcCompliance } from '@/lib/calculations/compliance'
@@ -72,7 +73,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   if (myProfile?.role === 'admin') redirect('/admin')
 
   const params = await searchParams
-  const period = (['daily', 'weekly', 'monthly', 'quarterly'].includes(params.period ?? '')
+  const period = (['daily', 'weekly', 'monthly', 'quarterly', 'yearly'].includes(params.period ?? '')
     ? params.period
     : 'weekly') as PeriodType
   const typeFilter = (['OUTBOUND', 'INBOUND'].includes(params.type ?? '')
@@ -125,6 +126,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     { data: activities },
     { data: activeScenario },
     { data: todayLogs },
+    { data: pipelineRows },
   ] = await Promise.all([
     query,
     sb.from('activities').select('id,name,channel,type,daily_goal,weekly_goal,monthly_goal,weight,status').eq('status', 'active'),
@@ -136,6 +138,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       .limit(1)
       .maybeSingle(),
     todayLogsQuery,
+    sb
+      .from('pipeline_simple')
+      .select('stage, amount_usd, status')
+      .eq('user_id', user.id)
+      .gte('entry_date', start)
+      .lte('entry_date', end),
   ])
 
   const channels = [...new Set(activities?.map((a) => a.channel) ?? [])].sort()
@@ -297,6 +305,32 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     ? calcRecipeValidation(activeScenario, allActivities as Parameters<typeof calcRecipeValidation>[1])
     : null
 
+  // --- Actual OUTB/INB for RecetarioFunnelCard ---
+  const actualOutbound = allActivities
+    .filter(a => a.type === 'OUTBOUND')
+    .reduce((s, a) => s + (realByActivity[a.id] ?? 0), 0)
+  const actualInbound = allActivities
+    .filter(a => a.type === 'INBOUND')
+    .reduce((s, a) => s + (realByActivity[a.id] ?? 0), 0)
+
+  // --- Pipeline data for the selected period ---
+  const allPipelineRows: PipelineMiniRow[] = pipelineRows ?? []
+  const pipelineByStage: Record<string, number> = {}
+  for (const row of allPipelineRows) {
+    pipelineByStage[row.stage] = (pipelineByStage[row.stage] ?? 0) + 1
+  }
+
+  // --- Period label for PipelineMiniCard ---
+  const pipelinePeriodLabel = period === 'daily'
+    ? 'hoy'
+    : period === 'weekly'
+    ? 'esta semana'
+    : period === 'monthly'
+    ? 'este mes'
+    : period === 'quarterly'
+    ? 'este trimestre'
+    : 'este año'
+
   return (
     <div className="flex flex-col h-full">
       <TopBar
@@ -327,24 +361,24 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <HistoricalBanner isHistorical={isHistorical} />
         </Suspense>
 
-        <div className="p-8 space-y-8">
-          {/* Today's status widget */}
-          <TodayWidget
-            today={today}
-            totalReal={(todayLogs ?? []).reduce((s, l) => s + l.real_executed, 0)}
-            totalGoal={(todayLogs ?? []).reduce((s, l) => s + l.day_goal, 0)}
-            hasActivities={(activities?.length ?? 0) > 0}
-          />
+        <div className="p-8 space-y-6">
+          {/* Row 1: Estado del día + Coach — lado a lado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <TodayWidget
+              today={today}
+              totalReal={(todayLogs ?? []).reduce((s, l) => s + l.real_executed, 0)}
+              totalGoal={(todayLogs ?? []).reduce((s, l) => s + l.day_goal, 0)}
+              hasActivities={(activities?.length ?? 0) > 0}
+            />
+            <CoachProCard
+              weekLabel={weekLabel}
+              hasMessage={!!weeklyCoach}
+              compliancePct={compliance.pct}
+            />
+          </div>
 
-          {/* Coach Pro — invitation card linking to /coach */}
-          <CoachProCard
-            weekLabel={weekLabel}
-            hasMessage={!!weeklyCoach}
-            compliancePct={compliance.pct}
-          />
-
-          {/* KPI Grid */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Row 2: KPI Grid */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <KpiCard
               label="Cumplimiento"
               value={formatPercent(compliance.pct)}
@@ -376,19 +410,24 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             />
           </div>
 
-          {/* Plan vs Recetario + Funnel Real — lado a lado */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Row 3: Recetario + Pipeline — lado a lado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             {recipeValidation && (
-              <div className="min-h-[240px]">
-                <RecipeValidationCard validation={recipeValidation} />
-              </div>
+              <RecetarioFunnelCard
+                validation={recipeValidation}
+                period={period}
+                actualOutbound={actualOutbound}
+                actualInbound={actualInbound}
+                pipelineByStage={pipelineByStage}
+              />
             )}
-            <div className="min-h-[240px]">
-              <PipelineMiniCard />
-            </div>
+            <PipelineMiniCard
+              rows={allPipelineRows}
+              periodLabel={pipelinePeriodLabel}
+            />
           </div>
 
-          {/* Desglose por actividad + Visualizaciones — lado a lado */}
+          {/* Row 4: Desglose + Visualizaciones — lado a lado */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             <div>
               <h2 className="mb-3 text-sm font-semibold text-foreground">Desglose por actividad</h2>
