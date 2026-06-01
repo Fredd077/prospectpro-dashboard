@@ -141,7 +141,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     todayLogsQuery,
     sb
       .from('pipeline_simple')
-      .select('stage, amount_usd, status, origin_activity_id')
+      .select('stage, amount_usd, status, origin_activity_id, prospect_type')
       .eq('user_id', user.id)
       .gte('entry_date', start)
       .lte('entry_date', end),
@@ -449,6 +449,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             <PipelineMiniCard
               rows={allPipelineRows}
               periodLabel={pipelinePeriodLabel}
+              monthlyRevenueGoal={activeScenario?.monthly_revenue_goal ?? 0}
             />
           </div>
 
