@@ -5,6 +5,7 @@ export interface PipelineMiniRow {
   stage: string
   status: string
   amount_usd: number | null
+  origin_activity_id?: string | null
 }
 
 interface PipelineMiniCardProps {

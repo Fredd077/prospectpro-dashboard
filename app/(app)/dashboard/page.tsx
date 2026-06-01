@@ -12,8 +12,6 @@ import { HistoricalBanner } from '@/components/dashboard/HistoricalBanner'
 import { FilterBar } from '@/components/dashboard/FilterBar'
 import { KpiCard } from '@/components/dashboard/KpiCard'
 import { ChartSwitcher } from '@/components/charts/ChartSwitcher'
-import { ActivityBreakdownTable } from '@/components/dashboard/ActivityBreakdownTable'
-import type { ActivityBreakdownRow } from '@/components/dashboard/ActivityBreakdownTable'
 import { TodayWidget } from '@/components/dashboard/TodayWidget'
 import { CoachProCard } from '@/components/dashboard/CoachProCard'
 import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
@@ -27,6 +25,9 @@ import { formatPercent } from '@/lib/utils/formatters'
 import { getSemaphoreColor } from '@/lib/utils/colors'
 import { getActivityGoal, getDailyImpliedGoal } from '@/lib/utils/goals'
 import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
+import { calcCierresRequeridos, calcCitasRequeridas } from '@/lib/calculations/recipe-supervision'
+import { ActivityPerformanceSummary } from '@/components/dashboard/ActivityPerformanceSummary'
+import type { ActivityPerfRow } from '@/components/dashboard/ActivityPerformanceSummary'
 import type { PeriodType, ActivityType } from '@/lib/types/common'
 import type { DailyCompliance } from '@/lib/types/database'
 
@@ -129,7 +130,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     { data: pipelineRows },
   ] = await Promise.all([
     query,
-    sb.from('activities').select('id,name,channel,type,daily_goal,weekly_goal,monthly_goal,weight,status').eq('status', 'active'),
+    sb.from('activities').select('id,name,channel,type,daily_goal,weekly_goal,monthly_goal,weight,status,conversion_rate_pct,meetings_expected').eq('status', 'active'),
     sb
       .from('recipe_scenarios')
       .select('*')
@@ -140,7 +141,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     todayLogsQuery,
     sb
       .from('pipeline_simple')
-      .select('stage, amount_usd, status')
+      .select('stage, amount_usd, status, origin_activity_id')
       .eq('user_id', user.id)
       .gte('entry_date', start)
       .lte('entry_date', end),
@@ -149,7 +150,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const channels = [...new Set(activities?.map((a) => a.channel) ?? [])].sort()
   const allLogs: DailyCompliance[] = logs ?? []
 
-  type ActivityWithGoals = { id: string; name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; daily_goal: number; weekly_goal: number; monthly_goal: number; weight: number | null }
+  type ActivityWithGoals = { id: string; name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; daily_goal: number; weekly_goal: number; monthly_goal: number; weight: number | null; conversion_rate_pct: number | null; meetings_expected: number | null }
   const allActivities: ActivityWithGoals[] = activities ?? []
 
   // Real per activity aggregated from logs
@@ -186,15 +187,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     real: realByActivity[a.id] ?? 0,
   }))
 
-  // --- ActivityBreakdownTable rows ---
-  const breakdownRows: ActivityBreakdownRow[] = allActivities.map((a) => ({
-    id: a.id,
-    name: a.name,
-    type: a.type,
-    channel: a.channel,
-    goal: getActivityGoal(a, period),
-    real: realByActivity[a.id] ?? 0,
-  }))
 
   // --- Trend line — cumulative real (OUTBOUND/INBOUND) + linear meta target ---
   // Meta target = totalGoal spread evenly across all days in the period
@@ -331,6 +323,37 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     ? 'este trimestre'
     : 'este año'
 
+  // --- Per-activity reunion/cierre counts from pipeline ---
+  const reunionesMap: Record<string, number> = {}
+  const cierresMap:   Record<string, number> = {}
+  for (const row of allPipelineRows) {
+    const aid = row.origin_activity_id
+    if (!aid) continue
+    reunionesMap[aid] = (reunionesMap[aid] ?? 0) + 1
+    if (row.status === 'ganado') cierresMap[aid] = (cierresMap[aid] ?? 0) + 1
+  }
+
+  // --- ActivityPerformanceSummary rows ---
+  const activityPerfRows: ActivityPerfRow[] = allActivities.map(a => ({
+    id: a.id,
+    name: a.name,
+    type: a.type,
+    meetingsExpected: a.meetings_expected ?? 0,
+    conversionRatePct: a.conversion_rate_pct ?? 0,
+    reunionesReales: reunionesMap[a.id] ?? 0,
+    cierresReales:   cierresMap[a.id] ?? 0,
+  }))
+
+  // --- Citas alignment for RecetarioFunnelCard ---
+  const citasProyectadas = activityPerfRows.reduce((s, r) => s + r.meetingsExpected, 0)
+  let citasRequeridas = 0
+  if (activeScenario) {
+    const rates = (activeScenario.outbound_rates as number[] | null) ?? [30]
+    const lastRate = rates[rates.length - 1] ?? 30
+    const cierresReq = calcCierresRequeridos(activeScenario.monthly_revenue_goal, activeScenario.average_ticket)
+    citasRequeridas = calcCitasRequeridas(cierresReq, lastRate)
+  }
+
   return (
     <div className="flex flex-col h-full">
       <TopBar
@@ -419,6 +442,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 actualOutbound={actualOutbound}
                 actualInbound={actualInbound}
                 pipelineByStage={pipelineByStage}
+                citasProyectadas={citasProyectadas}
+                citasRequeridas={citasRequeridas}
               />
             )}
             <PipelineMiniCard
@@ -427,15 +452,16 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             />
           </div>
 
-          {/* Row 4: Desglose + Visualizaciones — lado a lado */}
+          {/* Row 4: Rendimiento de actividades + Visualizaciones — lado a lado */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            <div>
-              <h2 className="mb-3 text-sm font-semibold text-foreground">Desglose por actividad</h2>
-              {breakdownRows.length > 0
-                ? <ActivityBreakdownTable rows={breakdownRows} />
-                : <p className="text-xs text-muted-foreground">Sin actividades registradas.</p>
-              }
-            </div>
+            <ActivityPerformanceSummary
+              rows={activityPerfRows}
+              scenario={activeScenario ? {
+                monthly_revenue_goal: activeScenario.monthly_revenue_goal,
+                average_ticket: activeScenario.average_ticket,
+                outbound_pct: activeScenario.outbound_pct,
+              } : null}
+            />
             <div className="rounded-lg border border-border bg-card p-6">
               <h2 className="mb-1 text-sm font-semibold text-foreground">Visualizaciones</h2>
               <ChartSwitcher
