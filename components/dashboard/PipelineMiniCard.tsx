@@ -180,13 +180,15 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
           ].map(({ label, out, inn, total, color }) => (
             <div key={label} className="flex items-center justify-between py-1.5 border-b border-border/30 last:border-0">
               <span className={`text-sm font-semibold ${color}`}>{label}</span>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border bg-orange-500/10 text-orange-400 border-orange-500/20">
-                  OUTBOUND {out}
-                </span>
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border bg-sky-500/10 text-sky-400 border-sky-500/20">
-                  INBOUND {inn}
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 rounded border bg-orange-500/10 border-orange-500/20 px-2 py-1">
+                  <span className="text-[9px] font-bold uppercase text-orange-400/70">OUT</span>
+                  <span className="text-base font-black tabular-nums text-orange-400">{out}</span>
+                </div>
+                <div className="flex items-center gap-1 rounded border bg-sky-500/10 border-sky-500/20 px-2 py-1">
+                  <span className="text-[9px] font-bold uppercase text-sky-400/70">IN</span>
+                  <span className="text-base font-black tabular-nums text-sky-400">{inn}</span>
+                </div>
                 <span className={`text-2xl font-bold tabular-nums min-w-[2rem] text-right ${color}`}>{total}</span>
               </div>
             </div>
