@@ -96,7 +96,7 @@ export function usePerformanceData(
     const { start, end } = monthRange(selectedMonth)
     getSupabaseBrowserClient()
       .from('pipeline_simple')
-      .select('origin_activity_id,status,amount_usd')
+      .select('origin_activity_id,status,amount_usd,stage')
       .gte('entry_date', start)
       .lte('entry_date', end)
       .not('origin_activity_id', 'is', null)
@@ -108,7 +108,10 @@ export function usePerformanceData(
           const aid = row.origin_activity_id
           if (!aid) continue
           rMap[aid] = (rMap[aid] ?? 0) + 1
-          if (row.status === 'ganado') {
+          // Align with pipeline's "CERRADO" definition: stage = Por facturar/cobrar.
+          // Using status='ganado' across all stages causes double-counting when a deal
+          // has both a 'Propuesta Presentada' (ganado) row and a 'Por facturar/cobrar' row.
+          if (row.stage === 'Por facturar/cobrar') {
             cMap[aid] = (cMap[aid] ?? 0) + 1
             mMap[aid] = (mMap[aid] ?? 0) + (row.amount_usd ?? 0)
           }
