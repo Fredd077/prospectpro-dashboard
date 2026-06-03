@@ -81,6 +81,7 @@ export function usePerformanceData(
   )
   const [reunionesMap,   setReunionesMap]   = useState<Record<string, number>>({})
   const [cierresMap,     setCierresMap]     = useState<Record<string, number>>({})
+  const [montoMap,       setMontoMap]       = useState<Record<string, number>>({})
   const [loading,        setLoading]        = useState(true)
 
   // Sync editable state when activities list changes
@@ -95,21 +96,26 @@ export function usePerformanceData(
     const { start, end } = monthRange(selectedMonth)
     getSupabaseBrowserClient()
       .from('pipeline_simple')
-      .select('origin_activity_id,status')
+      .select('origin_activity_id,status,amount_usd')
       .gte('entry_date', start)
       .lte('entry_date', end)
       .not('origin_activity_id', 'is', null)
       .then(({ data }) => {
         const rMap: Record<string, number> = {}
         const cMap: Record<string, number> = {}
+        const mMap: Record<string, number> = {}
         for (const row of data ?? []) {
           const aid = row.origin_activity_id
           if (!aid) continue
           rMap[aid] = (rMap[aid] ?? 0) + 1
-          if (row.status === 'ganado') cMap[aid] = (cMap[aid] ?? 0) + 1
+          if (row.status === 'ganado') {
+            cMap[aid] = (cMap[aid] ?? 0) + 1
+            mMap[aid] = (mMap[aid] ?? 0) + (row.amount_usd ?? 0)
+          }
         }
         setReunionesMap(rMap)
         setCierresMap(cMap)
+        setMontoMap(mMap)
         setLoading(false)
       })
   }, [selectedMonth])
@@ -137,9 +143,9 @@ export function usePerformanceData(
       const reunionesReales  = reunionesMap[a.id] ?? 0
       const eficienciaCanal  = meetingsExpected > 0 ? (reunionesReales / meetingsExpected) * 100 : null
       const cierresReales    = cierresMap[a.id] ?? 0
-      const contribGroupUsd  = cierresReales * avgTicket
+      const contribGroupUsd  = montoMap[a.id] ?? 0
       const contribGroupPct  = metaGroup > 0 ? (contribGroupUsd / metaGroup) * 100 : 0
-      const contribGlobalUsd = cierresReales * avgTicket
+      const contribGlobalUsd = montoMap[a.id] ?? 0
       const contribGlobalPct = monthlyGoal > 0 ? (contribGlobalUsd / monthlyGoal) * 100 : 0
       return {
         id: a.id, name: a.name, type: a.type,
@@ -161,7 +167,7 @@ export function usePerformanceData(
     const totalReuniones = rows.reduce((s, r) => s + r.reunionesReales, 0)
     const totalExpected  = rows.reduce((s, r) => s + r.meetingsExpected, 0)
     const totalCierres   = rows.reduce((s, r) => s + r.cierresReales, 0)
-    const totalGroupUsd  = totalCierres * avgTicket
+    const totalGroupUsd  = rows.reduce((s, r) => s + r.contribGroupUsd, 0)
     const nonZeroRates   = rows.filter((r) => r.convRate > 0)
     const avgConvRate    = nonZeroRates.length > 0
       ? nonZeroRates.reduce((s, r) => s + r.convRate, 0) / nonZeroRates.length
