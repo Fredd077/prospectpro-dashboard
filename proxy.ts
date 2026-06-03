@@ -57,7 +57,7 @@ export async function proxy(request: NextRequest) {
   // Fetch profile to check role and onboarding state
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, onboarding_completed')
+    .select('role, onboarding_completed, last_seen_at')
     .eq('id', user.id)
     .single()
 
@@ -93,12 +93,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/onboarding', request.url))
   }
 
-  // Update last_seen_at periodically (fire-and-forget, don't await)
-  supabase
-    .from('profiles')
-    .update({ last_seen_at: new Date().toISOString() })
-    .eq('id', user.id)
-    .then(() => {})
+  // Update last_seen_at — awaited so Edge Runtime doesn't drop it.
+  // Throttled to once per 5 minutes to avoid a DB write on every request.
+  const now = Date.now()
+  const lastSeen = profile?.last_seen_at ? new Date(profile.last_seen_at).getTime() : 0
+  if (now - lastSeen > 5 * 60 * 1000) {
+    await supabase
+      .from('profiles')
+      .update({ last_seen_at: new Date(now).toISOString() })
+      .eq('id', user.id)
+  }
 
   return response
 }
