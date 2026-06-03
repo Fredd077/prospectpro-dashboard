@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { UserActions } from './UserActions'
 import { CompanyCell } from './CompanyCell'
 import { updateUserOrgRole } from '@/lib/actions/admin'
+import { trialDaysLeft, isTrialExpired } from '@/lib/utils/trial'
 import type { Profile } from '@/lib/types/database'
 
 const ROLE_BADGE: Record<Profile['role'], { label: string; cls: string }> = {
@@ -147,6 +148,9 @@ export function UsersTable({ users, filterRole, filterCompany = 'all', managerMa
             <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden lg:table-cell">
               Último acceso
             </th>
+            <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden xl:table-cell">
+              Trial
+            </th>
             <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Acciones
             </th>
@@ -199,6 +203,19 @@ export function UsersTable({ users, filterRole, filterCompany = 'all', managerMa
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground font-data hidden lg:table-cell">
                   {formatDate(user.last_seen_at)}
+                </td>
+                <td className="px-4 py-3 hidden xl:table-cell">
+                  {user.trial_ends_at ? (() => {
+                    const days    = trialDaysLeft(user.trial_ends_at)
+                    const expired = isTrialExpired(user.trial_ends_at)
+                    if (expired) return (
+                      <span className="rounded border px-1.5 py-0.5 text-[10px] font-medium bg-red-500/10 text-red-400 border-red-500/20">Expirado</span>
+                    )
+                    const color = days !== null && days <= 1 ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                      : days !== null && days <= 3 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    return <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${color}`}>{days}d</span>
+                  })() : <span className="text-muted-foreground/40 text-xs">—</span>}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">

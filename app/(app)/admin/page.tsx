@@ -83,7 +83,7 @@ export default async function AdminPage({ searchParams }: Props) {
   ] = await Promise.all([
     service
       .from('profiles')
-      .select('id,full_name,email,company,role,org_role,manager_id,created_at,last_seen_at,avatar_url')
+      .select('id,full_name,email,company,role,org_role,manager_id,created_at,last_seen_at,avatar_url,trial_ends_at')
       .order('company', { ascending: true })
       .order('full_name', { ascending: true }),
     service
@@ -102,7 +102,7 @@ export default async function AdminPage({ searchParams }: Props) {
       .order('log_date', { ascending: false }),
   ])
 
-  type BaseUser = { id: string; full_name: string | null; email: string; company: string | null; role: string; org_role: string | null; manager_id: string | null; created_at: string; last_seen_at: string | null; avatar_url: string | null }
+  type BaseUser = { id: string; full_name: string | null; email: string; company: string | null; role: string; org_role: string | null; manager_id: string | null; created_at: string; last_seen_at: string | null; avatar_url: string | null; trial_ends_at: string | null }
   const users: Profile[] = ((allUsersRaw ?? []) as BaseUser[]).map((u) => ({
     ...u,
     role: u.role as Profile['role'],
@@ -112,6 +112,11 @@ export default async function AdminPage({ searchParams }: Props) {
     org_role: (u.org_role ?? null) as Profile['org_role'],
     manager_id: u.manager_id ?? null,
     is_player_coach: null,
+    trial_ends_at: u.trial_ends_at ?? null,
+    trial_reminder_7d: false,
+    trial_reminder_3d: false,
+    trial_reminder_1d: false,
+    trial_expired_email: false,
   }))
 
   // ── Index sets

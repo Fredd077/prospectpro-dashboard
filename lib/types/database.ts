@@ -19,6 +19,11 @@ export interface Database {
           org_role: 'member' | 'manager' | null
           manager_id: string | null
           is_player_coach: boolean | null
+          trial_ends_at: string | null
+          trial_reminder_7d: boolean
+          trial_reminder_3d: boolean
+          trial_reminder_1d: boolean
+          trial_expired_email: boolean
         }
         Insert: {
           id: string
@@ -35,6 +40,11 @@ export interface Database {
           org_role?: 'member' | 'manager' | null
           manager_id?: string | null
           is_player_coach?: boolean | null
+          trial_ends_at?: string | null
+          trial_reminder_7d?: boolean
+          trial_reminder_3d?: boolean
+          trial_reminder_1d?: boolean
+          trial_expired_email?: boolean
         }
         Update: {
           email?: string
@@ -49,6 +59,11 @@ export interface Database {
           org_role?: 'member' | 'manager' | null
           manager_id?: string | null
           is_player_coach?: boolean | null
+          trial_ends_at?: string | null
+          trial_reminder_7d?: boolean
+          trial_reminder_3d?: boolean
+          trial_reminder_1d?: boolean
+          trial_expired_email?: boolean
         }
         Relationships: []
       }

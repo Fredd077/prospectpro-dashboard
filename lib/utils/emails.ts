@@ -222,3 +222,98 @@ export async function sendUserActivatedWelcome(user: {
 
   await sendEmail(user.email, `${firstName}, tu acceso a ProspectPro está listo — empieza hoy`, html)
 }
+
+// ── Trial reminder emails ─────────────────────────────────────────────────────
+
+function trialEmailHtml(firstName: string, daysLeft: number, isExpired: boolean): string {
+  const headerColor   = isExpired ? '#ef4444' : daysLeft <= 1 ? '#f97316' : daysLeft <= 3 ? '#f59e0b' : '#00D9FF'
+  const borderColor   = isExpired ? 'rgba(239,68,68,0.2)' : daysLeft <= 1 ? 'rgba(249,115,22,0.2)' : daysLeft <= 3 ? 'rgba(245,158,11,0.2)' : 'rgba(0,217,255,0.15)'
+  const headline      = isExpired
+    ? `${firstName}, tu período de prueba terminó`
+    : daysLeft <= 1
+    ? `${firstName}, mañana expira tu prueba`
+    : `${firstName}, te quedan ${daysLeft} días de prueba`
+  const subheadline   = isExpired
+    ? 'Activa tu cuenta para seguir accediendo a ProspectPro'
+    : 'Asegúrate de activar tu cuenta para no perder el acceso'
+  const ctaText       = isExpired ? 'Contactar al administrador' : 'Entrar a ProspectPro →'
+  const ctaBg         = isExpired ? '#ef4444' : headerColor
+
+  return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="margin:0;padding:0;background:#0a0a0a;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:40px 20px;">
+        <tr><td align="center">
+          <table width="480" cellpadding="0" cellspacing="0" style="background:#111;border-radius:12px;border:1px solid ${borderColor};overflow:hidden;">
+            <tr>
+              <td style="background:linear-gradient(135deg,#0a0a0a 0%,#1a0a0a 100%);padding:32px 36px 28px;border-bottom:1px solid ${borderColor};text-align:center;">
+                <table cellpadding="0" cellspacing="0" align="center" style="margin-bottom:20px;">
+                  <tr>
+                    <td style="background:#00D9FF;width:36px;height:36px;border-radius:8px;text-align:center;vertical-align:middle;">
+                      <span style="font-size:18px;font-weight:bold;color:#0a0a0a;">↗</span>
+                    </td>
+                    <td style="padding-left:10px;vertical-align:middle;">
+                      <span style="font-size:15px;font-weight:700;color:#ffffff;">ProspectPro</span>
+                    </td>
+                  </tr>
+                </table>
+                ${!isExpired ? `
+                <div style="display:inline-block;background:${headerColor}20;border:1px solid ${headerColor}40;border-radius:999px;padding:6px 18px;margin-bottom:16px;">
+                  <span style="font-size:13px;font-weight:700;color:${headerColor};">${daysLeft <= 1 ? '⏰ Último día' : `⏳ ${daysLeft} días restantes`}</span>
+                </div>` : ''}
+                <p style="margin:0;font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;line-height:1.25;">${headline}</p>
+                <p style="margin:10px 0 0;font-size:14px;color:rgba(255,255,255,0.45);">${subheadline}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 36px;">
+                <p style="margin:0 0 24px;font-size:14px;color:rgba(255,255,255,0.65);line-height:1.7;">
+                  ${isExpired
+                    ? `Tu período de prueba gratuita de <strong style="color:#fff;">14 días</strong> ha terminado. Para seguir usando ProspectPro y acceder a todos tus datos, contacta a tu administrador para activar tu cuenta.`
+                    : `Tu período de prueba gratuita de <strong style="color:#fff;">14 días</strong> ${daysLeft <= 1 ? 'vence mañana' : `vence en ${daysLeft} días`}. Contacta a tu administrador para activar tu cuenta y no interrumpir tu acceso.`
+                  }
+                </p>
+                <div style="text-align:center;margin-bottom:24px;">
+                  <a href="${APP_URL}" style="display:inline-block;background:${ctaBg};color:#ffffff;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700;">
+                    ${ctaText}
+                  </a>
+                </div>
+                <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.25);text-align:center;">
+                  ¿Preguntas? <a href="mailto:hola@prospectpro.cloud" style="color:#00D9FF;text-decoration:none;">hola@prospectpro.cloud</a>
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 36px;border-top:1px solid rgba(255,255,255,0.05);">
+                <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.18);text-align:center;">ProspectPro · Notificación automática de período de prueba</p>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+  `
+}
+
+export async function sendTrialReminder7d(user: { full_name: string | null; email: string }): Promise<void> {
+  const firstName = (user.full_name ?? user.email).split(' ')[0]
+  await sendEmail(user.email, `${firstName}, te quedan 7 días de prueba en ProspectPro`, trialEmailHtml(firstName, 7, false))
+}
+
+export async function sendTrialReminder3d(user: { full_name: string | null; email: string }): Promise<void> {
+  const firstName = (user.full_name ?? user.email).split(' ')[0]
+  await sendEmail(user.email, `${firstName}, te quedan 3 días de prueba en ProspectPro`, trialEmailHtml(firstName, 3, false))
+}
+
+export async function sendTrialReminder1d(user: { full_name: string | null; email: string }): Promise<void> {
+  const firstName = (user.full_name ?? user.email).split(' ')[0]
+  await sendEmail(user.email, `${firstName}, mañana expira tu prueba en ProspectPro`, trialEmailHtml(firstName, 1, false))
+}
+
+export async function sendTrialExpired(user: { full_name: string | null; email: string }): Promise<void> {
+  const firstName = (user.full_name ?? user.email).split(' ')[0]
+  await sendEmail(user.email, `${firstName}, tu período de prueba en ProspectPro terminó`, trialEmailHtml(firstName, 0, true))
+}

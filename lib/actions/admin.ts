@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { sendUserActivatedWelcome } from '@/lib/utils/emails'
+import { TRIAL_DAYS } from '@/lib/utils/trial'
 
 async function assertAdmin() {
   const sb = await getSupabaseServerClient()
@@ -25,10 +26,17 @@ export async function activateUser(userId: string) {
     .eq('id', userId)
     .single()
 
+  const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+
   await service.from('profiles').update({
     role: 'active',
     activated_at: new Date().toISOString(),
     activated_by: currentUser?.id,
+    trial_ends_at: trialEndsAt,
+    trial_reminder_7d: false,
+    trial_reminder_3d: false,
+    trial_reminder_1d: false,
+    trial_expired_email: false,
   }).eq('id', userId)
 
   // Send welcome email only when transitioning to active (not already active)
@@ -81,6 +89,51 @@ export async function updateUserManager(userId: string, managerId: string | null
   const service = getSupabaseServiceClient()
   await service.from('profiles').update({ manager_id: managerId } as never).eq('id', userId)
   revalidatePath('/admin')
+}
+
+export async function extendTrial(userId: string, days: number) {
+  await assertAdmin()
+  const service = getSupabaseServiceClient()
+  const { data: profile } = await service
+    .from('profiles')
+    .select('trial_ends_at')
+    .eq('id', userId)
+    .single()
+
+  // Extend from current end date if still active, otherwise from now
+  const base = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date()
+    ? new Date(profile.trial_ends_at)
+    : new Date()
+
+  const newEnd = new Date(base.getTime() + days * 24 * 60 * 60 * 1000).toISOString()
+
+  await service.from('profiles').update({
+    trial_ends_at: newEnd,
+    trial_reminder_7d: false,
+    trial_reminder_3d: false,
+    trial_reminder_1d: false,
+    trial_expired_email: false,
+  }).eq('id', userId)
+
+  revalidatePath('/admin')
+  revalidatePath(`/admin/users/${userId}`)
+}
+
+export async function resetTrial(userId: string) {
+  await assertAdmin()
+  const service = getSupabaseServiceClient()
+  const newEnd = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+
+  await service.from('profiles').update({
+    trial_ends_at: newEnd,
+    trial_reminder_7d: false,
+    trial_reminder_3d: false,
+    trial_reminder_1d: false,
+    trial_expired_email: false,
+  }).eq('id', userId)
+
+  revalidatePath('/admin')
+  revalidatePath(`/admin/users/${userId}`)
 }
 
 export async function deleteUser(userId: string) {

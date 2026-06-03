@@ -14,7 +14,11 @@
       "WebFetch(domain:api.anthropic.com)",
       "Bash(git commit -m 'feat\\(gerente-ai\\): AI narrative insight panel with streaming text *)",
       "Bash(git commit *)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(findstr recipe *)",
+      "Bash(findstr calculations *)",
+      "PowerShell(git add \"lib/integrations/pipedrive/adapter.ts\" \"lib/integrations/core/deal-processor.ts\" \"app/api/webhooks/inbound/[company]/route.ts\" \"components/admin/WebhookLogsTable.tsx\")",
+      "PowerShell(git push origin main)"
     ]
   }
 }

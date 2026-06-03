@@ -3,6 +3,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { KeyboardShortcuts } from '@/components/layout/KeyboardShortcuts'
 import { SidebarProvider } from '@/components/layout/SidebarContext'
 import { MainContentShift } from '@/components/layout/MainContentShift'
+import { TrialBanner } from '@/components/trial/TrialBanner'
 
 function SidebarFallback() {
   return (
@@ -19,7 +20,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Sidebar />
         </Suspense>
         <MainContentShift>
-          <main className="h-full">{children}</main>
+          <div className="flex h-full flex-col">
+            <Suspense>
+              <TrialBanner />
+            </Suspense>
+            <main className="flex-1 overflow-hidden">{children}</main>
+          </div>
         </MainContentShift>
       </div>
     </SidebarProvider>

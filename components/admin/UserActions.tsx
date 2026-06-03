@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { UserCheck, UserX, ShieldCheck, ShieldOff, Users, Trash2, AlertTriangle } from 'lucide-react'
-import { activateUser, deactivateUser, updateUserOrgRole, updateUserManager, deleteUser } from '@/lib/actions/admin'
+import { UserCheck, UserX, ShieldCheck, ShieldOff, Users, Trash2, AlertTriangle, RefreshCw, CalendarPlus } from 'lucide-react'
+import { activateUser, deactivateUser, updateUserOrgRole, updateUserManager, deleteUser, extendTrial, resetTrial } from '@/lib/actions/admin'
 import type { Profile } from '@/lib/types/database'
 
 interface UserActionsProps {
-  user: Pick<Profile, 'id' | 'role' | 'full_name' | 'email' | 'org_role' | 'manager_id'>
+  user: Pick<Profile, 'id' | 'role' | 'full_name' | 'email' | 'org_role' | 'manager_id' | 'trial_ends_at'>
   managers?: { id: string; name: string }[]
   /** If true, redirects to /admin after successful deletion */
   redirectOnDelete?: boolean
@@ -62,8 +62,22 @@ export function UserActions({ user, managers = [], redirectOnDelete = false }: U
     }
   }
 
-  const isManager = user.org_role === 'manager'
+  async function handleExtendTrial() {
+    setLoading('extend')
+    await extendTrial(user.id, 14)
+    setLoading(null)
+  }
+
+  async function handleResetTrial() {
+    if (!confirm(`¿Reiniciar el trial de ${user.full_name ?? user.email} a 14 días desde hoy?`)) return
+    setLoading('reset')
+    await resetTrial(user.id)
+    setLoading(null)
+  }
+
+  const isManager   = user.org_role === 'manager'
   const displayName = user.full_name ?? user.email
+  const isExpiredOrActive = user.role === 'active'
 
   return (
     <div className="flex flex-col gap-2">
@@ -109,6 +123,38 @@ export function UserActions({ user, managers = [], redirectOnDelete = false }: U
           )}
           Reactivar
         </button>
+      )}
+
+      {/* Trial controls — only for active users with a trial */}
+      {isExpiredOrActive && user.trial_ends_at && (
+        <>
+          <button
+            onClick={handleExtendTrial}
+            disabled={loading !== null}
+            title="Extender trial +14 días"
+            className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium bg-cyan-400/10 text-cyan-400 border border-cyan-400/20 hover:bg-cyan-400/20 transition-colors disabled:opacity-50"
+          >
+            {loading === 'extend' ? (
+              <span className="h-3 w-3 animate-spin rounded-full border border-cyan-400/30 border-t-cyan-400" />
+            ) : (
+              <CalendarPlus className="h-3.5 w-3.5" />
+            )}
+            +14d
+          </button>
+          <button
+            onClick={handleResetTrial}
+            disabled={loading !== null}
+            title="Reiniciar trial a 14 días"
+            className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium bg-violet-400/10 text-violet-400 border border-violet-400/20 hover:bg-violet-400/20 transition-colors disabled:opacity-50"
+          >
+            {loading === 'reset' ? (
+              <span className="h-3 w-3 animate-spin rounded-full border border-violet-400/30 border-t-violet-400" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            Reset
+          </button>
+        </>
       )}
 
       {/* Manager toggle */}
