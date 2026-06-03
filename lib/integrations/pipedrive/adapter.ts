@@ -68,7 +68,10 @@ export const pipedriveAdapter: CrmAdapter = {
   normalize(payload: unknown, config: Record<string, unknown> | null): NormalizedDealEvent {
     const body  = payload as PipedrivePayload
     const event = body?.event
-    const deal  = body?.data ?? body?.current
+    // For updated.deal events Pipedrive sends `current` with the full deal state.
+    // `data` may also be present but can lack fields that didn't change.
+    // Prefer `current` when available; fall back to `data` for added/deleted events.
+    const deal  = body?.current ?? body?.data
 
     if (!deal?.id) throw new SkipError('No deal id in Pipedrive payload')
 

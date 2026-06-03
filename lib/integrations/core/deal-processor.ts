@@ -39,7 +39,8 @@ export async function processDealEvent(
       })
       .eq('id', existing.id)
     if (error) throw new Error(`DB update failed: ${error.message}`)
-    return { action: 'updated', message: `${event.source}:${event.externalId} → ${stage} / ${status}` }
+    const amtLabel = event.amountUsd != null ? ` | $${event.amountUsd}` : ' | sin monto'
+    return { action: 'updated', message: `${event.source}:${event.externalId} → ${stage} / ${status}${amtLabel}` }
   }
 
   const { error } = await service
@@ -57,5 +58,6 @@ export async function processDealEvent(
       integration_source: event.source,
     })
   if (error) throw new Error(`DB insert failed: ${error.message}`)
-  return { action: 'created', message: `${event.source}:${event.externalId} → ${stage} / ${status}` }
+  const amtLabel = event.amountUsd != null ? ` | $${event.amountUsd}` : ' | sin monto'
+  return { action: 'created', message: `${event.source}:${event.externalId} → ${stage} / ${status}${amtLabel}` }
 }

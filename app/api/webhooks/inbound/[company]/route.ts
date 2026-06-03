@@ -110,9 +110,9 @@ export async function POST(
         const event  = dispatch(payload, dispatchHeaders, integration.config as Record<string, unknown> | null)
         const result = await processDealEvent(event, integration.admin_user_id, service)
         return service.from('webhook_logs').update({
-          status:       'processed',
-          processed_at: now,
-          error_message: null,
+          status:        'processed',
+          processed_at:  now,
+          error_message: result.message,
         }).eq('id', logId)
           .then(() => result) // consume result to avoid unhandled promise
       } catch (err: unknown) {
