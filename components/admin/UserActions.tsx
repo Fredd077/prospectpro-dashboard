@@ -125,26 +125,28 @@ export function UserActions({ user, managers = [], redirectOnDelete = false }: U
         </button>
       )}
 
-      {/* Trial controls — only for active users with a trial */}
-      {isExpiredOrActive && user.trial_ends_at && (
+      {/* Trial controls — show for all active users */}
+      {isExpiredOrActive && (
         <>
-          <button
-            onClick={handleExtendTrial}
-            disabled={loading !== null}
-            title="Extender trial +14 días"
-            className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium bg-cyan-400/10 text-cyan-400 border border-cyan-400/20 hover:bg-cyan-400/20 transition-colors disabled:opacity-50"
-          >
-            {loading === 'extend' ? (
-              <span className="h-3 w-3 animate-spin rounded-full border border-cyan-400/30 border-t-cyan-400" />
-            ) : (
-              <CalendarPlus className="h-3.5 w-3.5" />
-            )}
-            +14d
-          </button>
+          {user.trial_ends_at && (
+            <button
+              onClick={handleExtendTrial}
+              disabled={loading !== null}
+              title="Extender trial +14 días desde la fecha actual de vencimiento"
+              className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium bg-cyan-400/10 text-cyan-400 border border-cyan-400/20 hover:bg-cyan-400/20 transition-colors disabled:opacity-50"
+            >
+              {loading === 'extend' ? (
+                <span className="h-3 w-3 animate-spin rounded-full border border-cyan-400/30 border-t-cyan-400" />
+              ) : (
+                <CalendarPlus className="h-3.5 w-3.5" />
+              )}
+              +14d
+            </button>
+          )}
           <button
             onClick={handleResetTrial}
             disabled={loading !== null}
-            title="Reiniciar trial a 14 días"
+            title={user.trial_ends_at ? 'Reiniciar trial a 14 días desde hoy' : 'Iniciar trial de 14 días'}
             className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium bg-violet-400/10 text-violet-400 border border-violet-400/20 hover:bg-violet-400/20 transition-colors disabled:opacity-50"
           >
             {loading === 'reset' ? (
@@ -152,7 +154,7 @@ export function UserActions({ user, managers = [], redirectOnDelete = false }: U
             ) : (
               <RefreshCw className="h-3.5 w-3.5" />
             )}
-            Reset
+            {user.trial_ends_at ? 'Reset' : 'Iniciar trial'}
           </button>
         </>
       )}
