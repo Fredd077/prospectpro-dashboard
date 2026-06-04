@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { UserCheck, UserX, ShieldCheck, ShieldOff, Users, Trash2, AlertTriangle, RefreshCw, CalendarPlus } from 'lucide-react'
-import { activateUser, deactivateUser, updateUserOrgRole, updateUserManager, deleteUser, extendTrial, resetTrial } from '@/lib/actions/admin'
+import { UserCheck, UserX, ShieldCheck, ShieldOff, Users, Trash2, AlertTriangle, RefreshCw, CalendarPlus, Infinity as InfinityIcon, Check, X } from 'lucide-react'
+import { activateUser, deactivateUser, updateUserOrgRole, updateUserManager, deleteUser, extendTrial, resetTrial, setTrialDays, removeTrial } from '@/lib/actions/admin'
 import type { Profile } from '@/lib/types/database'
 
 interface UserActionsProps {
@@ -15,8 +15,10 @@ interface UserActionsProps {
 
 export function UserActions({ user, managers = [], redirectOnDelete = false }: UserActionsProps) {
   const router = useRouter()
-  const [loading, setLoading] = useState<string | null>(null)
+  const [loading,       setLoading]       = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [customDays,    setCustomDays]    = useState('')
+  const [showCustom,    setShowCustom]    = useState(false)
 
   async function handleActivate() {
     if (!confirm(`¿Activar la cuenta de ${user.full_name ?? user.email}?`)) return
@@ -75,6 +77,23 @@ export function UserActions({ user, managers = [], redirectOnDelete = false }: U
     setLoading(null)
   }
 
+  async function handleSetCustomDays() {
+    const days = parseInt(customDays, 10)
+    if (!days || days < 1 || days > 365) return
+    setLoading('custom')
+    await setTrialDays(user.id, days)
+    setCustomDays('')
+    setShowCustom(false)
+    setLoading(null)
+  }
+
+  async function handleRemoveTrial() {
+    if (!confirm(`¿Quitar el trial de ${user.full_name ?? user.email}? Quedará activo sin límite de tiempo.`)) return
+    setLoading('remove')
+    await removeTrial(user.id)
+    setLoading(null)
+  }
+
   const isManager   = user.org_role === 'manager'
   const displayName = user.full_name ?? user.email
   const isExpiredOrActive = user.role === 'active'
@@ -128,34 +147,84 @@ export function UserActions({ user, managers = [], redirectOnDelete = false }: U
       {/* Trial controls — show for all active users */}
       {isExpiredOrActive && (
         <>
+          {/* +14d — only when trial already set */}
           {user.trial_ends_at && (
             <button
               onClick={handleExtendTrial}
               disabled={loading !== null}
-              title="Extender trial +14 días desde la fecha actual de vencimiento"
+              title="Extender +14 días desde el vencimiento actual"
               className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium bg-cyan-400/10 text-cyan-400 border border-cyan-400/20 hover:bg-cyan-400/20 transition-colors disabled:opacity-50"
             >
-              {loading === 'extend' ? (
-                <span className="h-3 w-3 animate-spin rounded-full border border-cyan-400/30 border-t-cyan-400" />
-              ) : (
-                <CalendarPlus className="h-3.5 w-3.5" />
-              )}
+              {loading === 'extend' ? <span className="h-3 w-3 animate-spin rounded-full border border-cyan-400/30 border-t-cyan-400" /> : <CalendarPlus className="h-3.5 w-3.5" />}
               +14d
             </button>
           )}
+
+          {/* Reset to 14d from today */}
           <button
             onClick={handleResetTrial}
             disabled={loading !== null}
-            title={user.trial_ends_at ? 'Reiniciar trial a 14 días desde hoy' : 'Iniciar trial de 14 días'}
+            title={user.trial_ends_at ? 'Reiniciar a 14 días desde hoy' : 'Iniciar trial de 14 días'}
             className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium bg-violet-400/10 text-violet-400 border border-violet-400/20 hover:bg-violet-400/20 transition-colors disabled:opacity-50"
           >
-            {loading === 'reset' ? (
-              <span className="h-3 w-3 animate-spin rounded-full border border-violet-400/30 border-t-violet-400" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
-            )}
-            {user.trial_ends_at ? 'Reset' : 'Iniciar trial'}
+            {loading === 'reset' ? <span className="h-3 w-3 animate-spin rounded-full border border-violet-400/30 border-t-violet-400" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {user.trial_ends_at ? 'Reset 14d' : 'Iniciar trial'}
           </button>
+
+          {/* Custom days input */}
+          {!showCustom ? (
+            <button
+              onClick={() => setShowCustom(true)}
+              disabled={loading !== null}
+              title="Establecer días personalizados"
+              className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium bg-muted/30 text-muted-foreground border border-border hover:bg-muted/50 transition-colors disabled:opacity-50"
+            >
+              <CalendarPlus className="h-3.5 w-3.5" />
+              Personalizar
+            </button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min={1}
+                max={365}
+                placeholder="días"
+                value={customDays}
+                onChange={e => setCustomDays(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSetCustomDays(); if (e.key === 'Escape') setShowCustom(false) }}
+                className="w-16 rounded border border-border bg-card px-2 py-0.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                autoFocus
+              />
+              <button
+                onClick={handleSetCustomDays}
+                disabled={loading !== null || !customDays}
+                className="rounded p-0.5 text-emerald-400 hover:bg-emerald-400/10 disabled:opacity-40 transition-colors"
+                title="Confirmar"
+              >
+                {loading === 'custom' ? <span className="h-3 w-3 animate-spin rounded-full border border-emerald-400/30 border-t-emerald-400 inline-block" /> : <Check className="h-3.5 w-3.5" />}
+              </button>
+              <button
+                onClick={() => { setShowCustom(false); setCustomDays('') }}
+                className="rounded p-0.5 text-muted-foreground hover:bg-muted/50 transition-colors"
+                title="Cancelar"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Remove trial — user stays active indefinitely */}
+          {user.trial_ends_at && (
+            <button
+              onClick={handleRemoveTrial}
+              disabled={loading !== null}
+              title="Quitar trial — usuario activo sin límite de tiempo"
+              className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium bg-muted/30 text-muted-foreground border border-border hover:bg-muted/50 transition-colors disabled:opacity-50"
+            >
+              {loading === 'remove' ? <span className="h-3 w-3 animate-spin rounded-full border border-muted-foreground/30 border-t-muted-foreground" /> : <InfinityIcon className="h-3.5 w-3.5" />}
+              Sin límite
+            </button>
+          )}
         </>
       )}
 

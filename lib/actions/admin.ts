@@ -136,6 +136,40 @@ export async function resetTrial(userId: string) {
   revalidatePath(`/admin/users/${userId}`)
 }
 
+export async function setTrialDays(userId: string, days: number) {
+  await assertAdmin()
+  if (days < 1 || days > 365) throw new Error('Días inválidos (1–365)')
+  const service = getSupabaseServiceClient()
+  const newEnd  = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+
+  await service.from('profiles').update({
+    trial_ends_at: newEnd,
+    trial_reminder_7d: false,
+    trial_reminder_3d: false,
+    trial_reminder_1d: false,
+    trial_expired_email: false,
+  }).eq('id', userId)
+
+  revalidatePath('/admin')
+  revalidatePath(`/admin/users/${userId}`)
+}
+
+export async function removeTrial(userId: string) {
+  await assertAdmin()
+  const service = getSupabaseServiceClient()
+
+  await service.from('profiles').update({
+    trial_ends_at: null,
+    trial_reminder_7d: false,
+    trial_reminder_3d: false,
+    trial_reminder_1d: false,
+    trial_expired_email: false,
+  }).eq('id', userId)
+
+  revalidatePath('/admin')
+  revalidatePath(`/admin/users/${userId}`)
+}
+
 export async function deleteUser(userId: string) {
   const caller = await assertAdmin()
   if (caller.id === userId) throw new Error('No puedes eliminarte a ti mismo')
