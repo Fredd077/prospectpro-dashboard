@@ -3,7 +3,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { KeyboardShortcuts } from '@/components/layout/KeyboardShortcuts'
 import { SidebarProvider } from '@/components/layout/SidebarContext'
 import { MainContentShift } from '@/components/layout/MainContentShift'
-import { TrialBanner } from '@/components/trial/TrialBanner'
+import { TrialBanner } from '@/components/trial/TrialBannerWrapper'
 
 function SidebarFallback() {
   return (
