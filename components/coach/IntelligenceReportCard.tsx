@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { AlertTriangle, TrendingUp, TrendingDown, Minus, Users, User } from 'lucide-react'
+import { AlertTriangle, TrendingUp, TrendingDown, Minus, Users, User, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { todayISO } from '@/lib/utils/dates'
 
@@ -36,6 +37,7 @@ export interface IntelligenceReportCardProps {
   confidence_level: string | null
   periods_analyzed: number | null
   created_at: string
+  defaultExpanded?: boolean
 }
 
 const PERIOD_CONFIG = {
@@ -76,7 +78,9 @@ function estadoIcon(estado: string) {
 }
 
 export function IntelligenceReportCard(props: IntelligenceReportCardProps) {
-  const { report_audience, period_type, period_start, period_end, report_content, confidence_level, periods_analyzed, created_at } = props
+  const { report_audience, period_type, period_start, period_end, report_content, confidence_level, periods_analyzed, created_at, defaultExpanded = false } = props
+  const [expanded, setExpanded] = useState(defaultExpanded)
+
   const cfg = PERIOD_CONFIG[period_type] ?? PERIOD_CONFIG.daily
   const pLabel = periodLabel(period_type, period_start, period_end)
   const isGerente = report_audience === 'gerente'
@@ -90,40 +94,69 @@ export function IntelligenceReportCard(props: IntelligenceReportCardProps) {
     : Math.min(differenceInDays(parseISO(today), parseISO(period_start)) + 1, totalDaysInPeriod)
 
   return (
-    <div className={cn('rounded-xl border bg-card p-4 space-y-4', confidence_level === 'inicial' && 'border-amber-500/20')}>
-      {/* Header */}
-      <div className="flex items-start gap-2 flex-wrap">
-        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', cfg.color)}>
+    <div className={cn('rounded-xl border bg-card overflow-hidden', confidence_level === 'inicial' && 'border-amber-500/20')}>
+      {/* Collapsible header — always visible */}
+      <button
+        type="button"
+        onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-center gap-2 px-4 py-3 hover:bg-muted/20 transition-colors text-left"
+      >
+        <span className="shrink-0 text-muted-foreground/50">
+          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </span>
+
+        {/* Badges */}
+        <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', cfg.color)}>
           {cfg.label}
         </span>
         {isGerente ? (
-          <span className="flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-400">
-            <Users className="h-2.5 w-2.5" />
-            EQUIPO
+          <span className="shrink-0 flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-400">
+            <Users className="h-2.5 w-2.5" />EQUIPO
           </span>
         ) : (
-          <span className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            <User className="h-2.5 w-2.5" />
-            PERSONAL
+          <span className="shrink-0 flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            <User className="h-2.5 w-2.5" />PERSONAL
           </span>
         )}
-        <span className="text-xs text-cyan-400/80 capitalize">{pLabel}</span>
+
+        {/* Period label + status */}
+        <span className="text-xs text-cyan-400/80 capitalize min-w-0 truncate">{pLabel}</span>
         {isClosed ? (
-          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
+          <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
             FINALIZADO
           </span>
         ) : (
-          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400">
-            EN CURSO · día {dayX} de {totalDaysInPeriod}
+          <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400">
+            EN CURSO · {dayX}/{totalDaysInPeriod}
           </span>
         )}
-        {confidence_level === 'inicial' && (
-          <span className="ml-auto text-[10px] text-amber-400 font-medium">Período inicial</span>
-        )}
-        {isGerente && periods_analyzed != null && (
-          <span className="ml-auto text-[10px] text-muted-foreground">{periods_analyzed} miembros</span>
-        )}
-      </div>
+
+        {/* Extra meta on the right */}
+        <span className="ml-auto shrink-0 flex items-center gap-2">
+          {confidence_level === 'inicial' && (
+            <span className="text-[10px] text-amber-400 font-medium">Período inicial</span>
+          )}
+          {isGerente && periods_analyzed != null && (
+            <span className="text-[10px] text-muted-foreground">{periods_analyzed} miembros</span>
+          )}
+        </span>
+      </button>
+
+      {/* Preview line when collapsed — show first line of resumen_ejecutivo */}
+      {!expanded && content.resumen_ejecutivo && (
+        <div
+          className="px-4 pb-3 cursor-pointer"
+          onClick={() => setExpanded(true)}
+        >
+          <p className="text-xs text-muted-foreground/60 line-clamp-1 pl-6">
+            {content.resumen_ejecutivo}
+          </p>
+        </div>
+      )}
+
+      {/* Full content — only when expanded */}
+      {expanded && (
+        <div className="px-4 pb-4 space-y-4 border-t border-border/50">
 
       {/* Alert */}
       {content.alerta && (
@@ -240,6 +273,8 @@ export function IntelligenceReportCard(props: IntelligenceReportCardProps) {
       <p className="text-[10px] text-muted-foreground/50">
         Generado el {format(parseISO(created_at), "d MMM 'a las' HH:mm", { locale: es })}
       </p>
+        </div>
+      )}
     </div>
   )
 }

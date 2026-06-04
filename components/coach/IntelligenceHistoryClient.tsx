@@ -228,18 +228,21 @@ export function IntelligenceHistoryClient({ vendedorReports, gerenteReports, isM
       )}
 
       {/* Timeline */}
-      {groups.map(({ header, items }) => (
+      {groups.map(({ header, items }, groupIdx) => (
         <div key={header} className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-border" />
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-2">{header}</span>
             <div className="h-px flex-1 bg-border" />
           </div>
-          {items.map((r) => (
+          {items.map((r, itemIdx) => (
             <div key={r.id} className="relative pl-6">
               <span className="absolute left-0 top-4 h-3 w-3 rounded-full border-2 border-background ring-1 ring-border bg-cyan-400" />
               <span className="absolute left-1.5 top-7 bottom-0 w-px bg-border" />
-              <IntelligenceReportCard {...r} />
+              <IntelligenceReportCard
+                {...r}
+                defaultExpanded={groupIdx === 0 && itemIdx === 0}
+              />
             </div>
           ))}
         </div>
