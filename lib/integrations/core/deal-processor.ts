@@ -1,5 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { NormalizedDealEvent } from '../types'
+import { SkipError } from '../types'
+
+const VALID_STAGES = new Set([
+  'Cita agendada',
+  'Reagendar',
+  'Primera reu ejecutada/Propuesta en preparación',
+  'Propuesta Presentada',
+  'Por facturar/cobrar',
+])
 
 export type ProcessResult = {
   action: 'created' | 'updated'
@@ -12,7 +21,17 @@ export async function processDealEvent(
   adminId: string,
   service: SupabaseClient<any>,
 ): Promise<ProcessResult> {
-  const stage = event.stageInCrm ?? 'Propuesta Presentada'
+  // Won/lost events always land on the final stage regardless of what the CRM sent
+  const stageOverride = event.action === 'won' ? 'Por facturar/cobrar' : null
+  const stage = stageOverride ?? event.stageInCrm ?? null
+
+  if (!stage || !VALID_STAGES.has(stage)) {
+    throw new SkipError(
+      stage
+        ? `Stage "${stage}" is not a valid ProspectPro stage — configure stage_map in Integraciones`
+        : 'No stage provided — configure stage_field in Integraciones'
+    )
+  }
 
   let status: 'abierto' | 'ganado' | 'perdido' = 'abierto'
   if (event.action === 'won')  status = 'ganado'

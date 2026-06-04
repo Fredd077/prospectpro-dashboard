@@ -33,8 +33,12 @@ export default async function IntegrationsPage() {
   }
 
   const webhookUrl = `https://app.prospectpro.cloud/api/webhooks/inbound/${encodeURIComponent(status.company)}`
-  const isPipedrive = status.crmConfig?.crm_name?.toLowerCase() === 'pipedrive'
-  const isFullyConfigured = status.hasKey && isPipedrive && !!status.pipedriveConfig?.reunion_stage
+  const isPipedrive       = status.crmConfig?.crm_name?.toLowerCase() === 'pipedrive'
+  const hasGenericStageMap = Object.keys(status.genericConfig?.stage_map ?? {}).length > 0
+  const isFullyConfigured = status.hasKey && (
+    (isPipedrive && !!status.pipedriveConfig?.reunion_stage) ||
+    (!isPipedrive && !!status.crmConfig?.crm_name && hasGenericStageMap)
+  )
 
   return (
     <div className="flex flex-col h-full">
@@ -44,8 +48,19 @@ export default async function IntegrationsPage() {
       />
       <div className="flex-1 overflow-y-auto p-8 space-y-10 max-w-3xl">
 
-        {/* Setup guide */}
-        <PipedriveSetupGuide isConfigured={isFullyConfigured} />
+        {/* Setup guide — Pipedrive only; generic users get inline instructions */}
+        {isPipedrive && <PipedriveSetupGuide isConfigured={isFullyConfigured} />}
+        {!isPipedrive && !status.crmConfig?.crm_name && (
+          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5 space-y-3">
+            <p className="text-sm font-bold text-foreground">Conecta tu CRM en 3 pasos</p>
+            <ol className="space-y-2 text-xs text-muted-foreground">
+              <li className="flex gap-2"><span className="font-bold text-cyan-400">1.</span> En "Credenciales de tu CRM", escribe el nombre de tu CRM (ej: HubSpot, Salesforce, Zoho) y guarda.</li>
+              <li className="flex gap-2"><span className="font-bold text-cyan-400">2.</span> Genera tu API Key de ProspectPro y copia la URL del webhook.</li>
+              <li className="flex gap-2"><span className="font-bold text-cyan-400">3.</span> En tu CRM, crea un webhook con esa URL + <code className="font-mono">?key=TU_CLAVE</code> y configura el mapeo de etapas en la sección de abajo.</li>
+            </ol>
+            <p className="text-[11px] text-muted-foreground/60">Compatible con HubSpot, Salesforce, Zoho CRM, Monday.com, Close, Freshsales y cualquier CRM con webhooks JSON.</p>
+          </div>
+        )}
 
         {/* Webhook URL */}
         <div className="space-y-3">
@@ -89,14 +104,12 @@ export default async function IntegrationsPage() {
           </div>
         )}
 
-        {/* Generic adapter config — shown for any other CRM */}
+        {/* Generic adapter config — shown for any non-Pipedrive CRM */}
         {!isPipedrive && (
           <div className="space-y-3">
-            <SectionHeader icon={Settings2}>Configuración del adaptador genérico</SectionHeader>
-            <p className="text-xs text-muted-foreground">
-              Compatible con cualquier CRM que soporte webhooks HTTP POST con JSON.
-              Configura los nombres de los campos que usa tu CRM.
-            </p>
+            <SectionHeader icon={Settings2}>
+              Configuración de integración{status.crmConfig?.crm_name ? ` — ${status.crmConfig.crm_name}` : ''}
+            </SectionHeader>
             <GenericAdapterConfigForm initial={status.genericConfig} />
           </div>
         )}

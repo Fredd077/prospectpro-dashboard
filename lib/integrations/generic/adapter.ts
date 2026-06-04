@@ -8,6 +8,9 @@ export type GenericAdapterConfig = {
   stage_field?: string
   won_value?: string
   lost_value?: string
+  // Maps CRM stage value → ProspectPro stage name
+  // e.g. { "Appointment Set": "Cita agendada", "Proposal Sent": "Propuesta Presentada" }
+  stage_map?: Record<string, string>
 }
 
 function parseGenericConfig(config: Record<string, unknown> | null): GenericAdapterConfig {
@@ -52,13 +55,28 @@ export const genericAdapter: CrmAdapter = {
     if (gc.won_value  && status !== undefined && String(status) === gc.won_value)  action = 'won'
     if (gc.lost_value && status !== undefined && String(status) === gc.lost_value) action = 'lost'
 
+    // Resolve stage via stage_map if configured; fall back to raw value
+    let resolvedStage: string | null = null
+    if (stage != null) {
+      const rawStage = String(stage)
+      if (gc.stage_map && Object.keys(gc.stage_map).length > 0) {
+        resolvedStage = gc.stage_map[rawStage] ?? null
+        if (!resolvedStage && action === 'updated') {
+          throw new SkipError(`Stage "${rawStage}" not mapped — add it in Integraciones → Configuración`)
+        }
+      } else {
+        // No stage_map configured: accept raw value and let deal-processor validate
+        resolvedStage = rawStage
+      }
+    }
+
     return {
       action,
       externalId:   String(id),
       prospectName: name  != null ? String(name)   : null,
       companyName:  name  != null ? String(name)   : null,
       amountUsd:    amount != null ? (Number(amount) || null) : null,
-      stageInCrm:   stage != null ? String(stage)  : null,
+      stageInCrm:   resolvedStage,
       source:       'generic',
       rawPayload:   payload,
     }
