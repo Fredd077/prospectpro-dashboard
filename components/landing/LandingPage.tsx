@@ -1,7 +1,34 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+
+type Billing = 'monthly' | 'semiannual' | 'annual'
+
+const BILLING_DISCOUNT: Record<Billing, number> = {
+  monthly:    1.00,
+  semiannual: 0.90,
+  annual:     0.80,
+}
+
+function calcPrice(base: number, billing: Billing): string {
+  return Math.round(base * BILLING_DISCOUNT[billing]).toString()
+}
+
+// Vendedor tiers [base monthly price, label]
+const V_TIERS: [number, string][] = [
+  [19, '1 vendedor'],
+  [16, '2–5 vendedores'],
+  [13, '6–15 vendedores'],
+  [11, '16+ vendedores'],
+]
+
+// Manager tiers
+const M_TIERS: [number, string][] = [
+  [29, '1 manager'],
+  [23, '2–5 managers'],
+  [18, '6+ managers'],
+]
 
 const CSS = `
 /* ─── Reset & Base ─────────────────────────────────────── */
@@ -466,6 +493,7 @@ html { scroll-behavior: smooth; font-size: 16px; }
 
 export default function LandingPage() {
   const router = useRouter()
+  const [billing, setBilling] = useState<Billing>('monthly')
 
   useEffect(() => {
     const root = document.getElementById('pp-landing')
@@ -1269,18 +1297,90 @@ export default function LandingPage() {
             <p className="pp-section-sub pp-reveal pp-reveal-delay-2" style={{ maxWidth: '480px', margin: '0 auto' }}>Sin planes fijos. Sin límite de actividades. 14 días gratis sin tarjeta de crédito.</p>
           </div>
 
-          <div className="pp-pricing-grid" style={{ marginTop: '56px' }}>
+          {/* Billing toggle */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '40px' }}>
+            <div style={{
+              display: 'inline-flex',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '12px',
+              padding: '4px',
+              gap: '4px',
+              position: 'relative',
+            }}>
+              {([
+                { id: 'monthly'    as Billing, label: 'Mensual',    badge: null             },
+                { id: 'semiannual' as Billing, label: 'Semestral',  badge: '1 mes gratis'   },
+                { id: 'annual'     as Billing, label: 'Anual',      badge: '2 meses gratis' },
+              ] as { id: Billing; label: string; badge: string | null }[]).map(({ id, label, badge }) => (
+                <button
+                  key={id}
+                  onClick={() => setBilling(id)}
+                  style={{
+                    position: 'relative',
+                    padding: '8px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    fontFamily: 'Syne, sans-serif',
+                    transition: 'all 200ms',
+                    background: billing === id ? 'var(--pp-cyan)' : 'transparent',
+                    color: billing === id ? '#090C14' : 'rgba(255,255,255,0.5)',
+                  }}
+                >
+                  {label}
+                  {badge && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '-10px',
+                      right: '-4px',
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      padding: '2px 6px',
+                      borderRadius: '999px',
+                      background: billing === id ? 'rgba(0,0,0,0.3)' : 'rgba(0,217,255,0.15)',
+                      color: billing === id ? '#090C14' : 'var(--pp-cyan)',
+                      border: billing === id ? '1px solid rgba(0,0,0,0.2)' : '1px solid rgba(0,217,255,0.3)',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Billing note */}
+          {billing !== 'monthly' && (
+            <p style={{ textAlign: 'center', fontSize: '12px', color: 'rgba(0,217,255,0.6)', marginTop: '12px' }}>
+              {billing === 'semiannual'
+                ? 'Facturado cada 6 meses · 10% de descuento aplicado'
+                : 'Facturado anualmente · 20% de descuento aplicado'}
+            </p>
+          )}
+
+          <div className="pp-pricing-grid" style={{ marginTop: '32px' }}>
 
             {/* VENDEDOR */}
             <div className="pp-pricing-card pp-reveal">
               <div className="pp-pricing-role">Vendedor</div>
-              <div className="pp-pricing-price">$17<span>/mes</span></div>
+              <div className="pp-pricing-price">
+                ${calcPrice(19, billing)}<span>/mes</span>
+                {billing !== 'monthly' && (
+                  <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through', marginLeft: '8px', fontFamily: 'Syne, sans-serif', fontWeight: 400 }}>$19</span>
+                )}
+              </div>
               <div className="pp-pricing-desc">Por vendedor activo. Volumen con descuento.</div>
               <div className="pp-pricing-tiers">
-                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">1 vendedor</span><span className="pp-pricing-tier-value">$17/mes</span></div>
-                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">2–5 vendedores</span><span className="pp-pricing-tier-value">$14/mes c/u</span></div>
-                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">6–15 vendedores</span><span className="pp-pricing-tier-value">$11/mes c/u</span></div>
-                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">16+ vendedores</span><span className="pp-pricing-tier-value">$9/mes c/u</span></div>
+                {V_TIERS.map(([base, label]) => (
+                  <div key={label} className="pp-pricing-tier">
+                    <span className="pp-pricing-tier-label">{label}</span>
+                    <span className="pp-pricing-tier-value">${calcPrice(base, billing)}/mes c/u</span>
+                  </div>
+                ))}
               </div>
               <div className="pp-pricing-divider"></div>
               <div className="pp-pricing-feature" style={{ color: 'var(--pp-text-1)', fontWeight: 600 }}>⭐ Recetario + tasas de conversión por actividad</div>
@@ -1296,12 +1396,20 @@ export default function LandingPage() {
             <div className="pp-pricing-card featured pp-reveal pp-reveal-delay-1">
               <div className="pp-pricing-badge">Para líderes de equipo</div>
               <div className="pp-pricing-role">Manager</div>
-              <div className="pp-pricing-price">$29<span>/mes</span></div>
+              <div className="pp-pricing-price">
+                ${calcPrice(29, billing)}<span>/mes</span>
+                {billing !== 'monthly' && (
+                  <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through', marginLeft: '8px', fontFamily: 'Syne, sans-serif', fontWeight: 400 }}>$29</span>
+                )}
+              </div>
               <div className="pp-pricing-desc">Por manager. Incluye vista completa del equipo.</div>
               <div className="pp-pricing-tiers">
-                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">1 manager</span><span className="pp-pricing-tier-value">$29/mes</span></div>
-                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">2–5 managers</span><span className="pp-pricing-tier-value">$22/mes c/u</span></div>
-                <div className="pp-pricing-tier"><span className="pp-pricing-tier-label">6+ managers</span><span className="pp-pricing-tier-value">$17/mes c/u</span></div>
+                {M_TIERS.map(([base, label]) => (
+                  <div key={label} className="pp-pricing-tier">
+                    <span className="pp-pricing-tier-label">{label}</span>
+                    <span className="pp-pricing-tier-value">${calcPrice(base, billing)}/mes c/u</span>
+                  </div>
+                ))}
               </div>
               <div className="pp-pricing-divider"></div>
               <div className="pp-pricing-feature">Todo lo del Vendedor incluido</div>
@@ -1334,26 +1442,15 @@ export default function LandingPage() {
             gap: '12px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{
-                width: '36px', height: '36px',
-                background: 'rgba(0,217,255,0.08)',
-                borderRadius: '8px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-                fontSize: '18px',
-              }}>🔗</div>
+              <div style={{ width: '36px', height: '36px', background: 'rgba(0,217,255,0.08)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}>🔗</div>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-text-1)', marginBottom: '2px' }}>
-                  Add-on — Integración con tu CRM
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--pp-text-3)' }}>
-                  Compatible con cualquier CRM con webhook o API · Pipedrive, HubSpot, Zoho y más
-                </div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-text-1)', marginBottom: '2px' }}>Add-on — Integración con tu CRM</div>
+                <div style={{ fontSize: '12px', color: 'var(--pp-text-3)' }}>Compatible con cualquier CRM con webhook o API · Pipedrive, HubSpot, Zoho y más</div>
               </div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--pp-cyan)', fontFamily: "'JetBrains Mono', monospace" }}>
-                +$12<span style={{ fontSize: '12px', color: 'var(--pp-text-3)', fontFamily: 'Syne, sans-serif', fontWeight: 400 }}>/mes por usuario</span>
+                +${calcPrice(12, billing)}<span style={{ fontSize: '12px', color: 'var(--pp-text-3)', fontFamily: 'Syne, sans-serif', fontWeight: 400 }}>/mes por usuario</span>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--pp-text-3)', marginTop: '2px' }}>Se activa sobre cualquier plan</div>
             </div>
