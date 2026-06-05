@@ -30,6 +30,8 @@ const M_TIERS: [number, string][] = [
   [18, '6+ managers'],
 ]
 
+const VENDEDOR_BASE_PRICE: Record<Billing, number> = { monthly: 17, semiannual: 15, annual: 13 }
+
 const CSS = `
 /* ─── Reset & Base ─────────────────────────────────────── */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1335,8 +1337,8 @@ export default function LandingPage() {
                     fontWeight: 600,
                     fontFamily: 'Syne, sans-serif',
                     transition: 'all 200ms',
-                    background: billing === id ? 'var(--pp-cyan)' : 'transparent',
-                    color: billing === id ? '#090C14' : 'rgba(255,255,255,0.5)',
+                    background: billing === id ? '#00D9FF' : 'transparent',
+                    color: billing === id ? '#000000' : '#ffffff',
                   }}
                 >
                   {label}
@@ -1345,13 +1347,12 @@ export default function LandingPage() {
                       position: 'absolute',
                       top: '-10px',
                       right: '-4px',
-                      fontSize: '9px',
+                      fontSize: '11px',
                       fontWeight: 700,
                       padding: '2px 6px',
                       borderRadius: '999px',
-                      background: billing === id ? 'rgba(0,0,0,0.3)' : 'rgba(0,217,255,0.15)',
-                      color: billing === id ? '#090C14' : 'var(--pp-cyan)',
-                      border: billing === id ? '1px solid rgba(0,0,0,0.2)' : '1px solid rgba(0,217,255,0.3)',
+                      background: '#00D9FF',
+                      color: '#000000',
                       whiteSpace: 'nowrap',
                     }}>
                       {badge}
@@ -1377,9 +1378,9 @@ export default function LandingPage() {
             <div className="pp-pricing-card pp-reveal">
               <div className="pp-pricing-role">Vendedor</div>
               <div className="pp-pricing-price">
-                ${calcPrice(19, billing)}<span>/mes</span>
+                ${VENDEDOR_BASE_PRICE[billing]}<span>/mes</span>
                 {billing !== 'monthly' && (
-                  <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through', marginLeft: '8px', fontFamily: 'Syne, sans-serif', fontWeight: 400 }}>$19</span>
+                  <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through', marginLeft: '8px', fontFamily: 'Syne, sans-serif', fontWeight: 400 }}>$17</span>
                 )}
               </div>
               <div className="pp-pricing-desc">Por vendedor activo. Volumen con descuento.</div>
@@ -1432,6 +1433,34 @@ export default function LandingPage() {
                 <span style={{ flexShrink: 0, fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: 'var(--pp-yellow)' }}>30 consultas/mes</span>
               </div>
               <a href="/register" className="pp-pricing-btn pp-pricing-btn-featured">Empezar gratis — 14 días</a>
+            </div>
+
+            {/* Add-on CRM — Vendedor y Manager */}
+            <div className="pp-reveal" style={{
+              gridColumn: '1 / -1',
+              padding: '20px 28px',
+              background: 'rgba(0,217,255,0.03)',
+              border: '1px solid rgba(0,217,255,0.15)',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '36px', height: '36px', background: 'rgba(0,217,255,0.08)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}>🔗</div>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-text-1)', marginBottom: '2px' }}>Add-on — Integración con tu CRM</div>
+                  <div style={{ fontSize: '12px', color: 'var(--pp-text-3)' }}>Compatible con cualquier CRM con webhook o API — Pipedrive, HubSpot, Zoho y más</div>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--pp-cyan)', fontFamily: "'JetBrains Mono', monospace" }}>
+                  +$10<span style={{ fontSize: '12px', color: 'var(--pp-text-3)', fontFamily: 'Syne, sans-serif', fontWeight: 400 }}>/mes por usuario</span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--pp-text-3)', marginTop: '2px' }}>Se activa sobre cualquier plan</div>
+              </div>
             </div>
 
             {/* EQUIPO */}
@@ -1492,36 +1521,25 @@ export default function LandingPage() {
               </a>
             </div>
 
-          </div>
-
-          {/* Add-on CRM */}
-          <div className="pp-reveal" style={{
-            maxWidth: '780px',
-            margin: '16px auto 0',
-            padding: '20px 28px',
-            background: 'rgba(0,217,255,0.03)',
-            border: '1px solid rgba(0,217,255,0.15)',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '36px', height: '36px', background: 'rgba(0,217,255,0.08)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}>🔗</div>
+            {/* Add-on CRM — Equipo */}
+            <div className="pp-reveal" style={{
+              gridColumn: '1 / -1',
+              padding: '16px 24px',
+              background: 'rgba(0,217,255,0.03)',
+              border: '1px solid rgba(0,217,255,0.15)',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+            }}>
+              <div style={{ width: '32px', height: '32px', background: 'rgba(0,217,255,0.08)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '16px' }}>🔗</div>
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-text-1)', marginBottom: '2px' }}>Add-on — Integración con tu CRM</div>
-                <div style={{ fontSize: '12px', color: 'var(--pp-text-3)' }}>Compatible con cualquier CRM con webhook o API · Pipedrive, HubSpot, Zoho y más</div>
-                <div style={{ fontSize: '11px', color: 'rgba(0,217,255,0.6)', marginTop: '3px' }}>✓ Incluido sin costo adicional en el plan Equipo</div>
+                <div style={{ fontSize: '12px', color: 'var(--pp-text-3)' }}>Compatible con cualquier CRM con webhook o API — Pipedrive, HubSpot, Zoho y más</div>
+                <div style={{ fontSize: '11px', color: 'rgba(0,217,255,0.7)', marginTop: '4px' }}>✓ Incluido sin costo adicional en planes Equipo Starter y Pro</div>
               </div>
             </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--pp-cyan)', fontFamily: "'JetBrains Mono', monospace" }}>
-                +${calcPrice(12, billing)}<span style={{ fontSize: '12px', color: 'var(--pp-text-3)', fontFamily: 'Syne, sans-serif', fontWeight: 400 }}>/mes por usuario</span>
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--pp-text-3)', marginTop: '2px' }}>Se activa sobre cualquier plan</div>
-            </div>
+
           </div>
 
           {/* Footnote */}
