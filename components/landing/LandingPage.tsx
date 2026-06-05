@@ -412,6 +412,15 @@ html { scroll-behavior: smooth; font-size: 16px; }
 
 /* ─── PRICING ──────────────────────────────────────────── */
 #pp-landing .pp-pricing-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 20px; max-width: 780px; margin: 0 auto; }
+#pp-landing .pp-pricing-card.team { grid-column: 1 / -1; background: linear-gradient(135deg, #0F1520 0%, #111827 60%, #0E1B1A 100%); border-color: oklch(0.82 0.19 200 / 0.4); box-shadow: 0 0 60px oklch(0.82 0.19 200 / 0.07); }
+#pp-landing .pp-team-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+#pp-landing .pp-team-tier { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 16px; }
+#pp-landing .pp-team-tier.highlighted { border-color: oklch(0.82 0.19 200 / 0.35); background: rgba(0,217,255,0.04); }
+#pp-landing .pp-team-tier-name { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--pp-cyan); margin-bottom: 6px; }
+#pp-landing .pp-team-tier-price { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: var(--pp-text-1); line-height: 1; }
+#pp-landing .pp-team-tier-price span { font-size: 12px; color: var(--pp-text-3); font-family: 'Syne', sans-serif; font-weight: 400; }
+#pp-landing .pp-team-tier-desc { font-size: 11px; color: var(--pp-text-3); margin-top: 4px; }
+#pp-landing .pp-team-features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 24px; }
 /* ─── WHATSAPP FLOAT ────────────────────────────────────── */
 #pp-landing .pp-wa-float { position: fixed; bottom: 28px; right: 28px; z-index: 9999; display: flex; align-items: center; gap: 10px; text-decoration: none; }
 #pp-landing .pp-wa-btn { width: 56px; height: 56px; border-radius: 50%; background: #25D366; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(37,211,102,0.45); transition: transform 200ms, box-shadow 200ms; flex-shrink: 0; }
@@ -1425,6 +1434,64 @@ export default function LandingPage() {
               <a href="/register" className="pp-pricing-btn pp-pricing-btn-featured">Empezar gratis — 14 días</a>
             </div>
 
+            {/* EQUIPO */}
+            <div className="pp-pricing-card team pp-reveal pp-reveal-delay-2">
+              <div className="pp-pricing-badge" style={{ background: 'linear-gradient(90deg,#00D9FF,#00b8d4)', color: '#090C14' }}>
+                Precio fijo · Sin contar usuarios
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                  <div className="pp-pricing-role">Equipo</div>
+                  <p style={{ fontSize: '13px', color: 'var(--pp-text-2)', maxWidth: '340px', lineHeight: 1.5 }}>
+                    Un solo precio para todo el equipo. Agrega o quita miembros libremente sin recalcular ni pedir aprobación de presupuesto.
+                  </p>
+                </div>
+                <div style={{ fontSize: '11px', color: 'rgba(0,217,255,0.7)', background: 'rgba(0,217,255,0.07)', border: '1px solid rgba(0,217,255,0.2)', borderRadius: '8px', padding: '8px 14px', flexShrink: 0, textAlign: 'center' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '2px' }}>vs per-user + CRM</div>
+                  <div style={{ fontWeight: 800, fontSize: '16px', color: 'var(--pp-cyan)' }}>Ahorra hasta $185/mes</div>
+                </div>
+              </div>
+
+              {/* Tier table */}
+              <div className="pp-team-tiers">
+                <div className="pp-team-tier">
+                  <div className="pp-team-tier-name">Starter</div>
+                  <div className="pp-team-tier-price">${calcPrice(189, billing)}<span>/mes</span></div>
+                  {billing !== 'monthly' && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', textDecoration: 'line-through' }}>$189</div>}
+                  <div className="pp-team-tier-desc">Hasta 10 usuarios</div>
+                </div>
+                <div className="pp-team-tier highlighted">
+                  <div className="pp-team-tier-name">Pro</div>
+                  <div className="pp-team-tier-price">${calcPrice(289, billing)}<span>/mes</span></div>
+                  {billing !== 'monthly' && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', textDecoration: 'line-through' }}>$289</div>}
+                  <div className="pp-team-tier-desc">Hasta 20 usuarios</div>
+                </div>
+                <div className="pp-team-tier">
+                  <div className="pp-team-tier-name">Enterprise</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--pp-text-1)', lineHeight: 1, marginBottom: '4px' }}>A medida</div>
+                  <div className="pp-team-tier-desc">20+ usuarios · SLA · onboarding</div>
+                </div>
+              </div>
+
+              <div className="pp-pricing-divider"></div>
+
+              {/* Features 2-col */}
+              <div className="pp-team-features">
+                <div className="pp-pricing-feature" style={{ color: 'var(--pp-text-1)', fontWeight: 600 }}>⭐ Todo lo del Manager incluido</div>
+                <div className="pp-pricing-feature" style={{ color: 'var(--pp-cyan)', fontWeight: 600 }}>🔗 Integración CRM incluida</div>
+                <div className="pp-pricing-feature">Vendedores + Managers ilimitados hasta el límite</div>
+                <div className="pp-pricing-feature">Agrega / quita usuarios sin recalcular</div>
+                <div className="pp-pricing-feature">Dashboard consolidado del equipo</div>
+                <div className="pp-pricing-feature">Reportes automáticos diarios, semanales y mensuales</div>
+                <div className="pp-pricing-feature">Gerente AI — 60 consultas/mes</div>
+                <div className="pp-pricing-feature">Soporte prioritario por WhatsApp</div>
+              </div>
+
+              <a href="/register" className="pp-pricing-btn pp-pricing-btn-featured" style={{ marginTop: '20px' }}>
+                Empezar gratis — 14 días
+              </a>
+            </div>
+
           </div>
 
           {/* Add-on CRM */}
@@ -1446,6 +1513,7 @@ export default function LandingPage() {
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--pp-text-1)', marginBottom: '2px' }}>Add-on — Integración con tu CRM</div>
                 <div style={{ fontSize: '12px', color: 'var(--pp-text-3)' }}>Compatible con cualquier CRM con webhook o API · Pipedrive, HubSpot, Zoho y más</div>
+                <div style={{ fontSize: '11px', color: 'rgba(0,217,255,0.6)', marginTop: '3px' }}>✓ Incluido sin costo adicional en el plan Equipo</div>
               </div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
