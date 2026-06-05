@@ -1487,13 +1487,13 @@ export default function LandingPage() {
                   <div className="pp-team-tier-name">Starter</div>
                   <div className="pp-team-tier-price">${calcPrice(189, billing)}<span>/mes</span></div>
                   {billing !== 'monthly' && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', textDecoration: 'line-through' }}>$189</div>}
-                  <div className="pp-team-tier-desc">Hasta 10 usuarios</div>
+                  <div className="pp-team-tier-desc">Hasta 10 usuarios · 1 Manager</div>
                 </div>
                 <div className="pp-team-tier highlighted">
                   <div className="pp-team-tier-name">Pro</div>
                   <div className="pp-team-tier-price">${calcPrice(289, billing)}<span>/mes</span></div>
                   {billing !== 'monthly' && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', textDecoration: 'line-through' }}>$289</div>}
-                  <div className="pp-team-tier-desc">Hasta 20 usuarios</div>
+                  <div className="pp-team-tier-desc">Hasta 20 usuarios · 2 Managers</div>
                 </div>
                 <div className="pp-team-tier">
                   <div className="pp-team-tier-name">Enterprise</div>
@@ -1508,7 +1508,7 @@ export default function LandingPage() {
               <div className="pp-team-features">
                 <div className="pp-pricing-feature" style={{ color: 'var(--pp-text-1)', fontWeight: 600 }}>⭐ Todo lo del Manager incluido</div>
                 <div className="pp-pricing-feature" style={{ color: 'var(--pp-cyan)', fontWeight: 600 }}>🔗 Integración CRM incluida</div>
-                <div className="pp-pricing-feature">Vendedores + Managers ilimitados hasta el límite</div>
+                <div className="pp-pricing-feature">Vendedores ilimitados · 1 Manager (Starter) o 2 Managers (Pro)</div>
                 <div className="pp-pricing-feature">Agrega / quita usuarios sin recalcular</div>
                 <div className="pp-pricing-feature">Dashboard consolidado del equipo</div>
                 <div className="pp-pricing-feature">Reportes automáticos diarios, semanales y mensuales</div>
