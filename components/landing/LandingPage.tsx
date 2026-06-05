@@ -1378,7 +1378,7 @@ export default function LandingPage() {
             <div className="pp-pricing-card pp-reveal">
               <div className="pp-pricing-role">Vendedor</div>
               <div className="pp-pricing-price" style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '6px' }}>
-                <span>${VENDEDOR_BASE_PRICE[billing]}</span><span style={{ fontSize: '14px', color: 'var(--pp-text-2)', fontWeight: 400, fontFamily: 'Syne, sans-serif' }}>/mes</span>
+                <span style={{ fontSize: '38px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--pp-text-1)' }}>${VENDEDOR_BASE_PRICE[billing]}</span><span style={{ fontSize: '14px', color: 'var(--pp-text-2)', fontWeight: 400, fontFamily: 'Syne, sans-serif' }}>/mes</span>
                 {billing !== 'monthly' && (
                   <span style={{ fontSize: '38px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--pp-red)', textDecoration: 'line-through', textDecorationThickness: '1.5px', textDecorationColor: 'var(--pp-red)' }}>$17</span>
                 )}
@@ -1407,7 +1407,7 @@ export default function LandingPage() {
               <div className="pp-pricing-badge">Para líderes de equipo</div>
               <div className="pp-pricing-role">Manager</div>
               <div className="pp-pricing-price" style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '6px' }}>
-                <span>${calcPrice(29, billing)}</span><span style={{ fontSize: '14px', color: 'var(--pp-text-2)', fontWeight: 400, fontFamily: 'Syne, sans-serif' }}>/mes</span>
+                <span style={{ fontSize: '38px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--pp-text-1)' }}>${calcPrice(29, billing)}</span><span style={{ fontSize: '14px', color: 'var(--pp-text-2)', fontWeight: 400, fontFamily: 'Syne, sans-serif' }}>/mes</span>
                 {billing !== 'monthly' && (
                   <span style={{ fontSize: '38px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--pp-red)', textDecoration: 'line-through', textDecorationThickness: '1.5px', textDecorationColor: 'var(--pp-red)' }}>$29</span>
                 )}
