@@ -104,13 +104,21 @@ export function usePerformanceData(
         const rMap: Record<string, number> = {}
         const cMap: Record<string, number> = {}
         const mMap: Record<string, number> = {}
+        // Stages where a meeting actually happened (past the scheduling stage)
+        const REUNION_STAGES = new Set([
+          'Primera reu ejecutada/Propuesta en preparación',
+          'Propuesta Presentada',
+          'Por facturar/cobrar',
+        ])
+
         for (const row of data ?? []) {
           const aid = row.origin_activity_id
           if (!aid) continue
-          rMap[aid] = (rMap[aid] ?? 0) + 1
-          // Align with pipeline's "CERRADO" definition: stage = Por facturar/cobrar.
-          // Using status='ganado' across all stages causes double-counting when a deal
-          // has both a 'Propuesta Presentada' (ganado) row and a 'Por facturar/cobrar' row.
+          // Only count as "reunión real" if the deal reached an executed-meeting stage.
+          // Cita agendada and Reagendar are scheduled, not yet executed.
+          if (REUNION_STAGES.has(row.stage)) {
+            rMap[aid] = (rMap[aid] ?? 0) + 1
+          }
           if (row.stage === 'Por facturar/cobrar') {
             cMap[aid] = (cMap[aid] ?? 0) + 1
             mMap[aid] = (mMap[aid] ?? 0) + (row.amount_usd ?? 0)
