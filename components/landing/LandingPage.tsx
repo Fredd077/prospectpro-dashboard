@@ -1309,7 +1309,7 @@ export default function LandingPage() {
           </div>
 
           {/* Billing toggle */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '40px', paddingTop: '20px' }}>
             <div style={{
               display: 'inline-flex',
               background: 'rgba(255,255,255,0.04)',
@@ -1345,11 +1345,12 @@ export default function LandingPage() {
                   {badge && (
                     <span style={{
                       position: 'absolute',
-                      top: '-10px',
-                      right: '-4px',
+                      top: '-16px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
                       fontSize: '11px',
                       fontWeight: 700,
-                      padding: '2px 6px',
+                      padding: '3px 8px',
                       borderRadius: '999px',
                       background: '#00D9FF',
                       color: '#000000',
