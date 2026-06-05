@@ -1377,10 +1377,10 @@ export default function LandingPage() {
             {/* VENDEDOR */}
             <div className="pp-pricing-card pp-reveal">
               <div className="pp-pricing-role">Vendedor</div>
-              <div className="pp-pricing-price">
-                ${VENDEDOR_BASE_PRICE[billing]}<span>/mes</span>
+              <div className="pp-pricing-price" style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '6px' }}>
+                <span>${VENDEDOR_BASE_PRICE[billing]}</span><span style={{ fontSize: '14px', color: 'var(--pp-text-2)', fontWeight: 400, fontFamily: 'Syne, sans-serif' }}>/mes</span>
                 {billing !== 'monthly' && (
-                  <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through', marginLeft: '8px', fontFamily: 'Syne, sans-serif', fontWeight: 400 }}>$17</span>
+                  <span style={{ fontSize: '38px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--pp-red)', textDecoration: 'line-through', textDecorationThickness: '1.5px', textDecorationColor: 'var(--pp-red)' }}>$17</span>
                 )}
               </div>
               <div className="pp-pricing-desc">Por vendedor activo. Volumen con descuento.</div>
@@ -1406,10 +1406,10 @@ export default function LandingPage() {
             <div className="pp-pricing-card featured pp-reveal pp-reveal-delay-1">
               <div className="pp-pricing-badge">Para líderes de equipo</div>
               <div className="pp-pricing-role">Manager</div>
-              <div className="pp-pricing-price">
-                ${calcPrice(29, billing)}<span>/mes</span>
+              <div className="pp-pricing-price" style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '6px' }}>
+                <span>${calcPrice(29, billing)}</span><span style={{ fontSize: '14px', color: 'var(--pp-text-2)', fontWeight: 400, fontFamily: 'Syne, sans-serif' }}>/mes</span>
                 {billing !== 'monthly' && (
-                  <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through', marginLeft: '8px', fontFamily: 'Syne, sans-serif', fontWeight: 400 }}>$29</span>
+                  <span style={{ fontSize: '38px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--pp-red)', textDecoration: 'line-through', textDecorationThickness: '1.5px', textDecorationColor: 'var(--pp-red)' }}>$29</span>
                 )}
               </div>
               <div className="pp-pricing-desc">Por manager. Incluye vista completa del equipo.</div>
@@ -1486,13 +1486,13 @@ export default function LandingPage() {
                 <div className="pp-team-tier">
                   <div className="pp-team-tier-name">Starter</div>
                   <div className="pp-team-tier-price">${calcPrice(189, billing)}<span>/mes</span></div>
-                  {billing !== 'monthly' && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', textDecoration: 'line-through' }}>$189</div>}
+                  {billing !== 'monthly' && <div style={{ fontSize: '26px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--pp-red)', textDecoration: 'line-through', textDecorationThickness: '1.5px', lineHeight: 1 }}>$189</div>}
                   <div className="pp-team-tier-desc">Hasta 10 usuarios · 1 Manager</div>
                 </div>
                 <div className="pp-team-tier highlighted">
                   <div className="pp-team-tier-name">Pro</div>
                   <div className="pp-team-tier-price">${calcPrice(289, billing)}<span>/mes</span></div>
-                  {billing !== 'monthly' && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', textDecoration: 'line-through' }}>$289</div>}
+                  {billing !== 'monthly' && <div style={{ fontSize: '26px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--pp-red)', textDecoration: 'line-through', textDecorationThickness: '1.5px', lineHeight: 1 }}>$289</div>}
                   <div className="pp-team-tier-desc">Hasta 20 usuarios · 2 Managers</div>
                 </div>
                 <div className="pp-team-tier">
