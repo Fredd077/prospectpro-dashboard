@@ -45,12 +45,13 @@ function resolveStage(
 ): string | null {
   if (dealStatus === 'won') return 'Por facturar/cobrar'
   if (!stageId) return null
-  const sid = String(stageId)
-  if (config.cierre_stage    && sid === config.cierre_stage)    return 'Por facturar/cobrar'
-  if (config.propuesta_stage && sid === config.propuesta_stage) return 'Propuesta Presentada'
-  if (config.reunion_stage   && sid === config.reunion_stage)   return 'Primera reu ejecutada/Propuesta en preparación'
-  if (config.reagendar_stage && sid === config.reagendar_stage) return 'Reagendar'
-  if (config.cita_stage      && sid === config.cita_stage)      return 'Cita agendada'
+  // Use loose numeric comparison so JSONB-stored numbers (52) match string inputs ("52")
+  const sid = Number(stageId)
+  if (config.cierre_stage    && sid === Number(config.cierre_stage))    return 'Por facturar/cobrar'
+  if (config.propuesta_stage && sid === Number(config.propuesta_stage)) return 'Propuesta Presentada'
+  if (config.reunion_stage   && sid === Number(config.reunion_stage))   return 'Primera reu ejecutada/Propuesta en preparación'
+  if (config.reagendar_stage && sid === Number(config.reagendar_stage)) return 'Reagendar'
+  if (config.cita_stage      && sid === Number(config.cita_stage))      return 'Cita agendada'
   return null
 }
 

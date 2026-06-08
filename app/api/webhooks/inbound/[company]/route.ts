@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getSupabaseServiceClient } from '@/lib/supabase/server'
 import { hashKey } from '@/lib/utils/crypto'
@@ -78,30 +78,35 @@ export async function POST(
     .update({ last_used_at: receivedAt })
     .eq('id', keyRow.id)
 
-  // Process asynchronously — respond 200 immediately, don't block the CRM
-  void service
-    .from('integrations')
-    .select('admin_user_id, crm_name, config')
-    .eq('company_name', companyName)
-    .maybeSingle()
-    .then(async ({ data: integration }) => {
-      const now = new Date().toISOString()
+  // after() guarantees this async work completes even after the response is sent.
+  // Using void-promise here is unsafe in Vercel serverless — the function can be
+  // terminated immediately after NextResponse.json() returns, killing the promise chain.
+  after(async () => {
+    const now = new Date().toISOString()
+
+    try {
+      const { data: integration } = await service
+        .from('integrations')
+        .select('admin_user_id, crm_name, config')
+        .eq('company_name', companyName)
+        .maybeSingle()
 
       if (!integration) {
-        return service.from('webhook_logs').update({
+        await service.from('webhook_logs').update({
           status: 'skipped', processed_at: now,
           error_message: 'No integration row found for this company',
         }).eq('id', logId)
+        return
       }
 
       if (!integration.admin_user_id) {
-        return service.from('webhook_logs').update({
+        await service.from('webhook_logs').update({
           status: 'skipped', processed_at: now,
           error_message: 'Integration has no admin_user_id — regenerate your API key',
         }).eq('id', logId)
+        return
       }
 
-      // Inject crm_name as a synthetic header so adapters can use it for unambiguous matching
       if (integration.crm_name) {
         dispatchHeaders['x-crm-name'] = integration.crm_name.toLowerCase()
       }
@@ -109,29 +114,27 @@ export async function POST(
       try {
         const event  = dispatch(payload, dispatchHeaders, integration.config as Record<string, unknown> | null)
         const result = await processDealEvent(event, integration.admin_user_id, service)
-        return service.from('webhook_logs').update({
+        await service.from('webhook_logs').update({
           status:        'processed',
           processed_at:  now,
           error_message: result.message,
         }).eq('id', logId)
-          .then(() => result) // consume result to avoid unhandled promise
       } catch (err: unknown) {
         const isSkip = err instanceof SkipError
-        return service.from('webhook_logs').update({
+        await service.from('webhook_logs').update({
           status:        isSkip ? 'skipped' : 'error',
           processed_at:  now,
           error_message: err instanceof Error ? err.message : 'Unknown error',
         }).eq('id', logId)
       }
-    })
-    .then(undefined, (err: unknown) => {
-      // Outer catch — prevents logs from staying as 'received' if the async chain itself throws
-      void service.from('webhook_logs').update({
+    } catch (err: unknown) {
+      await service.from('webhook_logs').update({
         status:        'error',
         processed_at:  new Date().toISOString(),
         error_message: `Async processing error: ${err instanceof Error ? err.message : String(err)}`,
       }).eq('id', logId)
-    })
+    }
+  })
 
   return NextResponse.json({ ok: true, received_at: receivedAt })
 }
