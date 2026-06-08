@@ -52,9 +52,23 @@ function ExpandedDetail({ log }: { log: LogRow }) {
   return (
     <div className="px-4 pb-3 pt-1 space-y-2 bg-muted/5">
       {log.error_message && (
-        <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-red-400/70 mb-1">Mensaje de error</p>
-          <p className="font-mono text-xs text-red-300 break-all whitespace-pre-wrap">{log.error_message}</p>
+        <div className={`rounded-md border p-3 ${
+          log.status === 'processed' || log.status === 'skipped'
+            ? 'border-emerald-500/20 bg-emerald-500/5'
+            : 'border-red-500/20 bg-red-500/5'
+        }`}>
+          <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${
+            log.status === 'processed' || log.status === 'skipped'
+              ? 'text-emerald-400/70'
+              : 'text-red-400/70'
+          }`}>
+            {log.status === 'processed' ? 'Resultado' : log.status === 'skipped' ? 'Motivo' : 'Mensaje de error'}
+          </p>
+          <p className={`font-mono text-xs break-all whitespace-pre-wrap ${
+            log.status === 'processed' || log.status === 'skipped'
+              ? 'text-emerald-300'
+              : 'text-red-300'
+          }`}>{log.error_message}</p>
         </div>
       )}
       {payloadStr && (
@@ -145,7 +159,13 @@ export function WebhookLogsTable({ logs }: { logs: LogRow[] }) {
                     <StatusBadge status={log.status} />
                   </td>
                   <td className="px-3 py-2.5 font-mono text-muted-foreground/60 max-w-sm">
-                    <span className={`block truncate ${log.error_message ? 'text-red-400/70' : ''}`}>
+                    <span className={`block truncate ${
+                      log.error_message
+                        ? log.status === 'processed' || log.status === 'skipped'
+                          ? 'text-emerald-400/70'
+                          : 'text-red-400/70'
+                        : ''
+                    }`}>
                       {preview}
                     </span>
                   </td>
