@@ -24,7 +24,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Suspense>
               <TrialBanner />
             </Suspense>
-            <main className="flex-1 overflow-hidden">{children}</main>
+            <main className="flex-1 min-w-0">{children}</main>
           </div>
         </MainContentShift>
       </div>
