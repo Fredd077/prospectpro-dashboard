@@ -365,7 +365,7 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
       )}
 
       {/* Main table */}
-      <div className="rounded-lg border border-zinc-800 bg-zinc-950 overflow-x-auto">
+      <div className="rounded-lg border border-zinc-800 bg-zinc-950 min-w-[1380px]">
         <table className="w-full text-xs min-w-[1380px]">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/80">

@@ -42,7 +42,7 @@ export default async function RecipeDetailPage({ params }: Props) {
           </Link>
         }
       />
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 overflow-auto p-8">
         <ScenarioTabs
           scenario={scenario}
           actuals={actuals ?? []}

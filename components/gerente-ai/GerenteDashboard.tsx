@@ -253,7 +253,7 @@ export function GerenteDashboard({ analytics, pipeline, allReps, startISO, endIS
           </div>
 
           {/* Tab content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-auto">
 
             {/* ── ACTIVITY TAB ─────────────────────────────────────── */}
             {activeTab === 'activity' && (

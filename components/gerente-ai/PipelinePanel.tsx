@@ -184,15 +184,14 @@ export function PipelinePanel({ pipeline }: Props) {
       )}
 
       {chartType === 'funnel' && (
-        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] overflow-hidden">
+        <div className="rounded-lg bg-[#0d1117] border border-white/[0.06] overflow-hidden min-w-max">
           <div className="px-4 py-3 border-b border-white/[0.06] bg-[#080b12] flex items-center gap-3">
             <span className="h-[3px] w-4 rounded-full bg-cyan-400 inline-block" />
             <h3 className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/60">
               Detalle funnel por etapa y vendedor
             </h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+          <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/[0.06] bg-[#0a0e17]">
                   <th className="text-left px-4 py-2.5 text-[9px] font-bold text-white/30 uppercase tracking-[0.12em]">Vendedor</th>
@@ -245,7 +244,6 @@ export function PipelinePanel({ pipeline }: Props) {
                 ))}
               </tbody>
             </table>
-          </div>
         </div>
       )}
     </div>
