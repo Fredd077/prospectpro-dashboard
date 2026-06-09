@@ -127,9 +127,9 @@ export default async function PipelinePage({ searchParams }: PageProps) {
           </Suspense>
         </div>
 
-        {/* ── Kanban tab: bounded container → scrollbar always at screen bottom ── */}
+        {/* ── Kanban tab ── */}
         {activeTab === 'pipeline' && (
-          <div className="flex-1 overflow-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6">
             <PipelineSimpleBoard
               entries={pipelineSimple}
               period={period}

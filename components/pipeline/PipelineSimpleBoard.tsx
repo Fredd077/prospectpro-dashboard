@@ -512,7 +512,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
       />
 
       {/* Kanban columns */}
-      <div className="flex gap-4 pb-6">
+      <div className="flex gap-4 overflow-x-auto pb-6">
         {STAGES.map((stage) => {
           const col          = STAGE_COLOR[stage]
           const stageEntries = filtered.filter(e => e.stage === stage)
