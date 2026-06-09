@@ -82,10 +82,10 @@ export default async function PipelinePage({ searchParams }: PageProps) {
   return (
     <div className="flex flex-col h-full">
       <TopBar title="Mi Pipeline" description="Seguimiento de tu funnel comercial" />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Tab navigation */}
-        <div className="flex items-center border-b border-border bg-background px-8">
+        <div className="flex items-center border-b border-border bg-background px-8 shrink-0">
           <Link
             href={buildUrl({ period, refDate: refDateParam || undefined })}
             className="px-4 py-3 text-sm font-medium border-b-2 border-primary text-primary"
@@ -95,7 +95,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
         </div>
 
         {/* Controls bar */}
-        <div className="flex items-center gap-3 flex-wrap border-b border-border bg-background px-8 py-3">
+        <div className="flex items-center gap-3 flex-wrap border-b border-border bg-background px-8 py-3 shrink-0">
           <div className="flex items-center rounded-md border border-border overflow-hidden">
             {PERIOD_OPTIONS.map(({ value, label }) => (
               <Link key={value}
@@ -115,7 +115,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
         </div>
 
         {/* ── Pipeline tab ───────────────────────────────────────────────── */}
-        <div className="p-6">
+        <div className="flex-1 overflow-auto p-6">
           <PipelineSimpleBoard
             entries={pipelineSimple}
             period={period}
