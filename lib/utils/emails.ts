@@ -1,9 +1,16 @@
+import { getSupabaseServiceClient } from '@/lib/supabase/server'
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? ''
 const APP_URL        = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://app.prospectpro.cloud'
 const ADMIN_EMAIL    = 'freddy.g84@gmail.com'
-const FROM_ADDRESS   = 'ProspectPro <hola@prospectpro.cloud>'
+const FROM_ADDRESS   = 'ProspectPro <reportes@prospectpro.cloud>'
 
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  // Security: only send to registered platform users — never to arbitrary addresses
+  const sb = getSupabaseServiceClient()
+  const { data: profile } = await sb.from('profiles').select('id').eq('email', to).maybeSingle()
+  if (!profile) throw new Error(`[emails] Blocked: ${to} is not a registered user`)
+
   const res = await fetch('https://api.resend.com/emails', {
     method:  'POST',
     headers: {

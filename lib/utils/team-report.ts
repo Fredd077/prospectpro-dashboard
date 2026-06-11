@@ -413,6 +413,13 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
     return { success: true, sentTo: '', generatedAt, id: savedId }
   }
 
+  // Security: only send to registered platform users
+  const { data: recipientProfile } = await sb.from('profiles').select('id').eq('email', toEmail).maybeSingle()
+  if (!recipientProfile) {
+    console.error(`[team-report] Blocked: ${toEmail} is not a registered user`)
+    return { success: false, sentTo: '', generatedAt, id: savedId }
+  }
+
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -420,7 +427,7 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'ProspectPro Reports <reportes@prospectpro.cloud>',
+      from: 'ProspectPro <reportes@prospectpro.cloud>',
       to: toEmail,
       subject: memberName
         ? `ProspectPro · Reporte de equipo — ${scopeLabel} · ${memberName} · ${periodRangeLabel}`
