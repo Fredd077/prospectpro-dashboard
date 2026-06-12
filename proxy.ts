@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 // Routes accessible without authentication
-const PUBLIC_ROUTES = ['/', '/login', '/register', '/pending', '/auth/callback', '/auth/signout', '/guide']
+const PUBLIC_ROUTES = ['/', '/login', '/register', '/pending', '/acceso-pendiente', '/auth/callback', '/auth/signout', '/guide']
 
 // Routes accessible only to admin role
 const ADMIN_PREFIX = '/admin'
@@ -63,10 +63,10 @@ export async function proxy(request: NextRequest) {
 
   const role = profile?.role ?? 'pending'
 
-  // Pending users → holding page
+  // Pending users → holding page (no access to the app)
   if (role === 'pending') {
-    if (pathname !== '/pending') {
-      return NextResponse.redirect(new URL('/pending', request.url))
+    if (pathname !== '/acceso-pendiente') {
+      return NextResponse.redirect(new URL('/acceso-pendiente', request.url))
     }
     return response
   }
