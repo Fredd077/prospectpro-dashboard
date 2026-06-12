@@ -16,8 +16,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Allow public routes through unconditionally
-  if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
+  // Allow public routes through unconditionally.
+  // '/' must be an exact match — startsWith('/') would pass every route.
+  if (PUBLIC_ROUTES.some((r) => r === '/' ? pathname === '/' : pathname.startsWith(r))) {
     return NextResponse.next()
   }
 
