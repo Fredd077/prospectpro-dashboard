@@ -47,7 +47,10 @@ const DOMAIN = '@prospectpro.cloud'
 const PASSWORD = 'DemoAndina2026!'
 const FUNNEL_STAGES = ['Actividad', 'Reunión', 'Propuesta', 'Cierre']
 const WORKING_DAYS = 20
-const HISTORY_DAYS = 60
+// Cuántos meses de historial generar (mes actual + anteriores). 4 cubre el
+// trimestre en curso + un mes extra, para que las vistas de mes anterior y
+// trimestre del Recetario/Dashboard tengan datos coherentes.
+const HISTORY_MONTHS = 4
 
 // Etapas reales del enum de pipeline_simple
 const PIPE = {
@@ -147,11 +150,37 @@ function isWeekendISO(iso: string): boolean {
   return dow === 0 || dow === 6
 }
 
-/** Últimos `count` días hábiles (lun–vie) como ISO, del más antiguo al más reciente. */
-function lastBusinessDays(count: number): string[] {
+/** [año, mes, día] del día de hoy en Bogotá. */
+function currentYMD(): [number, number, number] {
+  const [y, m, d] = todayISO().split('-').map(Number)
+  return [y, m, d]
+}
+
+/** Partes del mes a `offset` meses atrás del actual (0 = mes actual). maxDay acota
+ *  a 28 (evita problemas de fin de mes) y, para el mes actual, a hoy. */
+function monthOffsetParts(offset: number): { ty: number; mm: string; maxDay: number } {
+  const [cy, cm, cd] = currentYMD()
+  const total = cy * 12 + (cm - 1) - offset
+  const ty = Math.floor(total / 12)
+  const tm = (total % 12) + 1
+  const mm = String(tm).padStart(2, '0')
+  const maxDay = offset === 0 ? Math.min(28, Math.max(1, cd)) : 28
+  return { ty, mm, maxDay }
+}
+
+/** Primer día (ISO) del mes a `offset` meses atrás. */
+function monthStartISO(offset: number): string {
+  const { ty, mm } = monthOffsetParts(offset)
+  return `${ty}-${mm}-01`
+}
+
+/** Días hábiles (lun–vie) desde el inicio del mes más antiguo de la ventana hasta hoy. */
+function businessDaysWindow(months: number): string[] {
+  const oldest = monthStartISO(months - 1)
   const out: string[] = []
   let cursor = todayISO()
-  while (out.length < count) {
+  // Comparación lexicográfica de YYYY-MM-DD es válida cronológicamente.
+  while (cursor >= oldest) {
     if (!isWeekendISO(cursor)) out.unshift(cursor)
     cursor = addDaysToISO(cursor, -1)
   }
@@ -287,7 +316,7 @@ async function seedRecipeAndActivities(sb: Sb, def: UserDef, userId: string): Pr
 
 // ─── Historial de activity_logs (60 días hábiles con personalidad) ───────────
 async function seedActivityLogs(sb: Sb, def: UserDef, userId: string, acts: SeededActivity[]): Promise<number> {
-  const days = lastBusinessDays(HISTORY_DAYS)
+  const days = businessDaysWindow(HISTORY_MONTHS)
   const today = todayISO()
   const logs: ActivityLogInsert[] = []
 
@@ -313,84 +342,101 @@ async function seedActivityLogs(sb: Sb, def: UserDef, userId: string, acts: Seed
   return logs.length
 }
 
-// ─── Pipeline del mes en curso ───────────────────────────────────────────────
-// Genera oportunidades fechadas DENTRO del mes actual, cada una con
-// origin_activity_id, de modo que el Recetario cuente reuniones/cierres reales.
+// ─── Pipeline de los últimos meses ───────────────────────────────────────────
+// Genera oportunidades fechadas dentro de cada uno de los últimos HISTORY_MONTHS
+// meses, cada una con origin_activity_id. Cada mes es coherente con la
+// personalidad del vendedor (efficiencyFactor) con una leve tendencia de mejora
+// hacia el presente, de modo que las vistas de mes anterior y trimestre tengan
+// datos consistentes con los del mes actual.
 function buildPipelineRows(def: UserDef, userId: string, acts: SeededActivity[]): {
   rows: PipelineSimpleInsert[]; reuniones: number; cierres: number; ingreso: number
 } {
-  const today = todayISO()
-  const [cy, cm, cd] = today.split('-').map(Number)
-  const MM = String(cm).padStart(2, '0')
-  // Fecha ISO de un día del mes en curso, acotada a [1, hoy] — sin new Date/parseISO.
-  const isoDay = (d: number) => `${cy}-${MM}-${String(Math.max(1, Math.min(cd, d))).padStart(2, '0')}`
-  const tsDay = (d: number) => `${isoDay(d)}T15:00:00Z`
-
+  const [cy, cm] = currentYMD()
+  const curPrefix = `${cy}-${String(cm).padStart(2, '0')}`
   const cities = CITY_POOL[def.market] ?? CITY_POOL['Gerencia']
-  const eff = def.pipeline.effFactor
+  const outActs = acts.filter((a) => a.type === 'OUTBOUND')
+  const inActs = acts.filter((a) => a.type === 'INBOUND')
+
   const rows: PipelineSimpleInsert[] = []
   let n = 0
-  let stalledLeft = def.pipeline.stalled ? 1 : 0
 
-  function push(stage: Stage, status: 'abierto' | 'perdido' | 'ganado', act: SeededActivity, opts?: { entryDay?: number; updatedDay?: number; notes?: string }) {
+  // Crea una fila. entryDate/updatedAt ya vienen construidos (ISO del mes correcto).
+  const addRow = (p: {
+    stage: Stage; status: 'abierto' | 'perdido' | 'ganado'; act: SeededActivity
+    entryDate: string; updatedAt: string; notes?: string
+  }): void => {
     const idx = n++
-    const spreadDay = 1 + (idx % Math.max(1, cd)) // reparte a lo largo del mes
     rows.push({
       id: randomUUID(),
       user_id: userId,
-      stage,
-      status,
-      prospect_type: act.type === 'OUTBOUND' ? 'outbound' : 'inbound',
-      entry_date: isoDay(opts?.entryDay ?? spreadDay),
+      stage: p.stage,
+      status: p.status,
+      prospect_type: p.act.type === 'OUTBOUND' ? 'outbound' : 'inbound',
+      entry_date: p.entryDate,
       company_name: `${cities[idx % cities.length]} ${BIZ_TYPES[(Math.floor(idx / cities.length) + idx) % BIZ_TYPES.length]}`,
       prospect_name: `${FIRST_NAMES[idx % FIRST_NAMES.length]} ${LAST_NAMES[(idx * 3) % LAST_NAMES.length]}`,
       amount_usd: Math.round(def.recipe.ticket * (0.85 + (idx % 7) * 0.05)),
-      notes: opts?.notes ?? null,
-      origin_activity_id: act.id,
-      updated_at: tsDay(opts?.updatedDay ?? spreadDay),
+      notes: p.notes ?? null,
+      origin_activity_id: p.act.id,
+      updated_at: p.updatedAt,
     })
   }
 
-  // Por actividad: reuniones reales y cierres reales, coherentes con la tasa y la personalidad.
-  for (const act of acts) {
-    const reun = Math.round(act.expected * eff)
-    const cierres = Math.min(reun, Math.round(reun * (act.convRate / 100)))
-    // Cierres ganados (cuentan como reunión + cierre)
-    for (let c = 0; c < cierres; c++) push(PIPE.facturar, 'ganado', act)
-    // Reuniones abiertas restantes (reunión ejecutada, aún sin cerrar)
-    const openReun = reun - cierres
-    for (let rIdx = 0; rIdx < openReun; rIdx++) {
-      const stage = rIdx % 2 === 0 ? PIPE.primera : PIPE.propuesta
-      if (stalledLeft > 0) {
-        // Oportunidad frenada: entró a inicio de mes y sin actualizar desde entonces
-        push(stage, 'abierto', act, { entryDay: 1, updatedDay: 1, notes: 'Sin avance — requiere seguimiento' })
-        stalledLeft--
-      } else {
-        push(stage, 'abierto', act)
+  for (let offset = 0; offset < HISTORY_MONTHS; offset++) {
+    const { ty, mm, maxDay } = monthOffsetParts(offset)
+    const isoDay = (d: number) => `${ty}-${mm}-${String(Math.max(1, Math.min(maxDay, d))).padStart(2, '0')}`
+    const tsDay = (d: number) => `${isoDay(d)}T15:00:00Z`
+
+    // Eficiencia del mes: personalidad base, leve mejora hacia el presente + jitter.
+    const monthEff = Math.max(0.1, Math.min(1.15,
+      def.pipeline.effFactor * (1 - 0.06 * offset) * (0.95 + Math.random() * 0.1),
+    ))
+    let stalledLeft = offset === 0 && def.pipeline.stalled ? 1 : 0
+
+    // Emite una oportunidad en el mes actual del loop.
+    const emit = (stage: Stage, status: 'abierto' | 'perdido' | 'ganado', act: SeededActivity, opts?: { entryDay?: number; updatedDay?: number; notes?: string }) => {
+      const entryDay = opts?.entryDay ?? 1 + (n % maxDay)
+      const updDay = opts?.updatedDay ?? entryDay
+      addRow({ stage, status, act, entryDate: isoDay(entryDay), updatedAt: tsDay(updDay), notes: opts?.notes })
+    }
+
+    // Por actividad: reuniones y cierres coherentes con la tasa y la personalidad.
+    for (const act of acts) {
+      const reun = Math.round(act.expected * monthEff)
+      const cierres = Math.min(reun, Math.round(reun * (act.convRate / 100)))
+      for (let c = 0; c < cierres; c++) emit(PIPE.facturar, 'ganado', act)
+      const openReun = reun - cierres
+      for (let rIdx = 0; rIdx < openReun; rIdx++) {
+        const stage = rIdx % 2 === 0 ? PIPE.primera : PIPE.propuesta
+        if (stalledLeft > 0) {
+          // Oportunidad frenada (solo mes actual): entró a inicio de mes, sin actualizar.
+          emit(stage, 'abierto', act, { entryDay: 1, updatedDay: 1, notes: 'Sin avance — requiere seguimiento' })
+          stalledLeft--
+        } else {
+          emit(stage, 'abierto', act)
+        }
       }
+    }
+
+    // Etapas tempranas (cita agendada / reagendar): NO cuentan como reunión ejecutada.
+    for (let e = 0; e < def.pipeline.earlyCount; e++) {
+      const act = (e % 2 === 0 ? outActs[e % outActs.length] : inActs[e % inActs.length]) ?? acts[0]
+      emit(e % 2 === 0 ? PIPE.cita : PIPE.reagendar, 'abierto', act)
+    }
+
+    // Oportunidades perdidas en etapa temprana (no inflan las reuniones ejecutadas).
+    for (let l = 0; l < def.pipeline.lostCount; l++) {
+      const act = outActs[l % Math.max(1, outActs.length)] ?? acts[0]
+      emit(PIPE.cita, 'perdido', act, { notes: 'Presupuesto no aprobado este trimestre' })
     }
   }
 
-  // Etapas tempranas (cita agendada / reagendar): NO cuentan como reunión ejecutada.
-  const outActs = acts.filter((a) => a.type === 'OUTBOUND')
-  const inActs = acts.filter((a) => a.type === 'INBOUND')
-  for (let e = 0; e < def.pipeline.earlyCount; e++) {
-    const act = (e % 2 === 0 ? outActs[e % outActs.length] : inActs[e % inActs.length]) ?? acts[0]
-    push(e % 2 === 0 ? PIPE.cita : PIPE.reagendar, 'abierto', act)
-  }
-
-  // Oportunidades perdidas en etapa temprana (no inflan las reuniones ejecutadas).
-  for (let l = 0; l < def.pipeline.lostCount; l++) {
-    const act = outActs[l % Math.max(1, outActs.length)] ?? acts[0]
-    push(PIPE.cita, 'perdido', act, { notes: 'Presupuesto no aprobado este trimestre' })
-  }
-
-  // Conteos finales con la MISMA lógica que el Recetario, para reportarlos exactos.
+  // Conteos del MES ACTUAL (misma lógica que el Recetario) para reportarlos exactos.
   let reuniones = 0
   let cierres = 0
   let ingreso = 0
   for (const row of rows) {
-    if (!row.origin_activity_id) continue
+    if (!row.origin_activity_id || !row.entry_date?.startsWith(curPrefix)) continue
     if (REUNION_STAGES.has(row.stage)) reuniones++
     if (row.stage === PIPE.facturar) {
       cierres++
@@ -435,7 +481,7 @@ async function main(): Promise<void> {
     console.log(`  ✓ ${def.fullName} (${def.market})`)
   }
 
-  console.log('▸ Sembrando recetarios, actividades, historial y pipeline del mes en curso…')
+  console.log(`▸ Sembrando recetarios, actividades, historial y pipeline (${HISTORY_MONTHS} meses)…`)
   for (const def of USERS) {
     const userId = ids[def.key]
     const acts = await seedRecipeAndActivities(sb, def, userId)
@@ -443,8 +489,8 @@ async function main(): Promise<void> {
     const p = await seedPipeline(sb, def, userId, acts)
     const efic = Math.round((p.reuniones / ACTIVITY_TEMPLATE.reduce((s, t) => s + t.expected, 0)) * 100)
     console.log(
-      `  ✓ ${def.fullName}: ${acts.length} actividades · ${nLogs} registros · ${p.deals} oport. · ` +
-      `${p.reuniones} reuniones / ${p.cierres} cierres ($${p.ingreso.toLocaleString('es-CO')}) · eficiencia ~${efic}%`,
+      `  ✓ ${def.fullName}: ${acts.length} actividades · ${nLogs} registros · ${p.deals} oport. (${HISTORY_MONTHS} meses) · ` +
+      `mes actual: ${p.reuniones} reuniones / ${p.cierres} cierres ($${p.ingreso.toLocaleString('es-CO')}) · eficiencia ~${efic}%`,
     )
   }
 
