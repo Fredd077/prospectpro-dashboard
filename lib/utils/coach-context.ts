@@ -209,7 +209,7 @@ export async function _fetchActivityEffectiveness(
   })()
 
   const pipelineQ = (() => {
-    let q = sb.from('pipeline_simple').select('prospect_type,stage,status')
+    let q = sb.from('pipeline_simple').select('origin_activity_id,prospect_type,stage,status')
       .gte('entry_date', dateStart)
       .lte('entry_date', dateEnd)
     if (userId) q = q.eq('user_id', userId)
@@ -227,6 +227,49 @@ export async function _fetchActivityEffectiveness(
     execMap[log.activity_id] = (execMap[log.activity_id] ?? 0) + log.real_executed
   }
 
+  const isOutOrIn = (t: string): t is 'OUTBOUND' | 'INBOUND' => t === 'OUTBOUND' || t === 'INBOUND'
+
+  // ── Camino preciso: si las oportunidades traen origin_activity_id, atribuimos
+  //    reuniones y cierres al canal que las originó → conversión REAL por canal
+  //    (mismas etapas que el Recetario). Así el reporte distingue, p. ej., un canal
+  //    que agenda bien pero cierra mal. ─────────────────────────────────────────
+  const REUNION_STAGES = new Set([
+    'Primera reu ejecutada/Propuesta en preparación',
+    'Propuesta Presentada',
+    'Por facturar/cobrar',
+  ])
+  const hasOrigin = (pipeline ?? []).some((e) => e.origin_activity_id)
+  if (hasOrigin) {
+    const meetingsByAct: Record<string, number> = {}
+    const closesByAct: Record<string, number> = {}
+    for (const e of pipeline ?? []) {
+      const aid = e.origin_activity_id
+      if (!aid) continue
+      if (REUNION_STAGES.has(e.stage)) meetingsByAct[aid] = (meetingsByAct[aid] ?? 0) + 1
+      if (e.stage === 'Por facturar/cobrar') closesByAct[aid] = (closesByAct[aid] ?? 0) + 1
+    }
+    return activities
+      .filter((a) => isOutOrIn((a.type ?? '').toUpperCase()))
+      .map((a) => {
+        const t = (a.type ?? '').toUpperCase() as 'OUTBOUND' | 'INBOUND'
+        const executions = execMap[a.id] ?? 0
+        const meetings   = meetingsByAct[a.id] ?? 0
+        const closes     = closesByAct[a.id] ?? 0
+        return {
+          name: a.name,
+          type: t,
+          executions,
+          estimatedMeetings: meetings,
+          estimatedCloses: closes,
+          conversionToMeeting: executions > 0 ? Math.round((meetings / executions) * 100) : 0,
+          closeProbability: meetings > 0 ? Math.round((closes / meetings) * 100) : 0,
+        }
+      })
+      .filter((a) => a.executions > 0)
+      .sort((a, b) => b.conversionToMeeting - a.conversionToMeeting)
+  }
+
+  // ── Fallback (sin origin_activity_id): estimación proporcional por ejecución. ──
   const meetingsByType: Record<string, number> = { OUTBOUND: 0, INBOUND: 0 }
   const closesByType: Record<string, number>   = { OUTBOUND: 0, INBOUND: 0 }
   for (const entry of pipeline ?? []) {

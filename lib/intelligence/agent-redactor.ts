@@ -75,8 +75,8 @@ Reglas generales:
 - prediccion_narrativa: si en_curso → proyección al cierre con días restantes; si cerrado → evaluación del resultado final
 - acciones_prioritarias: exactamente 3, ordenadas de mayor a menor impacto
 - alerta: null si el negocio va bien; 1 oración de alerta si hay riesgo crítico
-- efectividad_canales: si el input incluye activityEffectiveness con al menos 2 actividades con executions > 0, genera este texto exacto (usa saltos de línea \\n dentro del string JSON):
-  "EFECTIVIDAD DE CANALES\\n[Canal con mayor conversión]: [X]% conversión a cita — [observación de 1 línea]\\n[Canal con menor conversión]: [Y]% conversión a cita — [observación de 1 línea]\\nRecomendación: [una acción específica sobre qué canal priorizar]"
+- efectividad_canales: si el input incluye activityEffectiveness con al menos 2 actividades con executions > 0, genera este texto exacto (usa saltos de línea \\n dentro del string JSON). Distingue dos problemas distintos: conversión a CITA (conversionToMeeting) y conversión a CIERRE (closeProbability). Un canal puede agendar bien pero cerrar mal, o viceversa:
+  "EFECTIVIDAD DE CANALES\\n[Canal con mayor conversión a cita]: [X]% a cita — [observación de 1 línea]\\n[Canal con menor conversión a cita]: [Y]% a cita — [qué mejorar para agendar más]\\n[Canal con menor conversión a cierre]: [Z]% a cierre (closeProbability) — agenda pero no cierra, [qué mejorar para cerrar]\\nRecomendación: [una acción concreta para el canal débil en cita y otra para el débil en cierre, orientadas a alcanzar la meta]"
   Si no hay datos de activityEffectiveness: null
 - mensaje_motivacional: 1 oración personalizada con el nombre del vendedor y datos reales
 - Específico con números, nunca genérico ni vago
