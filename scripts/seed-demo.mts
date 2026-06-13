@@ -17,9 +17,11 @@
  * para evitar el bug de fechas corridas un día (Colombia, UTC-5).
  */
 import { randomUUID } from 'node:crypto'
-import { getSupabaseServiceClient } from '../lib/supabase/service'
-import { calcRecipe } from '../lib/calculations/recipe'
-import { todayISO, addDaysToISO } from '../lib/utils/dates'
+// Explicit .ts extensions: Node's native ESM/TS runner requires them
+// (tsconfig has allowImportingTsExtensions enabled so tsc accepts them too).
+import { getSupabaseServiceClient } from '../lib/supabase/service.ts'
+import { calcRecipe } from '../lib/calculations/recipe.ts'
+import { todayISO, addDaysToISO } from '../lib/utils/dates.ts'
 import type {
   Database,
   ProfileUpdate,
