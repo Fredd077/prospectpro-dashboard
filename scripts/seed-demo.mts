@@ -111,15 +111,28 @@ const USERS: UserDef[] = [
 ]
 
 // ─── Plantilla de actividades (venta B2B internacional) ──────────────────────
-// `expected` = reuniones esperadas/mes por actividad (alimenta eficiencia y alineación).
-interface ActTemplate { name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; weight: number; sort: number; expected: number }
+// `expected`     = reuniones esperadas/mes por actividad (alimenta eficiencia y alineación).
+// `meetingSkill` = qué tan bien ese canal CONVIERTE A CITA (multiplica la eficiencia).
+// `closeSkill`   = qué tan bien CONVIERTE A CIERRE (multiplica la tasa de cierre).
+// `execSkill`    = qué tan consistentemente se EJECUTA la actividad (afecta el cumplimiento en logs).
+// La combinación crea fortalezas y debilidades por canal que el Dashboard y el Coach AI detectan.
+interface ActTemplate {
+  name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; weight: number; sort: number
+  expected: number; meetingSkill: number; closeSkill: number; execSkill: number
+}
 const ACTIVITY_TEMPLATE: ActTemplate[] = [
-  { name: 'Llamadas de prospección',      type: 'OUTBOUND', channel: 'Teléfono', weight: 30, sort: 1, expected: 5 },
-  { name: 'Correos comerciales',          type: 'OUTBOUND', channel: 'Email',    weight: 25, sort: 2, expected: 3 },
-  { name: 'Mensajes de LinkedIn',         type: 'OUTBOUND', channel: 'LinkedIn', weight: 25, sort: 3, expected: 3 },
-  { name: 'Videollamadas de seguimiento', type: 'OUTBOUND', channel: 'Video',    weight: 20, sort: 4, expected: 2 },
-  { name: 'Respuestas a inbound',         type: 'INBOUND',  channel: 'Múltiple', weight: 60, sort: 5, expected: 2 },
-  { name: 'Demos de producto',            type: 'INBOUND',  channel: 'Video',    weight: 40, sort: 6, expected: 2 },
+  // Fuerte: buena cita y buen cierre
+  { name: 'Llamadas de prospección',      type: 'OUTBOUND', channel: 'Teléfono', weight: 30, sort: 1, expected: 5, meetingSkill: 1.05, closeSkill: 1.00, execSkill: 1.00 },
+  // Débil: genera pocas citas y cierra poco
+  { name: 'Correos comerciales',          type: 'OUTBOUND', channel: 'Email',    weight: 25, sort: 2, expected: 3, meetingSkill: 0.60, closeSkill: 0.70, execSkill: 0.65 },
+  // Trae citas (se ejecuta mucho) pero CONVIERTE MAL A CIERRE
+  { name: 'Mensajes de LinkedIn',         type: 'OUTBOUND', channel: 'LinkedIn', weight: 25, sort: 3, expected: 3, meetingSkill: 0.95, closeSkill: 0.45, execSkill: 1.05 },
+  // Fuerte: la videollamada cierra muy bien
+  { name: 'Videollamadas de seguimiento', type: 'OUTBOUND', channel: 'Video',    weight: 20, sort: 4, expected: 2, meetingSkill: 1.10, closeSkill: 1.20, execSkill: 1.00 },
+  // Inbound estable
+  { name: 'Respuestas a inbound',         type: 'INBOUND',  channel: 'Múltiple', weight: 60, sort: 5, expected: 2, meetingSkill: 1.00, closeSkill: 1.00, execSkill: 1.00 },
+  // Débil en ambos
+  { name: 'Demos de producto',            type: 'INBOUND',  channel: 'Video',    weight: 40, sort: 6, expected: 2, meetingSkill: 0.70, closeSkill: 0.60, execSkill: 0.70 },
 ]
 
 // ─── Pools de nombres para oportunidades de comercio exterior ────────────────
@@ -248,8 +261,10 @@ interface SeededActivity {
   id: string
   type: 'OUTBOUND' | 'INBOUND'
   daily_goal: number
-  expected: number   // reuniones esperadas/mes
-  convRate: number   // tasa de cierre (reunión → cierre), %
+  expected: number       // reuniones esperadas/mes
+  convRate: number       // tasa de cierre (reunión → cierre), %  — ya incluye closeSkill
+  meetingSkill: number   // conversión a cita (multiplica eficiencia)
+  execSkill: number      // consistencia de ejecución (afecta cumplimiento en logs)
 }
 
 async function seedRecipeAndActivities(sb: Sb, def: UserDef, userId: string): Promise<SeededActivity[]> {
@@ -294,10 +309,10 @@ async function seedRecipeAndActivities(sb: Sb, def: UserDef, userId: string): Pr
     const monthly = Math.ceil((typeTotal * t.weight) / 100)
     const weekly = Math.ceil(monthly / 4)
     const daily = Math.ceil(monthly / WORKING_DAYS)
-    // Tasa de cierre por actividad = última tasa del funnel del canal ± pequeña variación
+    // Tasa de cierre por actividad = última tasa del funnel del canal × habilidad de cierre del canal.
+    // Esto crea canales que cierran bien (Videollamadas) y canales que cierran mal (LinkedIn).
     const baseRate = t.type === 'OUTBOUND' ? lastOut : lastIn
-    const delta = ((t.sort % 3) - 1) * 2 // -2, 0, +2
-    const convRate = Math.max(10, Math.min(60, baseRate + delta))
+    const convRate = Math.round(Math.max(8, Math.min(55, baseRate * t.closeSkill)))
     const id = randomUUID()
     rows.push({
       id, user_id: userId, name: t.name, type: t.type, channel: t.channel,
@@ -306,7 +321,7 @@ async function seedRecipeAndActivities(sb: Sb, def: UserDef, userId: string): Pr
       conversion_rate_pct: convRate,
       meetings_expected: t.expected,
     })
-    seeded.push({ id, type: t.type, daily_goal: daily, expected: t.expected, convRate })
+    seeded.push({ id, type: t.type, daily_goal: daily, expected: t.expected, convRate, meetingSkill: t.meetingSkill, execSkill: t.execSkill })
   }
   const { error: actErr } = await sb.from('activities').insert(rows)
   if (actErr) throw new Error(`activities ${def.email}: ${actErr.message}`)
@@ -325,7 +340,8 @@ async function seedActivityLogs(sb: Sb, def: UserDef, userId: string, acts: Seed
     if (Math.random() < def.perf.missRate) continue
     for (const a of acts) {
       if (a.daily_goal <= 0) continue
-      const factor = rand(def.perf.min, def.perf.max) + (Math.random() - 0.5) * 0.15
+      // Cumplimiento = personalidad del vendedor × consistencia de ejecución del canal + jitter.
+      const factor = rand(def.perf.min, def.perf.max) * a.execSkill + (Math.random() - 0.5) * 0.15
       const real = Math.max(0, Math.round(a.daily_goal * Math.max(0, factor)))
       logs.push({
         id: randomUUID(), user_id: userId, activity_id: a.id, log_date: date,
@@ -387,10 +403,9 @@ function buildPipelineRows(def: UserDef, userId: string, acts: SeededActivity[])
     const isoDay = (d: number) => `${ty}-${mm}-${String(Math.max(1, Math.min(maxDay, d))).padStart(2, '0')}`
     const tsDay = (d: number) => `${isoDay(d)}T15:00:00Z`
 
-    // Eficiencia del mes: personalidad base, leve mejora hacia el presente + jitter.
-    const monthEff = Math.max(0.1, Math.min(1.15,
-      def.pipeline.effFactor * (1 - 0.06 * offset) * (0.95 + Math.random() * 0.1),
-    ))
+    // Tendencia del mes: leve mejora hacia el presente + jitter (la habilidad por canal
+    // se aplica por actividad más abajo, para que cada canal tenga su propia eficiencia).
+    const monthTrend = (1 - 0.06 * offset) * (0.95 + Math.random() * 0.1)
     let stalledLeft = offset === 0 && def.pipeline.stalled ? 1 : 0
 
     // Emite una oportunidad en el mes actual del loop.
@@ -400,9 +415,11 @@ function buildPipelineRows(def: UserDef, userId: string, acts: SeededActivity[])
       addRow({ stage, status, act, entryDate: isoDay(entryDay), updatedAt: tsDay(updDay), notes: opts?.notes })
     }
 
-    // Por actividad: reuniones y cierres coherentes con la tasa y la personalidad.
+    // Por actividad: la eficiencia de cita combina personalidad × habilidad del canal × tendencia.
+    // Así, dentro de un mismo vendedor, unos canales quedan en meta y otros con brecha.
     for (const act of acts) {
-      const reun = Math.round(act.expected * monthEff)
+      const meetingEff = Math.max(0.2, Math.min(1.2, def.pipeline.effFactor * act.meetingSkill * monthTrend))
+      const reun = Math.round(act.expected * meetingEff)
       const cierres = Math.min(reun, Math.round(reun * (act.convRate / 100)))
       for (let c = 0; c < cierres; c++) emit(PIPE.facturar, 'ganado', act)
       const openReun = reun - cierres
