@@ -13,8 +13,14 @@
  *
  * Reglas de fechas: SOLO usa utilidades de lib/utils/dates.ts (todayISO,
  * addDaysToISO). El día de la semana se calcula con aritmética pura sobre la
- * cadena YYYY-MM-DD (algoritmo de Sakamoto), nunca con new Date ni parseISO,
- * para evitar el bug de fechas corridas un día (Colombia, UTC-5).
+ * cadena YYYY-MM-DD (algoritmo de Sakamoto), y las fechas del mes en curso se
+ * construyen por partes (YYYY-MM-DD), nunca con new Date ni parseISO, para
+ * evitar el bug de fechas corridas un día (Colombia, UTC-5).
+ *
+ * El Recetario (pestañas Rendimiento/Dashboard) lee de pipeline_simple filtrando
+ * por entry_date dentro del MES EN CURSO y exige que cada oportunidad tenga
+ * origin_activity_id. Por eso todas las oportunidades se fechan dentro del mes
+ * actual y se vinculan a una actividad de origen.
  */
 import { randomUUID } from 'node:crypto'
 // Explicit .ts extensions: Node's native ESM/TS runner requires them
@@ -33,8 +39,6 @@ import type {
 
 type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
 type Stage = PipelineSimpleInsert['stage']
-type DealStatus = NonNullable<PipelineSimpleInsert['status']>
-type Ptype = NonNullable<PipelineSimpleInsert['prospect_type']>
 type Sb = ReturnType<typeof getSupabaseServiceClient>
 
 // ─── Constantes ────────────────────────────────────────────────────────────
@@ -54,6 +58,9 @@ const PIPE = {
   facturar:  'Por facturar/cobrar',
 } satisfies Record<string, Stage>
 
+// Etapas que el Recetario cuenta como "reunión real" (reunión ya ejecutada)
+const REUNION_STAGES = new Set<Stage>([PIPE.primera, PIPE.propuesta, PIPE.facturar])
+
 // ─── Definición de usuarios ──────────────────────────────────────────────────
 interface UserDef {
   key: string
@@ -63,7 +70,10 @@ interface UserDef {
   orgRole: 'manager' | 'member'
   isPlayerCoach: boolean
   recipe: { goal: number; ticket: number; outRates: number[]; inRates: number[] }
+  // perf: personalidad en el historial de activity_logs (cumplimiento + ausencias)
   perf: { min: number; max: number; missRate: number }
+  // pipeline: forma del pipeline del mes en curso
+  pipeline: { effFactor: number; stalled: boolean; earlyCount: number; lostCount: number }
 }
 
 const USERS: UserDef[] = [
@@ -72,37 +82,60 @@ const USERS: UserDef[] = [
     market: 'Gerencia', orgRole: 'manager', isPlayerCoach: true,
     recipe: { goal: 400000, ticket: 60000, outRates: [33, 36, 39], inRates: [40, 40, 40] },
     perf: { min: 0.80, max: 0.95, missRate: 0.05 },
+    pipeline: { effFactor: 0.85, stalled: false, earlyCount: 3, lostCount: 1 },
   },
   {
     key: 'laura', fullName: 'Laura Demo', email: `laura.demo${DOMAIN}`,
     market: 'Norteamérica', orgRole: 'member', isPlayerCoach: false,
     recipe: { goal: 350000, ticket: 50000, outRates: [32, 35, 38], inRates: [40, 40, 40] },
     perf: { min: 0.90, max: 1.10, missRate: 0.02 },
+    pipeline: { effFactor: 1.0, stalled: true, earlyCount: 4, lostCount: 1 },
   },
   {
     key: 'carlos', fullName: 'Carlos Demo', email: `carlos.demo${DOMAIN}`,
     market: 'Europa', orgRole: 'member', isPlayerCoach: false,
     recipe: { goal: 300000, ticket: 55000, outRates: [30, 33, 36], inRates: [40, 38, 40] },
     perf: { min: 0.60, max: 0.80, missRate: 0.08 },
+    pipeline: { effFactor: 0.70, stalled: true, earlyCount: 3, lostCount: 2 },
   },
   {
     key: 'andres', fullName: 'Andrés Demo', email: `andres.demo${DOMAIN}`,
     market: 'LATAM', orgRole: 'member', isPlayerCoach: false,
     recipe: { goal: 270000, ticket: 42000, outRates: [31, 34, 37], inRates: [38, 40, 38] },
     perf: { min: 0.30, max: 0.50, missRate: 0.30 },
+    pipeline: { effFactor: 0.40, stalled: true, earlyCount: 4, lostCount: 2 },
   },
 ]
 
 // ─── Plantilla de actividades (venta B2B internacional) ──────────────────────
-interface ActTemplate { name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; weight: number; sort: number }
+// `expected` = reuniones esperadas/mes por actividad (alimenta eficiencia y alineación).
+interface ActTemplate { name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; weight: number; sort: number; expected: number }
 const ACTIVITY_TEMPLATE: ActTemplate[] = [
-  { name: 'Llamadas de prospección',      type: 'OUTBOUND', channel: 'Teléfono', weight: 30, sort: 1 },
-  { name: 'Correos comerciales',          type: 'OUTBOUND', channel: 'Email',    weight: 25, sort: 2 },
-  { name: 'Mensajes de LinkedIn',         type: 'OUTBOUND', channel: 'LinkedIn', weight: 25, sort: 3 },
-  { name: 'Videollamadas de seguimiento', type: 'OUTBOUND', channel: 'Video',    weight: 20, sort: 4 },
-  { name: 'Respuestas a inbound',         type: 'INBOUND',  channel: 'Múltiple', weight: 60, sort: 5 },
-  { name: 'Demos de producto',            type: 'INBOUND',  channel: 'Video',    weight: 40, sort: 6 },
+  { name: 'Llamadas de prospección',      type: 'OUTBOUND', channel: 'Teléfono', weight: 30, sort: 1, expected: 5 },
+  { name: 'Correos comerciales',          type: 'OUTBOUND', channel: 'Email',    weight: 25, sort: 2, expected: 3 },
+  { name: 'Mensajes de LinkedIn',         type: 'OUTBOUND', channel: 'LinkedIn', weight: 25, sort: 3, expected: 3 },
+  { name: 'Videollamadas de seguimiento', type: 'OUTBOUND', channel: 'Video',    weight: 20, sort: 4, expected: 2 },
+  { name: 'Respuestas a inbound',         type: 'INBOUND',  channel: 'Múltiple', weight: 60, sort: 5, expected: 2 },
+  { name: 'Demos de producto',            type: 'INBOUND',  channel: 'Video',    weight: 40, sort: 6, expected: 2 },
 ]
+
+// ─── Pools de nombres para oportunidades de comercio exterior ────────────────
+const CITY_POOL: Record<string, string[]> = {
+  'Gerencia':      ['Tokyo', 'Singapore', 'Sydney', 'Dubai', 'Seoul', 'Shanghai', 'Mumbai', 'Hong Kong', 'Bangkok', 'Auckland'],
+  'Norteamérica':  ['Seattle', 'Chicago', 'Boston', 'Denver', 'Austin', 'Toronto', 'Vancouver', 'Miami', 'Portland', 'Atlanta'],
+  'Europa':        ['Hamburg', 'Amsterdam', 'Paris', 'Milan', 'Barcelona', 'Berlin', 'Rotterdam', 'Lyon', 'Vienna', 'Madrid'],
+  'LATAM':         ['Bogotá', 'Lima', 'Santiago', 'CDMX', 'São Paulo', 'Monterrey', 'Quito', 'Buenos Aires', 'Guayaquil', 'Medellín'],
+}
+const BIZ_TYPES = [
+  'Coffee Roasters', 'Organic Importers', 'Fine Foods', 'Specialty Trading', 'Gourmet Distributors',
+  'Food Importers', 'Premium Grocers', 'Cacao Traders', 'Agro Importers', 'Specialty Foods',
+]
+const FIRST_NAMES = ['Erik', 'Sophie', 'James', 'Megan', 'Daniel', 'Olivia', 'Robert', 'Andrea', 'Kevin', 'Laura',
+  'Lukas', 'Anouk', 'Camille', 'Marco', 'Núria', 'Hannah', 'Gonzalo', 'Valentina', 'Matías', 'Diego',
+  'Haruki', 'Wei', 'Emily', 'Omar', 'Min-ji', 'Sara', 'Tomás', 'Irene', 'Pavel', 'Yuki']
+const LAST_NAMES = ['Lindqvist', 'Tremblay', 'Carter', 'Brooks', 'Ramirez', 'Bennett', 'Hayes', 'Morales', 'Park', 'Whitman',
+  'Becker', 'de Vries', 'Laurent', 'Bianchi', 'Soler', 'Schmidt', 'Vargas', 'Ríos', 'Fuentes', 'Herrera',
+  'Tanaka', 'Tan', 'Watson', 'Al-Farsi', 'Kim', 'Novak', 'Costa', 'García', 'Petrov', 'Sato']
 
 // ─── Helpers de fecha (sin new Date / parseISO) ──────────────────────────────
 /** Día de semana por aritmética pura (Sakamoto). true si es sábado o domingo. */
@@ -182,7 +215,13 @@ async function createUser(sb: Sb, def: UserDef, managerId: string | null): Promi
 }
 
 // ─── Recetario + actividades ─────────────────────────────────────────────────
-interface SeededActivity { id: string; daily_goal: number }
+interface SeededActivity {
+  id: string
+  type: 'OUTBOUND' | 'INBOUND'
+  daily_goal: number
+  expected: number   // reuniones esperadas/mes
+  convRate: number   // tasa de cierre (reunión → cierre), %
+}
 
 async function seedRecipeAndActivities(sb: Sb, def: UserDef, userId: string): Promise<SeededActivity[]> {
   const r = calcRecipe({
@@ -216,6 +255,8 @@ async function seedRecipeAndActivities(sb: Sb, def: UserDef, userId: string): Pr
 
   const outMonthly = r.outbound.activities_monthly
   const inMonthly = r.inbound.activities_monthly
+  const lastOut = def.recipe.outRates[def.recipe.outRates.length - 1]
+  const lastIn = def.recipe.inRates[def.recipe.inRates.length - 1]
 
   const rows: ActivityInsert[] = []
   const seeded: SeededActivity[] = []
@@ -224,13 +265,19 @@ async function seedRecipeAndActivities(sb: Sb, def: UserDef, userId: string): Pr
     const monthly = Math.ceil((typeTotal * t.weight) / 100)
     const weekly = Math.ceil(monthly / 4)
     const daily = Math.ceil(monthly / WORKING_DAYS)
+    // Tasa de cierre por actividad = última tasa del funnel del canal ± pequeña variación
+    const baseRate = t.type === 'OUTBOUND' ? lastOut : lastIn
+    const delta = ((t.sort % 3) - 1) * 2 // -2, 0, +2
+    const convRate = Math.max(10, Math.min(60, baseRate + delta))
     const id = randomUUID()
     rows.push({
       id, user_id: userId, name: t.name, type: t.type, channel: t.channel,
       weight: t.weight, monthly_goal: monthly, weekly_goal: weekly, daily_goal: daily,
       status: 'active', sort_order: t.sort,
+      conversion_rate_pct: convRate,
+      meetings_expected: t.expected,
     })
-    seeded.push({ id, daily_goal: daily })
+    seeded.push({ id, type: t.type, daily_goal: daily, expected: t.expected, convRate })
   }
   const { error: actErr } = await sb.from('activities').insert(rows)
   if (actErr) throw new Error(`activities ${def.email}: ${actErr.message}`)
@@ -266,76 +313,100 @@ async function seedActivityLogs(sb: Sb, def: UserDef, userId: string, acts: Seed
   return logs.length
 }
 
-// ─── Pipeline ────────────────────────────────────────────────────────────────
-interface DealSpec {
-  company: string; prospect: string; stage: Stage; status: DealStatus; ptype: Ptype
-  amount: number; entryDaysAgo: number; updatedDaysAgo: number; notes?: string
-}
-
-function buildDeals(key: string): DealSpec[] {
-  switch (key) {
-    case 'laura': // Norteamérica — 10 oportunidades, 3 ganadas
-      return [
-        { company: 'Nordic Coffee Roasters',     prospect: 'Erik Lindqvist', stage: PIPE.facturar,  status: 'ganado',  ptype: 'outbound', amount: 56000, entryDaysAgo: 40, updatedDaysAgo: 5 },
-        { company: 'Maple Leaf Specialty Foods',  prospect: 'Sophie Tremblay', stage: PIPE.facturar, status: 'ganado',  ptype: 'outbound', amount: 48000, entryDaysAgo: 35, updatedDaysAgo: 4 },
-        { company: 'Pacific Northwest Importers', prospect: 'James Carter',    stage: PIPE.facturar,  status: 'ganado',  ptype: 'inbound',  amount: 61000, entryDaysAgo: 30, updatedDaysAgo: 3 },
-        { company: 'California Organic Distributors', prospect: 'Megan Brooks', stage: PIPE.propuesta, status: 'abierto', ptype: 'outbound', amount: 52000, entryDaysAgo: 20, updatedDaysAgo: 2 },
-        { company: 'Texas Gourmet Trading',       prospect: 'Daniel Ramirez',  stage: PIPE.primera,   status: 'abierto', ptype: 'outbound', amount: 45000, entryDaysAgo: 18, updatedDaysAgo: 6 },
-        { company: 'New York Fine Foods Co',      prospect: 'Olivia Bennett',  stage: PIPE.cita,      status: 'abierto', ptype: 'inbound',  amount: 58000, entryDaysAgo: 14, updatedDaysAgo: 1 },
-        { company: 'Chicago Wholesale Grocers',   prospect: 'Robert Hayes',    stage: PIPE.primera,   status: 'abierto', ptype: 'outbound', amount: 50000, entryDaysAgo: 25, updatedDaysAgo: 12, notes: 'Esperando respuesta de compras' },
-        { company: 'Florida Citrus Importers',    prospect: 'Andrea Morales',  stage: PIPE.propuesta, status: 'abierto', ptype: 'outbound', amount: 47000, entryDaysAgo: 12, updatedDaysAgo: 3 },
-        { company: 'Seattle Specialty Coffee',    prospect: 'Kevin Park',      stage: PIPE.cita,      status: 'abierto', ptype: 'inbound',  amount: 55000, entryDaysAgo: 9,  updatedDaysAgo: 2 },
-        { company: 'Boston Organic Markets',      prospect: 'Laura Whitman',   stage: PIPE.reagendar, status: 'abierto', ptype: 'outbound', amount: 42000, entryDaysAgo: 16, updatedDaysAgo: 5 },
-      ]
-    case 'carlos': // Europa — 6 oportunidades, 1 ganada
-      return [
-        { company: 'Hamburg Organic Importers',   prospect: 'Lukas Becker',    stage: PIPE.facturar,  status: 'ganado',  ptype: 'outbound', amount: 58000, entryDaysAgo: 33, updatedDaysAgo: 6 },
-        { company: 'Amsterdam Fine Foods BV',      prospect: 'Anouk de Vries',  stage: PIPE.propuesta, status: 'abierto', ptype: 'outbound', amount: 60000, entryDaysAgo: 21, updatedDaysAgo: 4 },
-        { company: 'Paris Gourmet Distribution',   prospect: 'Camille Laurent', stage: PIPE.primera,   status: 'abierto', ptype: 'inbound',  amount: 55000, entryDaysAgo: 28, updatedDaysAgo: 10, notes: 'Pendiente muestra de producto' },
-        { company: 'Milan Specialty Trading',      prospect: 'Marco Bianchi',   stage: PIPE.cita,      status: 'abierto', ptype: 'outbound', amount: 52000, entryDaysAgo: 13, updatedDaysAgo: 2 },
-        { company: 'Barcelona Food Importers',     prospect: 'Núria Soler',     stage: PIPE.primera,   status: 'abierto', ptype: 'outbound', amount: 50000, entryDaysAgo: 17, updatedDaysAgo: 5 },
-        { company: 'Berlin Organic Trade GmbH',    prospect: 'Hannah Schmidt',  stage: PIPE.reagendar, status: 'abierto', ptype: 'inbound',  amount: 57000, entryDaysAgo: 10, updatedDaysAgo: 3 },
-      ]
-    case 'andres': // LATAM — 3 abiertas + 1 perdida
-      return [
-        { company: 'Lima Andes Exporters',         prospect: 'Gonzalo Vargas',  stage: PIPE.propuesta, status: 'perdido', ptype: 'outbound', amount: 40000, entryDaysAgo: 30, updatedDaysAgo: 14, notes: 'Presupuesto no aprobado este trimestre' },
-        { company: 'Bogotá Premium Foods',         prospect: 'Valentina Ríos',  stage: PIPE.cita,      status: 'abierto', ptype: 'outbound', amount: 42000, entryDaysAgo: 12, updatedDaysAgo: 4 },
-        { company: 'Santiago Trading Co',          prospect: 'Matías Fuentes',  stage: PIPE.primera,   status: 'abierto', ptype: 'inbound',  amount: 45000, entryDaysAgo: 22, updatedDaysAgo: 11, notes: 'No responde últimos correos' },
-        { company: 'Importadora Ciudad de México', prospect: 'Diego Herrera',   stage: PIPE.cita,      status: 'abierto', ptype: 'outbound', amount: 38000, entryDaysAgo: 8,  updatedDaysAgo: 2 },
-      ]
-    case 'ricardo': // Player-coach — 5 oportunidades, 1 ganada
-      return [
-        { company: 'Tokyo Fine Foods Trading',     prospect: 'Haruki Tanaka',   stage: PIPE.facturar,  status: 'ganado',  ptype: 'outbound', amount: 65000, entryDaysAgo: 32, updatedDaysAgo: 5 },
-        { company: 'Singapore Gourmet Imports',    prospect: 'Wei Lin Tan',     stage: PIPE.propuesta, status: 'abierto', ptype: 'outbound', amount: 60000, entryDaysAgo: 19, updatedDaysAgo: 3 },
-        { company: 'Sydney Organic Distributors',  prospect: 'Emily Watson',    stage: PIPE.primera,   status: 'abierto', ptype: 'inbound',  amount: 58000, entryDaysAgo: 15, updatedDaysAgo: 4 },
-        { company: 'Dubai Specialty Foods',        prospect: 'Omar Al-Farsi',   stage: PIPE.cita,      status: 'abierto', ptype: 'outbound', amount: 62000, entryDaysAgo: 11, updatedDaysAgo: 2 },
-        { company: 'Seoul Premium Grocers',        prospect: 'Min-ji Kim',      stage: PIPE.reagendar, status: 'abierto', ptype: 'outbound', amount: 55000, entryDaysAgo: 14, updatedDaysAgo: 6 },
-      ]
-    default:
-      return []
-  }
-}
-
-async function seedPipeline(sb: Sb, def: UserDef, userId: string): Promise<number> {
+// ─── Pipeline del mes en curso ───────────────────────────────────────────────
+// Genera oportunidades fechadas DENTRO del mes actual, cada una con
+// origin_activity_id, de modo que el Recetario cuente reuniones/cierres reales.
+function buildPipelineRows(def: UserDef, userId: string, acts: SeededActivity[]): {
+  rows: PipelineSimpleInsert[]; reuniones: number; cierres: number; ingreso: number
+} {
   const today = todayISO()
-  const specs = buildDeals(def.key)
-  const rows: PipelineSimpleInsert[] = specs.map((p) => ({
-    id: randomUUID(),
-    user_id: userId,
-    stage: p.stage,
-    status: p.status,
-    prospect_type: p.ptype,
-    entry_date: addDaysToISO(today, -p.entryDaysAgo),
-    company_name: p.company,
-    prospect_name: p.prospect,
-    amount_usd: p.amount,
-    notes: p.notes ?? null,
-    updated_at: `${addDaysToISO(today, -p.updatedDaysAgo)}T15:00:00Z`,
-  }))
-  if (rows.length === 0) return 0
-  const { error } = await sb.from('pipeline_simple').insert(rows)
-  if (error) throw new Error(`pipeline_simple ${def.email}: ${error.message}`)
-  return rows.length
+  const [cy, cm, cd] = today.split('-').map(Number)
+  const MM = String(cm).padStart(2, '0')
+  // Fecha ISO de un día del mes en curso, acotada a [1, hoy] — sin new Date/parseISO.
+  const isoDay = (d: number) => `${cy}-${MM}-${String(Math.max(1, Math.min(cd, d))).padStart(2, '0')}`
+  const tsDay = (d: number) => `${isoDay(d)}T15:00:00Z`
+
+  const cities = CITY_POOL[def.market] ?? CITY_POOL['Gerencia']
+  const eff = def.pipeline.effFactor
+  const rows: PipelineSimpleInsert[] = []
+  let n = 0
+  let stalledLeft = def.pipeline.stalled ? 1 : 0
+
+  function push(stage: Stage, status: 'abierto' | 'perdido' | 'ganado', act: SeededActivity, opts?: { entryDay?: number; updatedDay?: number; notes?: string }) {
+    const idx = n++
+    const spreadDay = 1 + (idx % Math.max(1, cd)) // reparte a lo largo del mes
+    rows.push({
+      id: randomUUID(),
+      user_id: userId,
+      stage,
+      status,
+      prospect_type: act.type === 'OUTBOUND' ? 'outbound' : 'inbound',
+      entry_date: isoDay(opts?.entryDay ?? spreadDay),
+      company_name: `${cities[idx % cities.length]} ${BIZ_TYPES[(Math.floor(idx / cities.length) + idx) % BIZ_TYPES.length]}`,
+      prospect_name: `${FIRST_NAMES[idx % FIRST_NAMES.length]} ${LAST_NAMES[(idx * 3) % LAST_NAMES.length]}`,
+      amount_usd: Math.round(def.recipe.ticket * (0.85 + (idx % 7) * 0.05)),
+      notes: opts?.notes ?? null,
+      origin_activity_id: act.id,
+      updated_at: tsDay(opts?.updatedDay ?? spreadDay),
+    })
+  }
+
+  // Por actividad: reuniones reales y cierres reales, coherentes con la tasa y la personalidad.
+  for (const act of acts) {
+    const reun = Math.round(act.expected * eff)
+    const cierres = Math.min(reun, Math.round(reun * (act.convRate / 100)))
+    // Cierres ganados (cuentan como reunión + cierre)
+    for (let c = 0; c < cierres; c++) push(PIPE.facturar, 'ganado', act)
+    // Reuniones abiertas restantes (reunión ejecutada, aún sin cerrar)
+    const openReun = reun - cierres
+    for (let rIdx = 0; rIdx < openReun; rIdx++) {
+      const stage = rIdx % 2 === 0 ? PIPE.primera : PIPE.propuesta
+      if (stalledLeft > 0) {
+        // Oportunidad frenada: entró a inicio de mes y sin actualizar desde entonces
+        push(stage, 'abierto', act, { entryDay: 1, updatedDay: 1, notes: 'Sin avance — requiere seguimiento' })
+        stalledLeft--
+      } else {
+        push(stage, 'abierto', act)
+      }
+    }
+  }
+
+  // Etapas tempranas (cita agendada / reagendar): NO cuentan como reunión ejecutada.
+  const outActs = acts.filter((a) => a.type === 'OUTBOUND')
+  const inActs = acts.filter((a) => a.type === 'INBOUND')
+  for (let e = 0; e < def.pipeline.earlyCount; e++) {
+    const act = (e % 2 === 0 ? outActs[e % outActs.length] : inActs[e % inActs.length]) ?? acts[0]
+    push(e % 2 === 0 ? PIPE.cita : PIPE.reagendar, 'abierto', act)
+  }
+
+  // Oportunidades perdidas en etapa temprana (no inflan las reuniones ejecutadas).
+  for (let l = 0; l < def.pipeline.lostCount; l++) {
+    const act = outActs[l % Math.max(1, outActs.length)] ?? acts[0]
+    push(PIPE.cita, 'perdido', act, { notes: 'Presupuesto no aprobado este trimestre' })
+  }
+
+  // Conteos finales con la MISMA lógica que el Recetario, para reportarlos exactos.
+  let reuniones = 0
+  let cierres = 0
+  let ingreso = 0
+  for (const row of rows) {
+    if (!row.origin_activity_id) continue
+    if (REUNION_STAGES.has(row.stage)) reuniones++
+    if (row.stage === PIPE.facturar) {
+      cierres++
+      ingreso += row.amount_usd ?? 0
+    }
+  }
+  return { rows, reuniones, cierres, ingreso }
+}
+
+async function seedPipeline(sb: Sb, def: UserDef, userId: string, acts: SeededActivity[]): Promise<{ deals: number; reuniones: number; cierres: number; ingreso: number }> {
+  const { rows, reuniones, cierres, ingreso } = buildPipelineRows(def, userId, acts)
+  if (rows.length > 0) {
+    const { error } = await sb.from('pipeline_simple').insert(rows)
+    if (error) throw new Error(`pipeline_simple ${def.email}: ${error.message}`)
+  }
+  return { deals: rows.length, reuniones, cierres, ingreso }
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -364,13 +435,17 @@ async function main(): Promise<void> {
     console.log(`  ✓ ${def.fullName} (${def.market})`)
   }
 
-  console.log('▸ Sembrando recetarios, actividades, historial y pipeline…')
+  console.log('▸ Sembrando recetarios, actividades, historial y pipeline del mes en curso…')
   for (const def of USERS) {
     const userId = ids[def.key]
     const acts = await seedRecipeAndActivities(sb, def, userId)
     const nLogs = await seedActivityLogs(sb, def, userId, acts)
-    const nDeals = await seedPipeline(sb, def, userId)
-    console.log(`  ✓ ${def.fullName}: ${acts.length} actividades · ${nLogs} registros · ${nDeals} oportunidades`)
+    const p = await seedPipeline(sb, def, userId, acts)
+    const efic = Math.round((p.reuniones / ACTIVITY_TEMPLATE.reduce((s, t) => s + t.expected, 0)) * 100)
+    console.log(
+      `  ✓ ${def.fullName}: ${acts.length} actividades · ${nLogs} registros · ${p.deals} oport. · ` +
+      `${p.reuniones} reuniones / ${p.cierres} cierres ($${p.ingreso.toLocaleString('es-CO')}) · eficiencia ~${efic}%`,
+    )
   }
 
   console.log('\n✅ Demo lista. Credenciales (contraseña común):\n')
