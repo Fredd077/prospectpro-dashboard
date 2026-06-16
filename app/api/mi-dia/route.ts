@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
-import { getMiDiaData } from '@/lib/queries/mi-dia'
+import { getMiDiaData, resolveRefDate } from '@/lib/queries/mi-dia'
 import { getAiConfig, buildSystemPrompt } from '@/lib/utils/ai-config'
 import { todayISO } from '@/lib/utils/dates'
 
@@ -8,25 +8,30 @@ export const dynamic = 'force-dynamic'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-export async function GET() {
+export async function GET(req: Request) {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const today = todayISO()
+  const { searchParams } = new URL(req.url)
+  const date = resolveRefDate(searchParams.get('date') ?? undefined) // válido, no futuro; si no, hoy
 
-  // 1. ¿Ya existe el brief de hoy? Devolverlo de inmediato (1 llamada IA/usuario/día).
+  // 1. ¿Ya existe el brief de ese día? Devolverlo de inmediato (1 llamada IA/usuario/día).
   try {
     const { data: existing } = await sb
       .from('daily_briefs')
       .select('content')
       .eq('user_id', user.id)
-      .eq('brief_date', today)
+      .eq('brief_date', date)
       .maybeSingle()
     if (existing?.content) return Response.json({ brief: existing.content, cached: true })
   } catch {
     // Tabla daily_briefs aún no aplicada — seguimos y devolvemos sin cachear.
   }
+
+  // Días pasados: solo se muestra el brief guardado ese día; nunca se genera uno nuevo.
+  if (date !== today) return Response.json({ brief: null })
 
   // 2. Reunir el contexto (mismos datos que la página).
   const data = await getMiDiaData(sb, user.id)

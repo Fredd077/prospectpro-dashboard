@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import {
@@ -6,6 +7,7 @@ import {
   AlertTriangle, Target, ClipboardCheck, FlaskConical, ArrowRight,
 } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
+import { DateNavigator } from '@/components/dashboard/DateNavigator'
 import { MiDiaBrief } from '@/components/mi-dia/MiDiaBrief'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getMiDiaData } from '@/lib/queries/mi-dia'
@@ -16,7 +18,11 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Mi Día',
-  description: 'Tu plan de hoy para llegar a la meta',
+  description: 'Tu plan del día para llegar a la meta',
+}
+
+interface PageProps {
+  searchParams: Promise<{ refDate?: string }>
 }
 
 const CHANNEL_ICONS: Record<string, typeof Phone> = {
@@ -51,6 +57,16 @@ function fmtUsd(n: number): string {
   return '$' + Math.round(n).toLocaleString('es-CO')
 }
 
+/** Fecha ISO → texto largo en español. UTC-noon evita el corrimiento de un día. */
+function formatLongDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0))
+  const raw = new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  }).format(dt)
+  return raw.charAt(0).toUpperCase() + raw.slice(1)
+}
+
 function PlanCard({ p }: { p: MiDiaActivityPlan }) {
   const Icon = CHANNEL_ICONS[p.channel] ?? MessageSquare
   const pct = Math.min(100, p.goal > 0 ? (p.real / p.goal) * 100 : 0)
@@ -76,23 +92,20 @@ function PlanCard({ p }: { p: MiDiaActivityPlan }) {
   )
 }
 
-export default async function MiDiaPage() {
+export default async function MiDiaPage({ searchParams }: PageProps) {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) redirect('/login')
 
-  const data = await getMiDiaData(sb, user.id)
-
-  const fechaRaw = new Intl.DateTimeFormat('es-CO', {
-    timeZone: 'America/Bogota', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  }).format(new Date())
-  const fechaHoy = fechaRaw.charAt(0).toUpperCase() + fechaRaw.slice(1)
+  const { refDate } = await searchParams
+  const data = await getMiDiaData(sb, user.id, refDate)
+  const fechaLarga = formatLongDate(data.refDate)
 
   // ── Estado vacío: sin recetario activo ──
   if (!data.hasScenario) {
     return (
       <div className="flex flex-col h-full">
-        <TopBar title="Mi Día" description={fechaHoy} />
+        <TopBar title="Mi Día" description={fechaLarga} />
         <div className="flex flex-1 items-center justify-center p-8">
           <div className="max-w-md rounded-lg border border-border bg-card p-8 text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
@@ -122,18 +135,32 @@ export default async function MiDiaPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <TopBar title="Mi Día" description={fechaHoy} action={weekBadge} />
+      <TopBar title="Mi Día" description={fechaLarga} action={weekBadge} />
 
       <div className="flex-1 overflow-y-auto">
+        {/* Navegación por día (calendario + flechas) */}
+        <div className="flex items-center gap-3 border-b border-border bg-background px-6 py-3 lg:px-8">
+          <Suspense>
+            <DateNavigator period="daily" refDate={data.refDate} />
+          </Suspense>
+          {!data.isToday && (
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+              Vista histórica
+            </span>
+          )}
+        </div>
+
         <div className="mx-auto max-w-4xl space-y-6 p-6 lg:p-8">
 
-          {/* Brief del copiloto (async) */}
-          <MiDiaBrief />
+          {/* Brief del copiloto (async) — key fuerza recarga al cambiar de día */}
+          <MiDiaBrief key={data.refDate} refDate={data.refDate} isToday={data.isToday} />
 
-          {/* Plan de hoy */}
+          {/* Plan del día */}
           <section>
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Plan de hoy</h2>
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
+                {data.isToday ? 'Plan de hoy' : 'Plan del día'}
+              </h2>
               <span className="font-mono text-xs tabular-nums text-muted-foreground">
                 {data.todayReal} / {data.todayGoal} actividades
               </span>
@@ -177,7 +204,7 @@ export default async function MiDiaPage() {
                     {data.recovery.unitsNeeded > 0 ? (
                       <>
                         Haz <span className="font-bold text-primary">{data.recovery.unitsNeeded}</span>{' '}
-                        {data.recovery.activityName} más hoy para cerrar la semana al 100%.
+                        {data.recovery.activityName} más {data.isToday ? 'hoy' : 'ese día'} para cerrar la semana al 100%.
                       </>
                     ) : (
                       <>Vas al día en <span className="font-semibold text-primary">{data.recovery.activityName}</span> — mantén el ritmo.</>

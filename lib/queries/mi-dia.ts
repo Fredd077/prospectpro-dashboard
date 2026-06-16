@@ -4,6 +4,9 @@
  * canal y pipeline). No inventa cálculos nuevos: reutiliza las mismas utilidades
  * que el Dashboard y el Recetario para que los números concuerden.
  *
+ * Soporta un día de referencia (refDate) para revisar días anteriores. Por
+ * defecto es hoy. Nunca acepta fechas futuras.
+ *
  * Fechas: SOLO utilidades de lib/utils/dates.ts (todayISO, getPeriodRange,
  * addDaysToISO, totalDays). El conteo de días hábiles usa aritmética UTC pura
  * (igual que el motor de inteligencia), nunca parseISO sobre cadenas del usuario.
@@ -41,16 +44,17 @@ export interface MiDiaPipelineAlert {
 export interface MiDiaData {
   hasScenario: boolean
   userName: string
-  todayISO: string
+  refDate: string
+  isToday: boolean
   monthlyGoal: number
-  // Estado de la semana (lun → hoy vs meta semanal)
+  // Estado de la semana (lun → día de referencia vs meta semanal)
   weekGoal: number
   weekReal: number
   weekCompliancePct: number
   weekDeviationPct: number
   weekSemaphore: SemaphoreColor
   weekState: WeekState
-  // Plan de hoy
+  // Plan del día
   plan: MiDiaActivityPlan[]
   todayReal: number
   todayGoal: number
@@ -88,22 +92,32 @@ function weekStateFor(sem: SemaphoreColor): WeekState {
   return 'CRÍTICO'
 }
 
-export async function getMiDiaData(sb: Sb, userId: string): Promise<MiDiaData> {
+/** Normaliza refDate: válido YYYY-MM-DD y no futuro; si no, hoy. */
+export function resolveRefDate(refDate?: string): string {
   const today = todayISO()
-  const [ty, tm, td] = today.split('-').map(Number)
-  const anchor = new Date(Date.UTC(ty, tm - 1, td, 12, 0, 0))
+  if (refDate && /^\d{4}-\d{2}-\d{2}$/.test(refDate) && refDate <= today) return refDate
+  return today
+}
+
+export async function getMiDiaData(sb: Sb, userId: string, refDate?: string): Promise<MiDiaData> {
+  const today = todayISO()
+  const ref = resolveRefDate(refDate)
+  const isToday = ref === today
+
+  const [ry, rm, rd] = ref.split('-').map(Number)
+  const anchor = new Date(Date.UTC(ry, rm - 1, rd, 12, 0, 0))
   const week = getPeriodRange('weekly', anchor)   // start = lunes, end = domingo
   const month = getPeriodRange('monthly', anchor) // start = día 1, end = último día
   const weekStart = week.start
   const monthStart = month.start
   const monthEnd = month.end
-  const staleCutoff = addDaysToISO(today, -7)     // updated_at anterior a esto = >7 días
+  const staleCutoff = addDaysToISO(ref, -7)        // updated_at anterior a esto = >7 días
 
   const [
     { data: profile },
     { data: scenario },
     { data: activitiesRaw },
-    { data: todayLogs },
+    { data: dayLogs },
     { data: weekLogs },
     { data: alertRows },
     { data: wonRows },
@@ -114,15 +128,15 @@ export async function getMiDiaData(sb: Sb, userId: string): Promise<MiDiaData> {
     sb.from('activities').select('id,name,channel,type,daily_goal,weekly_goal,monthly_goal')
       .eq('user_id', userId).eq('status', 'active').order('type').order('sort_order'),
     sb.from('activity_logs').select('activity_id,real_executed')
-      .eq('user_id', userId).eq('log_date', today),
+      .eq('user_id', userId).eq('log_date', ref),
     sb.from('activity_logs').select('activity_id,real_executed')
-      .eq('user_id', userId).gte('log_date', weekStart).lte('log_date', today),
+      .eq('user_id', userId).gte('log_date', weekStart).lte('log_date', ref),
     sb.from('pipeline_simple').select('id,company_name,amount_usd,updated_at')
       .eq('user_id', userId).eq('status', 'abierto').lt('updated_at', staleCutoff)
       .order('amount_usd', { ascending: false, nullsFirst: false }).limit(5),
     sb.from('pipeline_simple').select('amount_usd')
       .eq('user_id', userId).eq('stage', 'Por facturar/cobrar')
-      .gte('entry_date', monthStart).lte('entry_date', monthEnd),
+      .gte('entry_date', monthStart).lte('entry_date', ref),
   ])
 
   const userName = profile?.full_name ?? 'Vendedor'
@@ -133,7 +147,7 @@ export async function getMiDiaData(sb: Sb, userId: string): Promise<MiDiaData> {
 
   if (!scenario || activities.length === 0) {
     return {
-      hasScenario: false, userName, todayISO: today, monthlyGoal,
+      hasScenario: false, userName, refDate: ref, isToday, monthlyGoal,
       weekGoal: 0, weekReal: 0, weekCompliancePct: 0, weekDeviationPct: 0,
       weekSemaphore: 'no_goal', weekState: 'CRÍTICO',
       plan: [], todayReal: 0, todayGoal: 0,
@@ -142,16 +156,16 @@ export async function getMiDiaData(sb: Sb, userId: string): Promise<MiDiaData> {
     }
   }
 
-  // ── Real por actividad (hoy y semana) ──
-  const todayRealByAct: Record<string, number> = {}
-  for (const l of todayLogs ?? []) todayRealByAct[l.activity_id] = (todayRealByAct[l.activity_id] ?? 0) + l.real_executed
+  // ── Real por actividad (día de referencia y semana) ──
+  const dayRealByAct: Record<string, number> = {}
+  for (const l of dayLogs ?? []) dayRealByAct[l.activity_id] = (dayRealByAct[l.activity_id] ?? 0) + l.real_executed
   const weekRealByAct: Record<string, number> = {}
   for (const l of weekLogs ?? []) weekRealByAct[l.activity_id] = (weekRealByAct[l.activity_id] ?? 0) + l.real_executed
 
-  // ── Plan de hoy (mismo criterio de semáforo que vw_daily_compliance) ──
+  // ── Plan del día (mismo criterio de semáforo que vw_daily_compliance) ──
   const plan: MiDiaActivityPlan[] = activities.map((a) => {
     const goal = Math.round(getDailyImpliedGoal(a))
-    const real = todayRealByAct[a.id] ?? 0
+    const real = dayRealByAct[a.id] ?? 0
     const pct = goal > 0 ? Math.round((real / goal) * 100) : null
     const semaphore: SemaphoreColor = goal > 0 ? getSemaphoreColor(pct) : 'no_goal'
     return { id: a.id, name: a.name, channel: a.channel, type: a.type, goal, real, pct, semaphore }
@@ -159,7 +173,7 @@ export async function getMiDiaData(sb: Sb, userId: string): Promise<MiDiaData> {
   const todayGoal = plan.reduce((s, p) => s + p.goal, 0)
   const todayReal = plan.reduce((s, p) => s + p.real, 0)
 
-  // ── Estado de la semana ──
+  // ── Estado de la semana (lun → día de referencia) ──
   const weekGoal = activities.reduce((s, a) => s + getActivityGoal(a, 'weekly'), 0)
   const weekReal = (weekLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
   const weekCompliancePct = weekGoal > 0 ? Math.round((weekReal / weekGoal) * 1000) / 10 : 0
@@ -167,10 +181,10 @@ export async function getMiDiaData(sb: Sb, userId: string): Promise<MiDiaData> {
   const weekSemaphore = getSemaphoreColor(weekCompliancePct)
   const weekState = weekStateFor(weekSemaphore)
 
-  // ── Prioridad de canal (efectividad real por actividad) ──
+  // ── Prioridad de canal (efectividad real por actividad, mes → día de referencia) ──
   const effectiveness = await _fetchActivityEffectiveness(
     sb as Parameters<typeof _fetchActivityEffectiveness>[0],
-    monthStart, today, userId,
+    monthStart, ref, userId,
   )
   const top = effectiveness[0] // ya viene ordenado por conversionToMeeting desc
   const topChannel = top ? { name: top.name, conversionToMeeting: top.conversionToMeeting } : null
@@ -187,17 +201,17 @@ export async function getMiDiaData(sb: Sb, userId: string): Promise<MiDiaData> {
     }
   }
 
-  // ── Alertas de pipeline (oportunidades frenadas) ──
+  // ── Alertas de pipeline (oportunidades frenadas a la fecha de referencia) ──
   const alerts: MiDiaPipelineAlert[] = (alertRows ?? []).map((r) => {
-    const updatedDate = (r.updated_at ?? today).slice(0, 10)
-    const daysStale = Math.max(0, totalDays(updatedDate, today) - 1)
+    const updatedDate = (r.updated_at ?? ref).slice(0, 10)
+    const daysStale = Math.max(0, totalDays(updatedDate, ref) - 1)
     return { id: r.id, company: r.company_name ?? 'Oportunidad sin nombre', amount: r.amount_usd ?? 0, daysStale }
   })
   const alertsTotalAmount = alerts.reduce((s, a) => s + a.amount, 0)
 
   // ── Proyección del mes (lineal por días hábiles, sin IA) ──
   const revenueSoFar = (wonRows ?? []).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
-  const wdElapsed = workingDaysBetween(monthStart, today)
+  const wdElapsed = workingDaysBetween(monthStart, ref)
   const wdTotal = workingDaysBetween(monthStart, monthEnd)
   const pace = wdElapsed > 0 ? revenueSoFar / wdElapsed : 0
   const projected = pace * wdTotal
@@ -205,7 +219,7 @@ export async function getMiDiaData(sb: Sb, userId: string): Promise<MiDiaData> {
   const projectionSemaphore = getSemaphoreColor(projectionPct)
 
   return {
-    hasScenario: true, userName, todayISO: today, monthlyGoal,
+    hasScenario: true, userName, refDate: ref, isToday, monthlyGoal,
     weekGoal, weekReal, weekCompliancePct, weekDeviationPct, weekSemaphore, weekState,
     plan, todayReal, todayGoal,
     topChannel, recovery, alerts, alertsTotalAmount,
