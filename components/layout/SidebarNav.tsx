@@ -15,11 +15,13 @@ import {
   SlidersHorizontal,
   BookOpen,
   Webhook,
+  Target,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from './SidebarContext'
 
 const navItems = [
+  { href: '/mi-dia',       label: 'Mi Día',            icon: Target          },
   { href: '/dashboard',    label: 'Dashboard',         icon: LayoutDashboard },
   { href: '/checkin',      label: 'Check-in Diario',   icon: ClipboardList   },
   { href: '/pipeline',     label: 'Mi Pipeline',       icon: TrendingUp      },

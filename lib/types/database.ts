@@ -656,6 +656,26 @@ export interface Database {
         }
         Relationships: []
       }
+      daily_briefs: {
+        Row: {
+          id: string
+          user_id: string
+          brief_date: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          brief_date: string
+          content: string
+          created_at?: string
+        }
+        Update: {
+          content?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       vw_daily_compliance: {

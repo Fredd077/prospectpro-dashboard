@@ -36,7 +36,7 @@ export function LoginForm({ errorParam }: LoginFormProps) {
       return
     }
 
-    router.push('/dashboard')
+    router.push('/inicio')
     router.refresh()
   }
 

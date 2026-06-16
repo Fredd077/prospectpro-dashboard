@@ -60,7 +60,7 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
     setSaveError(null)
     try {
       await saveOnboardingActivities(activities)
-      router.push('/dashboard')
+      router.push('/inicio')
       router.refresh()
     } catch (e) {
       console.error('[onboarding] saveOnboardingActivities failed:', e)

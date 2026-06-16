@@ -70,6 +70,12 @@ export const AI_SECTIONS: Array<{
     description: 'Motor de inteligencia: reporte narrativo para gerentes de equipo.',
     icon:        'Users',
   },
+  {
+    key:         'mi_dia',
+    displayName: 'Mi Día — Brief',
+    description: 'Brief diario del copiloto en la pantalla Mi Día del vendedor.',
+    icon:        'Target',
+  },
 ]
 
 /** Keys that belong to the intelligence engine — system_prompt is informational only. */
@@ -124,6 +130,20 @@ SECCIONES DEL REPORTE:
 3. Patrones comunes de falla
 4. Recomendaciones individuales para vendedores en riesgo
 5. Acciones prioritarias para el manager`
+
+const MI_DIA_DEFAULT_PROMPT = `Eres el copiloto comercial de ProspectPro. Generas el "brief del día" para un vendedor.
+
+REGLAS ESTRICTAS:
+- Máximo 3 frases. Ni una más.
+- En español, tono directo y motivador de coach comercial.
+- Sin saludos ni despedidas. Empieza directo con el dato.
+- Cada frase debe incluir números concretos del contexto.
+- No inventes datos: usa únicamente los del contexto entregado.
+
+Las 3 frases deben cubrir, en este orden:
+1. La desviación de su semana (cumplimiento vs meta semanal).
+2. El canal que debe priorizar hoy según su efectividad real de conversión.
+3. Las oportunidades del pipeline frenadas y su valor total en dólares.`
 
 export const AI_CONFIG_DEFAULTS: Record<string, Omit<AiConfig, 'updatedAt' | 'updatedBy'>> = {
   coach: {
@@ -192,6 +212,17 @@ export const AI_CONFIG_DEFAULTS: Record<string, Omit<AiConfig, 'updatedAt' | 'up
     systemPrompt:      'NOTA: Este motor usa prompts internos optimizados. El system prompt no se aplica aquí. Usa Tono, Tokens máximos e Instrucciones adicionales para personalizar el estilo de redacción.',
     maxTokens:         2000,
     tone:              'analítico',
+    language:          'es',
+    extraInstructions: '',
+    settings:          {},
+  },
+  mi_dia: {
+    sectionKey:        'mi_dia',
+    displayName:       'Mi Día — Brief',
+    description:       'Brief diario del copiloto en la pantalla Mi Día del vendedor.',
+    systemPrompt:      MI_DIA_DEFAULT_PROMPT,
+    maxTokens:         200,
+    tone:              'directo',
     language:          'es',
     extraInstructions: '',
     settings:          {},

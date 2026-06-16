@@ -17,8 +17,8 @@ export default async function OnboardingPage() {
     .eq('id', user.id)
     .single()
 
-  // Admin or already completed → go to dashboard
-  if (profile?.onboarding_completed) redirect('/dashboard')
+  // Already completed → route to the role-appropriate home
+  if (profile?.onboarding_completed) redirect('/inicio')
 
   return (
     <div className="flex min-h-full flex-col items-center justify-center p-6 gap-6">
