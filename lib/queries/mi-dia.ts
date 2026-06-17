@@ -131,8 +131,13 @@ export async function getMiDiaData(sb: Sb, userId: string, refDate?: string): Pr
       .eq('user_id', userId).eq('log_date', ref),
     sb.from('activity_logs').select('activity_id,real_executed')
       .eq('user_id', userId).gte('log_date', weekStart).lte('log_date', ref),
+    // Oportunidades frenadas: SOLO del mes en curso (entry_date en el mes), para que
+    // concuerden con lo que el vendedor ve en el Pipeline (que por defecto muestra el mes).
+    // Si no se acota, aparecen deals de meses anteriores que no están en la vista del pipeline.
     sb.from('pipeline_simple').select('id,company_name,amount_usd,updated_at')
-      .eq('user_id', userId).eq('status', 'abierto').lt('updated_at', staleCutoff)
+      .eq('user_id', userId).eq('status', 'abierto')
+      .gte('entry_date', monthStart).lte('entry_date', monthEnd)
+      .lt('updated_at', staleCutoff)
       .order('amount_usd', { ascending: false, nullsFirst: false }).limit(5),
     sb.from('pipeline_simple').select('amount_usd')
       .eq('user_id', userId).eq('stage', 'Por facturar/cobrar')
