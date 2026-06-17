@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { assertCanWrite } from '@/lib/utils/authz'
 
 type Stage = 'Cita agendada' | 'Reagendar' | 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
 type Status = 'abierto' | 'perdido' | 'ganado'
@@ -19,8 +20,7 @@ export async function createPipelineSimple(data: {
   origin_activity_id?: string | null
 }): Promise<string> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { data: row, error } = await sb
     .from('pipeline_simple')
@@ -63,8 +63,7 @@ export async function updatePipelineSimple(
   },
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { error } = await sb
     .from('pipeline_simple')
@@ -84,8 +83,7 @@ export async function updatePipelineSimpleStatus(
   status: Status,
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { error } = await sb
     .from('pipeline_simple')
@@ -99,8 +97,7 @@ export async function updatePipelineSimpleStatus(
 
 export async function deletePipelineSimple(id: string): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { error } = await sb
     .from('pipeline_simple')

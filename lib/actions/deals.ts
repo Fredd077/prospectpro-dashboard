@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { assertCanWrite } from '@/lib/utils/authz'
 
 export async function createDeal(data: {
   company_name?: string | null
@@ -13,8 +14,7 @@ export async function createDeal(data: {
   entry_date: string
 }): Promise<string> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { data: entry, error } = await sb
     .from('pipeline_entries')
@@ -46,8 +46,7 @@ export async function advanceDeal(
   moveDate: string,
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { data: entry, error: fetchError } = await sb
     .from('pipeline_entries')
@@ -80,8 +79,7 @@ export async function closeDealWon(
   closeDate: string,
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const updatePayload: Record<string, unknown> = {
     stage:      'Ganado',
@@ -107,8 +105,7 @@ export async function closeDealLost(
   lostDate: string,
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { error } = await sb
     .from('pipeline_entries')
@@ -138,8 +135,7 @@ export async function updateDeal(
   },
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { error } = await sb
     .from('pipeline_entries')

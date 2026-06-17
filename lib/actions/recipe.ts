@@ -2,13 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { assertCanWrite } from '@/lib/utils/authz'
 import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 import type { RecipeScenarioUpdate } from '@/lib/types/database'
 
 export async function updateScenarioAction(id: string, payload: RecipeScenarioUpdate) {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { data: current, error: fetchError } = await sb
     .from('recipe_scenarios')

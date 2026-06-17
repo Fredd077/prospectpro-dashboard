@@ -1,6 +1,15 @@
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { ActivityLogInsert, ActivityLogUpdate } from '@/lib/types/database'
 import { todayISO } from '@/lib/utils/dates'
+import { READ_ONLY_MESSAGE } from '@/lib/utils/authz'
+
+/** Traduce una negación de RLS (trial vencido = solo lectura) a un mensaje claro. */
+function rethrow(error: { code?: string; message?: string } | null): never {
+  if (error && (error.code === '42501' || /row-level security/i.test(error.message ?? ''))) {
+    throw new Error(READ_ONLY_MESSAGE)
+  }
+  throw error
+}
 
 export async function fetchLogsByDate(date: string) {
   const sb = getSupabaseBrowserClient()
@@ -41,7 +50,7 @@ export async function upsertLog(payload: ActivityLogInsert & { is_retroactive?: 
     )
     .select()
     .single()
-  if (error) throw error
+  if (error) rethrow(error)
   return data
 }
 
@@ -57,7 +66,7 @@ export async function bulkUpsertLogs(payloads: ActivityLogInsert[]) {
     .from('activity_logs')
     .upsert(rows, { onConflict: 'activity_id,log_date' })
     .select()
-  if (error) throw error
+  if (error) rethrow(error)
   return data
 }
 
@@ -69,7 +78,7 @@ export async function updateLog(id: string, payload: ActivityLogUpdate) {
     .eq('id', id)
     .select()
     .single()
-  if (error) throw error
+  if (error) rethrow(error)
   return data
 }
 

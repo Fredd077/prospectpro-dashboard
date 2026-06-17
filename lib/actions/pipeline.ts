@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { assertCanWrite } from '@/lib/utils/authz'
 
 export interface PipelineEntryData {
   stage: string
@@ -31,8 +32,7 @@ function revalidateAll() {
 
 export async function savePipelineEntry(data: PipelineEntryData): Promise<string> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { data: inserted, error } = await sb
     .from('pipeline_entries')
@@ -59,8 +59,7 @@ export async function savePipelineEntry(data: PipelineEntryData): Promise<string
 
 export async function updatePipelineEntry(id: string, data: Partial<PipelineEntryData>): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { error } = await sb
     .from('pipeline_entries')
@@ -83,8 +82,7 @@ export async function updatePipelineEntry(id: string, data: Partial<PipelineEntr
 
 export async function deletePipelineEntry(id: string): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   const { error } = await sb
     .from('pipeline_entries')
@@ -109,8 +107,7 @@ export async function saveQuickFunnelCheckin(
   scenarioId: string | null,
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   for (const s of stages) {
     if (s.quantity <= 0 && s.companies.length === 0) continue

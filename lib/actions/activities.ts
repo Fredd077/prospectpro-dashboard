@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { assertCanWrite } from '@/lib/utils/authz'
 import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
 
 export async function saveActivityMeetingsExpected(
@@ -9,8 +10,7 @@ export async function saveActivityMeetingsExpected(
   meetingsExpected: number,
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   await sb.from('activities')
     .update({ meetings_expected: meetingsExpected })
@@ -24,8 +24,7 @@ export async function saveActivityConversionRates(
   rates: Array<{ activityId: string; conversionRatePct: number | null; weight?: number | null }>,
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   await Promise.all(
     rates.map(({ activityId, conversionRatePct, weight }) => {
@@ -53,8 +52,7 @@ interface WeightUpdate {
 
 export async function saveWeightDistribution(updates: WeightUpdate[]) {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   await Promise.all(
     updates.map(({ id, weight, monthly_goal, weekly_goal, daily_goal }) =>
@@ -74,8 +72,7 @@ export async function saveWeightDistribution(updates: WeightUpdate[]) {
 // all activity goals using the new scenario's totals and stored weights.
 export async function activateScenario(scenarioId: string) {
   const sb = await getSupabaseServerClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const user = await assertCanWrite(sb)
 
   // Deactivate all, then activate the selected scenario
   await sb.from('recipe_scenarios').update({ is_active: false }).eq('user_id', user.id)
