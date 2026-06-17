@@ -78,6 +78,9 @@ interface UserDef {
   // todayFill: intensidad del DÍA DE HOY como fracción de la meta diaria (por personalidad).
   // Garantiza que la demo parada en hoy se vea coherente: estrella casi completa, riesgo casi vacío.
   todayFill: { min: number; max: number }
+  // monthProfile: cómo se llenan los días hábiles del MES EN CURSO (día 1 → ayer):
+  //   'star' = sin huecos, alto · 'mid' = medio con 1–2 días flojos · 'risk' = ausencias creíbles
+  monthProfile: 'star' | 'mid' | 'risk'
   // pipeline: forma del pipeline del mes en curso
   pipeline: { effFactor: number; stalled: boolean; earlyCount: number; lostCount: number }
 }
@@ -89,6 +92,7 @@ const USERS: UserDef[] = [
     recipe: { goal: 400000, ticket: 60000, outRates: [33, 36, 39], inRates: [40, 40, 40] },
     perf: { min: 0.80, max: 0.95, missRate: 0.05 },
     todayFill: { min: 0.80, max: 0.95 },
+    monthProfile: 'star',
     pipeline: { effFactor: 0.85, stalled: false, earlyCount: 3, lostCount: 1 },
   },
   {
@@ -97,6 +101,7 @@ const USERS: UserDef[] = [
     recipe: { goal: 350000, ticket: 50000, outRates: [32, 35, 38], inRates: [40, 40, 40] },
     perf: { min: 0.90, max: 1.10, missRate: 0.02 },
     todayFill: { min: 0.80, max: 1.00 },
+    monthProfile: 'star',
     pipeline: { effFactor: 1.0, stalled: true, earlyCount: 4, lostCount: 1 },
   },
   {
@@ -105,6 +110,7 @@ const USERS: UserDef[] = [
     recipe: { goal: 300000, ticket: 55000, outRates: [30, 33, 36], inRates: [40, 38, 40] },
     perf: { min: 0.60, max: 0.80, missRate: 0.08 },
     todayFill: { min: 0.50, max: 0.70 },
+    monthProfile: 'mid',
     pipeline: { effFactor: 0.70, stalled: true, earlyCount: 3, lostCount: 2 },
   },
   {
@@ -113,6 +119,7 @@ const USERS: UserDef[] = [
     recipe: { goal: 270000, ticket: 42000, outRates: [31, 34, 37], inRates: [38, 40, 38] },
     perf: { min: 0.30, max: 0.50, missRate: 0.30 },
     todayFill: { min: 0.00, max: 0.30 },
+    monthProfile: 'risk',
     pipeline: { effFactor: 0.40, stalled: true, earlyCount: 4, lostCount: 2 },
   },
 ]
@@ -161,12 +168,17 @@ const LAST_NAMES = ['Lindqvist', 'Tremblay', 'Carter', 'Brooks', 'Ramirez', 'Ben
   'Tanaka', 'Tan', 'Watson', 'Al-Farsi', 'Kim', 'Novak', 'Costa', 'García', 'Petrov', 'Sato']
 
 // ─── Helpers de fecha (sin new Date / parseISO) ──────────────────────────────
-/** Día de semana por aritmética pura (Sakamoto). true si es sábado o domingo. */
-function isWeekendISO(iso: string): boolean {
+/** Día de semana por aritmética pura (Sakamoto): 0=domingo … 6=sábado. */
+function dayOfWeekISO(iso: string): number {
   const [y, m, d] = iso.split('-').map(Number)
   const t = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4]
   const yy = m < 3 ? y - 1 : y
-  const dow = (yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) + t[m - 1] + d) % 7
+  return (yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) + t[m - 1] + d) % 7
+}
+
+/** true si es sábado o domingo. */
+function isWeekendISO(iso: string): boolean {
+  const dow = dayOfWeekISO(iso)
   return dow === 0 || dow === 6
 }
 
@@ -339,13 +351,29 @@ async function seedRecipeAndActivities(sb: Sb, def: UserDef, userId: string): Pr
 // ─── Historial de activity_logs (60 días hábiles con personalidad) ───────────
 async function seedActivityLogs(sb: Sb, def: UserDef, userId: string, acts: SeededActivity[]): Promise<number> {
   const today = todayISO()
-  // El día de hoy se siembra aparte (abajo), así que lo excluimos del historial.
+  const [cy, cm] = today.split('-').map(Number)
+  const monthStart = `${cy}-${String(cm).padStart(2, '0')}-01`
+  // El día de hoy se siembra aparte (abajo); se excluye de los días pasados.
   const pastDays = businessDaysWindow(HISTORY_MONTHS).filter((d) => d !== today)
+  const olderPast = pastDays.filter((d) => d < monthStart)        // meses anteriores
+  const currentMonthPast = pastDays.filter((d) => d >= monthStart) // mes en curso: día 1 → ayer
   const logs: ActivityLogInsert[] = []
 
-  // ── Historial (días pasados): personalidad + ausencias + habilidad de canal ──
-  for (const date of pastDays) {
-    // Días enteros sin registro (más frecuentes en perfiles en riesgo)
+  // Agrega un día completo (todas las actividades) con un factor de la meta diaria.
+  // Acota a [0, meta] para no excederla y usa fill limpio (sin habilidad de canal).
+  const pushDay = (date: string, factor: number) => {
+    for (const a of acts) {
+      if (a.daily_goal <= 0) continue
+      const real = Math.max(0, Math.min(a.daily_goal, Math.round(a.daily_goal * factor)))
+      logs.push({
+        id: randomUUID(), user_id: userId, activity_id: a.id, log_date: date,
+        day_goal: a.daily_goal, real_executed: real, is_retroactive: true,
+      })
+    }
+  }
+
+  // ── Historia ANTIGUA (meses anteriores): patrón aleatorio + ausencias + canal ──
+  for (const date of olderPast) {
     if (Math.random() < def.perf.missRate) continue
     for (const a of acts) {
       if (a.daily_goal <= 0) continue
@@ -358,9 +386,27 @@ async function seedActivityLogs(sb: Sb, def: UserDef, userId: string, acts: Seed
     }
   }
 
+  // ── MES EN CURSO (día 1 → ayer): cobertura controlada por personalidad, sin huecos
+  //    raros, coherente con la meta diaria. ──
+  currentMonthPast.forEach((date, i) => {
+    if (def.monthProfile === 'star') {
+      // Estrella: todos los días con actividad alta (80–100% tras acotar a la meta).
+      pushDay(date, rand(0.80, 1.05))
+    } else if (def.monthProfile === 'mid') {
+      // Intermedio: mayoría 50–80%; 1–2 días flojos (más bajos), nunca vacío.
+      const flojo = i % 6 === 5
+      pushDay(date, flojo ? rand(0.25, 0.45) : rand(0.50, 0.80))
+    } else {
+      // Riesgo: ausencias creíbles (lunes y viernes libres — fines de semana largos);
+      // el resto de días con actividad baja. Quedan ≥ la mitad de días con registro.
+      const dow = dayOfWeekISO(date)
+      if (dow === 1 || dow === 5) return // hueco intencional y creíble (sin registro)
+      pushDay(date, rand(0.30, 0.55))
+    }
+  })
+
   // ── DÍA DE HOY: SIEMPRE presente (sin saltarse), intensidad según personalidad y
-  //    coherente con la meta diaria. Sin habilidad de canal, para que el Plan del Día
-  //    se lea limpio (estrella casi completa, riesgo casi vacío). Se acota a [0, meta]. ──
+  //    coherente con la meta diaria. Se acota a [0, meta]. ──
   for (const a of acts) {
     if (a.daily_goal <= 0) continue
     const factor = rand(def.todayFill.min, def.todayFill.max)
