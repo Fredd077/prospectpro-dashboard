@@ -73,6 +73,56 @@ class NoDataError extends Error {
   constructor(msg: string) { super(msg) }
 }
 
+// ── Métricas deterministas de citas y canales (no IA) ─────────────────────────
+// El protagonista del nuevo reporte: ¿alcanzaremos las citas requeridas para la
+// meta?, y ¿qué canales convierten mejor actividad en citas/cierres?
+
+export interface CitasMetrics {
+  requeridas: number   // citas necesarias para la meta (cierres/última tasa del funnel)
+  reales: number       // citas generadas hasta la fecha (origen real en pipeline)
+  proyectadas: number  // proyección al cierre del mes al ritmo actual (días hábiles)
+  alcanza: boolean     // proyectadas >= requeridas
+}
+export interface ChannelItem { canal: string; conversion: number; cierre: number }
+export interface ChannelsMetrics { fortalezas: ChannelItem[]; debilidades: ChannelItem[] }
+
+// Etapas donde la reunión ya se ejecutó (= "cita real"), igual que el Recetario.
+const REUNION_STAGES = new Set([
+  'Primera reu ejecutada/Propuesta en preparación',
+  'Propuesta Presentada',
+  'Por facturar/cobrar',
+])
+
+function lastRatePct(outboundRates: number[] | null | undefined): number {
+  const arr = outboundRates ?? []
+  return (arr[arr.length - 1] ?? 30) / 100
+}
+
+/** Citas requeridas para la meta mensual = (meta / ticket) / última tasa de cierre. */
+function citasRequeridas(monthlyGoal: number, avgTicket: number, outboundRates: number[] | null | undefined): number {
+  const last = lastRatePct(outboundRates)
+  const cierresReq = avgTicket > 0 ? monthlyGoal / avgTicket : 0
+  return last > 0 ? cierresReq / last : 0
+}
+
+/** Proyección lineal de citas al cierre del mes por días hábiles (sin IA). */
+function projectCitas(citasReales: number, monthStart: string, monthEnd: string, today: string): number {
+  if (today > monthEnd) return Math.round(citasReales) // mes cerrado: sin extrapolar
+  const wdElapsed = workingDaysBetween(monthStart, today)
+  const wdTotal = workingDaysBetween(monthStart, monthEnd)
+  return wdElapsed > 0 ? Math.round((citasReales / wdElapsed) * wdTotal) : Math.round(citasReales)
+}
+
+/** Top-2 canales por conversión a cita (fortalezas) y bottom-2 (debilidades). */
+function buildChannels(eff: ActivityEffectivenessItem[]): ChannelsMetrics {
+  const byConv = eff.filter((e) => e.executions > 0).sort((a, b) => b.conversionToMeeting - a.conversionToMeeting)
+  const fortalezas = byConv.slice(0, 2).map((e) => ({ canal: e.name, conversion: e.conversionToMeeting, cierre: e.closeProbability }))
+  const fortNames = new Set(fortalezas.map((f) => f.canal))
+  const debilidades = [...byConv].reverse().filter((e) => !fortNames.has(e.name)).slice(0, 2)
+    .map((e) => ({ canal: e.name, conversion: e.conversionToMeeting, cierre: e.closeProbability }))
+  return { fortalezas, debilidades }
+}
+
 export interface VendedorReportParams {
   userId: string
   periodType: 'daily' | 'weekly' | 'monthly'
@@ -98,7 +148,7 @@ async function gatherData(params: VendedorReportParams) {
     sb.from('activities').select('id,name,type,daily_goal,weekly_goal,monthly_goal').eq('user_id', userId).eq('status', 'active'),
     sb.from('activity_logs').select('activity_id,real_executed').eq('user_id', userId).gte('log_date', periodStart).lte('log_date', periodEnd),
     sb.from('pipeline_simple').select('stage,status,amount_usd').eq('user_id', userId).gte('entry_date', monthStart).lte('entry_date', monthEnd),
-    sb.from('recipe_scenarios').select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages').eq('user_id', userId).eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    sb.from('recipe_scenarios').select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages,outbound_rates').eq('user_id', userId).eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ])
 
   const userName = profile?.full_name ?? 'Vendedor'
@@ -154,6 +204,23 @@ async function gatherData(params: VendedorReportParams) {
     periodStart, periodEnd, userId,
   )
 
+  // ── Métricas protagonistas: citas (requeridas/reales/proyectadas) y canales ──
+  const nowISO = todayISO()
+  const citasReq = scenario
+    ? citasRequeridas(scenario.monthly_revenue_goal, scenario.average_ticket, scenario.outbound_rates as number[] | null)
+    : 0
+  // citas reales del MES (reunión ejecutada), coherente con citasReq mensual,
+  // independiente del tipo de período del reporte.
+  const citasReales = by_stage.filter((s) => REUNION_STAGES.has(s.stage)).reduce((acc, s) => acc + s.count, 0)
+  const citasProy = projectCitas(citasReales, monthStart, monthEnd, nowISO)
+  const citas: CitasMetrics = {
+    requeridas: Math.round(citasReq),
+    reales: Math.round(citasReales),
+    proyectadas: citasProy,
+    alcanza: citasReq > 0 ? citasProy >= citasReq : false,
+  }
+  const channels = buildChannels(activityEffectiveness)
+
   return {
     userName,
     activities: activityData,
@@ -167,6 +234,8 @@ async function gatherData(params: VendedorReportParams) {
       funnel_stages: (scenario.funnel_stages ?? []) as string[],
     } : null,
     activityEffectiveness,
+    citas,
+    channels,
   }
 }
 
@@ -254,6 +323,8 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
     dias_habiles_totales,
     diagnostico,
     prediccion,
+    citas: data.citas,
+    channels: data.channels,
     activityEffectiveness: data.activityEffectiveness.length ? data.activityEffectiveness : undefined,
   }
   console.log('[generateVendedorReport] running redactor agent')
@@ -262,6 +333,9 @@ export async function generateVendedorReport(params: VendedorReportParams): Prom
     maxTokens: aiConfig.maxTokens,
     extraInstructions: aiConfig.extraInstructions,
   })
+  // Inyecta los números deterministas (no IA) para que sean exactos en la tarjeta.
+  reportContent.citas = data.citas
+  reportContent.canales = data.channels
 
   const confidence_level: 'inicial' | 'parcial' | 'completo' =
     period_status === 'cerrado' ? 'completo' :
@@ -300,6 +374,36 @@ interface TeamMemberRow {
   overall_compliance: number
   pipeline: { open_amount: number; closed_amount: number; won_count: number; lost_count: number }
   monthly_goal: number
+}
+
+/** Efectividad por canal agregada del equipo (suma por nombre de actividad entre miembros). */
+async function fetchTeamChannels(
+  sb: ReturnType<typeof getSupabaseServiceClient>,
+  memberIds: string[],
+  start: string,
+  end: string,
+): Promise<ActivityEffectivenessItem[]> {
+  const perMember = await Promise.all(
+    memberIds.map((id) => _fetchActivityEffectiveness(sb as Parameters<typeof _fetchActivityEffectiveness>[0], start, end, id)),
+  )
+  const agg: Record<string, { type: 'OUTBOUND' | 'INBOUND'; exec: number; meet: number; close: number }> = {}
+  for (const list of perMember) {
+    for (const e of list) {
+      const cur = agg[e.name] ?? { type: e.type, exec: 0, meet: 0, close: 0 }
+      cur.exec += e.executions
+      cur.meet += e.estimatedMeetings
+      cur.close += e.estimatedCloses
+      agg[e.name] = cur
+    }
+  }
+  return Object.entries(agg)
+    .map(([name, v]) => ({
+      name, type: v.type, executions: v.exec, estimatedMeetings: v.meet, estimatedCloses: v.close,
+      conversionToMeeting: v.exec > 0 ? Math.round((v.meet / v.exec) * 100) : 0,
+      closeProbability: v.meet > 0 ? Math.round((v.close / v.meet) * 100) : 0,
+    }))
+    .filter((i) => i.executions > 0)
+    .sort((a, b) => b.conversionToMeeting - a.conversionToMeeting)
 }
 
 async function gatherTeamData(
@@ -346,7 +450,7 @@ async function gatherTeamData(
     sb.from('activities').select('id,user_id,name,type,daily_goal,weekly_goal,monthly_goal').in('user_id', memberIds).eq('status', 'active'),
     sb.from('activity_logs').select('user_id,activity_id,real_executed').in('user_id', memberIds).gte('log_date', periodStart).lte('log_date', periodEnd),
     sb.from('pipeline_simple').select('user_id,status,amount_usd').in('user_id', memberIds).gte('entry_date', monthStart).lte('entry_date', monthEnd),
-    sb.from('recipe_scenarios').select('user_id,monthly_revenue_goal').in('user_id', memberIds).eq('is_active', true),
+    sb.from('recipe_scenarios').select('user_id,monthly_revenue_goal,average_ticket,outbound_rates').in('user_id', memberIds).eq('is_active', true),
   ])
 
   const memberRows: TeamMemberRow[] = members.map((member) => {
@@ -389,10 +493,28 @@ async function gatherTeamData(
     }
   })
 
+  // ── Métricas protagonistas del equipo: canales agregados + citas ──
+  const nowISO = todayISO()
+  const teamChannelItems = await fetchTeamChannels(sb, memberIds, monthStart, nowISO)
+  const channels = buildChannels(teamChannelItems)
+  const citasReqTotal = (allScenarios ?? []).reduce(
+    (s, sc) => s + citasRequeridas(sc.monthly_revenue_goal, sc.average_ticket, sc.outbound_rates as number[] | null), 0,
+  )
+  const citasReales = teamChannelItems.reduce((s, e) => s + e.estimatedMeetings, 0)
+  const citasProy = projectCitas(citasReales, monthStart, monthEnd, nowISO)
+  const citas: CitasMetrics = {
+    requeridas: Math.round(citasReqTotal),
+    reales: Math.round(citasReales),
+    proyectadas: citasProy,
+    alcanza: citasReqTotal > 0 ? citasProy >= citasReqTotal : false,
+  }
+
   return {
     managerName: manager.full_name ?? 'Gerente',
     members: memberRows,
     monthly_goal_total: memberRows.reduce((s, m) => s + m.monthly_goal, 0),
+    citas,
+    channels,
   }
 }
 
@@ -486,6 +608,8 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
     dias_habiles_totales,
     diagnostico,
     prediccion,
+    citas: teamData.citas,
+    channels: teamData.channels,
     members: members.map((m) => ({ userName: m.userName, overall_compliance: m.overall_compliance })),
   }
   const reportContent = await runAgentRedactorGerente(redactorInput, {
@@ -493,6 +617,9 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
     maxTokens: aiConfig.maxTokens,
     extraInstructions: aiConfig.extraInstructions,
   })
+  // Inyecta los números deterministas (no IA) para que sean exactos en la tarjeta.
+  reportContent.citas = teamData.citas
+  reportContent.canales = teamData.channels
 
   const confidence_level: 'inicial' | 'parcial' | 'completo' =
     period_status === 'cerrado' ? 'completo' :

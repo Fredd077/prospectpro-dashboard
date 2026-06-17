@@ -11,6 +11,12 @@ export interface RedactorConfig {
   extraInstructions: string
 }
 
+// Métricas deterministas (calculadas por el motor, no por la IA). La IA las NARRA,
+// el motor las inyecta al report_content para que los números sean exactos.
+export interface CitasMetricsInput { requeridas: number; reales: number; proyectadas: number; alcanza: boolean }
+export interface ChannelItemInput { canal: string; conversion: number; cierre: number }
+export interface ChannelsInput { fortalezas: ChannelItemInput[]; debilidades: ChannelItemInput[] }
+
 const TONE_INSTRUCTIONS: Record<string, string> = {
   profesional:  'Mantén un tono profesional, preciso y orientado a negocios.',
   motivacional: 'Mantén un tono motivacional, energizante y orientado a la acción.',
@@ -36,62 +42,77 @@ export interface RedactorInput {
   dias_habiles_totales: number
   diagnostico: DiagnosticoOutput
   prediccion: PrediccionOutput
+  citas: CitasMetricsInput
+  channels: ChannelsInput
   activityEffectiveness?: ActivityEffectivenessItem[]
 }
 
 export interface ReportContent {
   resumen_ejecutivo: string
+  analisis_canales: string
+  senales_pipeline: string[]
   diagnostico_narrativo: string
   prediccion_narrativa: string
   acciones_prioritarias: { accion: string; impacto: 'alto' | 'medio' | 'bajo'; plazo: string }[]
+  cumplimiento_resumen: string
   alerta: string | null
-  efectividad_canales: string | null
   mensaje_motivacional: string
+  // Inyectados por el motor (no por la IA):
+  citas?: CitasMetricsInput
+  canales?: ChannelsInput
 }
 
 const SYSTEM_PROMPT = `RESPONDE ÚNICAMENTE CON EL JSON PURO. Sin texto antes. Sin texto después. Sin markdown. Si agregas cualquier texto fuera del JSON el sistema falla.
 
-Eres un coach comercial experto. Redacta el reporte de rendimiento del vendedor de forma clara y directa.
+Eres un coach comercial experto. Redacta el reporte del vendedor con esta JERARQUÍA, de lo más importante a lo menos. El encabezado debe poder leerse en 10 segundos:
 
-El JSON debe tener exactamente esta estructura:
+1) CITAS Y META (lo primero): ¿el vendedor va a conseguir las CITAS REQUERIDAS para llegar a la meta? Usa los números del input "citas" (requeridas, reales, proyectadas, alcanza) y la proyección al cierre. Esto va en resumen_ejecutivo.
+2) ANÁLISIS POR CANAL (PROTAGONISTA): usa "channels" (fortalezas y debilidades, cada una con su % de conversión a cita y a cierre) y "activityEffectiveness". Explica qué canales son la fortaleza real (mejor convierten actividad en citas y cierres) y cuáles la debilidad (se invierte esfuerzo pero no producen citas). Cierra SIEMPRE con una recomendación accionable: en qué canal enfocar más esfuerzo y cuántas actividades de ese canal hacen falta para cerrar la brecha de citas (proyectadas vs requeridas). Esto va en analisis_canales.
+3) SEÑALES DE PIPELINE: oportunidades estancadas, propuestas sin avance/decisión, concentración en etapas tempranas y cuánto dinero está realmente cerca de cerrar. Usa el pipeline del diagnóstico. Va en senales_pipeline (array de 2 a 4 frases cortas, cada una un dato concreto).
+4) CUMPLIMIENTO DE ACTIVIDADES (SOPORTE, no protagonista): UNA sola frase de respaldo. NUNCA muestres porcentajes inflados como 1200% u 800%; si una actividad supera su meta dilo como "en meta"/"sobre meta" y nunca escribas un % mayor a 100%. Va en cumplimiento_resumen.
+
+El JSON debe tener EXACTAMENTE esta estructura:
 {
   "resumen_ejecutivo": string,
+  "analisis_canales": string,
+  "senales_pipeline": [string],
   "diagnostico_narrativo": string,
   "prediccion_narrativa": string,
   "acciones_prioritarias": [{"accion": string, "impacto": "alto"|"medio"|"bajo", "plazo": string}],
+  "cumplimiento_resumen": string,
   "alerta": string | null,
-  "efectividad_canales": string | null,
   "mensaje_motivacional": string
 }
 
-REGLA CRÍTICA — ESTADO DEL PERÍODO (leer antes de redactar):
-- Si period_status = 'en_curso': Redacta TODO en PRESENTE. El período sigue abierto. Menciona explícitamente los días hábiles restantes (dias_habiles_restantes) en el resumen o prediccion_narrativa. Las acciones_prioritarias deben ser ejecutables dentro del tiempo que queda. Usa frases como "Llevas X de Y", "Te quedan N días hábiles para...", "Este período cierra en...".
-- Si period_status = 'cerrado': Redacta TODO en PASADO. Este es un reporte de resultado final, NO un plan. acciones_prioritarias se convierte en aprendizajes o ajustes para el SIGUIENTE período — NUNCA acciones ejecutables en el período cerrado. prediccion_narrativa describe el resultado final que ocurrió. Usa frases como "El período cerró con...", "Abril terminó en...", "Para el próximo período, considera...". El campo "plazo" en acciones debe decir "Próximo período".
-- NUNCA mezcles el tono: no uses presente si cerrado, no uses pasado si en_curso.
+REGLA CRÍTICA — ESTADO DEL PERÍODO:
+- Si period_status = 'en_curso': PRESENTE. Menciona dias_habiles_restantes en resumen_ejecutivo o prediccion_narrativa. acciones_prioritarias ejecutables en el tiempo que queda.
+- Si period_status = 'cerrado': PASADO. Es un resultado final, no un plan. acciones_prioritarias se vuelven aprendizajes para el próximo período (plazo = "Próximo período"). prediccion_narrativa describe el resultado final.
+- NUNCA mezcles el tono.
 
-Reglas generales:
-- resumen_ejecutivo: 2-3 oraciones con los números más importantes del período
-- diagnostico_narrativo: párrafo de 3-4 oraciones describiendo qué pasó y por qué con datos específicos
-- prediccion_narrativa: si en_curso → proyección al cierre con días restantes; si cerrado → evaluación del resultado final
-- acciones_prioritarias: exactamente 3, ordenadas de mayor a menor impacto
-- alerta: null si el negocio va bien; 1 oración de alerta si hay riesgo crítico
-- efectividad_canales: si el input incluye activityEffectiveness con al menos 2 actividades con executions > 0, genera este texto exacto (usa saltos de línea \\n dentro del string JSON). Distingue dos problemas distintos: conversión a CITA (conversionToMeeting) y conversión a CIERRE (closeProbability). Un canal puede agendar bien pero cerrar mal, o viceversa:
-  "EFECTIVIDAD DE CANALES\\n[Canal con mayor conversión a cita]: [X]% a cita — [observación de 1 línea]\\n[Canal con menor conversión a cita]: [Y]% a cita — [qué mejorar para agendar más]\\n[Canal con menor conversión a cierre]: [Z]% a cierre (closeProbability) — agenda pero no cierra, [qué mejorar para cerrar]\\nRecomendación: [una acción concreta para el canal débil en cita y otra para el débil en cierre, orientadas a alcanzar la meta]"
-  Si no hay datos de activityEffectiveness: null
-- mensaje_motivacional: 1 oración personalizada con el nombre del vendedor y datos reales
-- Específico con números, nunca genérico ni vago
-- Responde en español
-- NO incluyas markdown, SOLO el JSON puro
-- El tono aplica al ESTILO de redacción dentro de los campos de texto, nunca para agregar texto fuera del JSON`
+Reglas:
+- resumen_ejecutivo: 2-3 oraciones liderando con citas proyectadas vs requeridas y si alcanza la meta.
+- analisis_canales: 3-5 oraciones; fortalezas, debilidades y la recomendación con número concreto de actividades del canal correcto.
+- senales_pipeline: array de 2-4 frases cortas con números reales del pipeline.
+- diagnostico_narrativo y prediccion_narrativa: breves, de apoyo (2-3 oraciones).
+- acciones_prioritarias: exactamente 3, ordenadas por impacto.
+- cumplimiento_resumen: 1 oración, cumplimiento como soporte, sin % mayor a 100.
+- alerta: null si va bien; 1 oración si hay riesgo crítico.
+- mensaje_motivacional: 1 oración con el nombre del vendedor.
+- Específico con números reales del input. Español. SOLO el JSON puro.`
 
 export interface ReportGerenteContent {
   resumen_ejecutivo: string
   diagnostico_equipo: string
+  analisis_canales: string
+  senales_pipeline: string[]
   ranking_rendimiento: { posicion: number; nombre: string; compliance: number; estado: 'en_riesgo' | 'en_camino' | 'destacado' }[]
   alertas_individuales: { nombre: string; alerta: string; accion: string }[]
   prediccion_narrativa: string
   acciones_gestion: { accion: string; prioridad: 'alta' | 'media' | 'baja'; deadline: string }[]
   mensaje_gerente: string
+  // Inyectados por el motor (no por la IA):
+  citas?: CitasMetricsInput
+  canales?: ChannelsInput
 }
 
 export interface RedactorGerenteInput {
@@ -102,6 +123,8 @@ export interface RedactorGerenteInput {
   dias_habiles_totales: number
   diagnostico: import('./agent-diagnostico').DiagnosticoGerenteOutput
   prediccion: import('./agent-prediccion').PrediccionGerenteOutput
+  citas: CitasMetricsInput
+  channels: ChannelsInput
   members: { userName: string; overall_compliance: number }[]
 }
 
@@ -135,12 +158,19 @@ export async function runAgentRedactor(input: RedactorInput, config?: RedactorCo
 
 const GERENTE_SYSTEM_PROMPT = `RESPONDE ÚNICAMENTE CON EL JSON PURO. Sin texto antes. Sin texto después. Sin markdown. Si agregas cualquier texto fuera del JSON el sistema falla.
 
-Eres un coach ejecutivo de ventas. Redacta el reporte del equipo para el gerente de forma clara y accionable.
+Eres un coach ejecutivo de ventas. Redacta el reporte del equipo para que el gerente o CEO entienda el estado en 10 segundos, sin consolidar nada manualmente. Sigue esta JERARQUÍA, de lo más importante a lo menos:
 
-El JSON debe tener exactamente esta estructura:
+1) CITAS Y META DEL EQUIPO (lo primero): ¿el equipo va a conseguir las CITAS REQUERIDAS para llegar a la meta? Usa "citas" (requeridas, reales, proyectadas, alcanza) y la proyección al cierre. Resume también quién necesita atención y por qué. Va en resumen_ejecutivo.
+2) ANÁLISIS POR CANAL (PROTAGONISTA): usa "channels" (fortalezas y debilidades del equipo, con % de conversión a cita y a cierre). Di qué canales son la fortaleza del equipo y cuáles la debilidad (esfuerzo sin citas). Cierra con una recomendación clara: en qué canal debe enfocarse el equipo para cerrar la brecha de citas. Va en analisis_canales.
+3) SEÑALES DE PIPELINE: dinero cerca de cerrar, oportunidades estancadas, concentración en etapas tempranas a nivel equipo. Va en senales_pipeline (array de 2 a 4 frases cortas con números reales).
+4) CUMPLIMIENTO (SOPORTE): el ranking y las alertas individuales quedan como respaldo. NUNCA escribas porcentajes mayores a 100%.
+
+El JSON debe tener EXACTAMENTE esta estructura:
 {
   "resumen_ejecutivo": string,
   "diagnostico_equipo": string,
+  "analisis_canales": string,
+  "senales_pipeline": [string],
   "ranking_rendimiento": [{"posicion": number, "nombre": string, "compliance": number, "estado": "en_riesgo"|"en_camino"|"destacado"}],
   "alertas_individuales": [{"nombre": string, "alerta": string, "accion": string}],
   "prediccion_narrativa": string,
@@ -149,20 +179,19 @@ El JSON debe tener exactamente esta estructura:
 }
 
 REGLA CRÍTICA — ESTADO DEL PERÍODO:
-- Si period_status = 'en_curso': Redacta en PRESENTE. Menciona los días hábiles restantes (dias_habiles_restantes) en el resumen o prediccion_narrativa. acciones_gestion deben ser ejecutables en el tiempo que queda, con deadlines concretos dentro del período.
-- Si period_status = 'cerrado': Redacta en PASADO. acciones_gestion se convierte en acciones para el PRÓXIMO período — NUNCA para el período cerrado. prediccion_narrativa describe el resultado final real. El deadline en acciones debe decir "Próximo período" o la próxima semana/mes según corresponda.
+- Si period_status = 'en_curso': PRESENTE. Menciona dias_habiles_restantes. acciones_gestion ejecutables en el tiempo que queda.
+- Si period_status = 'cerrado': PASADO, resultado final. acciones_gestion para el PRÓXIMO período (deadline = "Próximo período").
 
-Reglas generales:
-- resumen_ejecutivo: 2-3 oraciones con los KPIs del equipo y números reales
-- diagnostico_equipo: 3-4 oraciones sobre el estado del equipo con datos específicos
-- ranking_rendimiento: TODOS los miembros, ordenados de mejor a peor; destacado >= 80%, en_camino 50-79%, en_riesgo < 50%
-- alertas_individuales: solo compliance < 70%, máximo 3; con alerta concreta y acción
-- prediccion_narrativa: en_curso → proyección al cierre; cerrado → resultado final
-- acciones_gestion: exactamente 3 acciones de gestión
-- mensaje_gerente: 1 oración motivadora con nombre del gerente y datos reales
-- Responde en español
-- SOLO el JSON puro
-- El tono aplica al ESTILO de redacción dentro de los campos de texto, nunca para agregar texto fuera del JSON`
+Reglas:
+- resumen_ejecutivo: 2-3 oraciones liderando con citas del equipo proyectadas vs requeridas, proyección y quién necesita atención.
+- diagnostico_equipo: 2-3 oraciones de apoyo con datos.
+- analisis_canales: 3-5 oraciones; fortalezas, debilidades y recomendación de canal.
+- senales_pipeline: array de 2-4 frases con números reales.
+- ranking_rendimiento: TODOS los miembros, mejor a peor; destacado >= 80, en_camino 50-79, en_riesgo < 50. compliance nunca mayor a 100.
+- alertas_individuales: solo compliance < 70%, máximo 3, con acción.
+- acciones_gestion: exactamente 3.
+- mensaje_gerente: 1 oración con el nombre del gerente.
+- Español. SOLO el JSON puro.`
 
 export async function runAgentRedactorGerente(input: RedactorGerenteInput, config?: RedactorConfig): Promise<ReportGerenteContent> {
   const maxAttempts = 2
