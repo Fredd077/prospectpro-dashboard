@@ -174,10 +174,15 @@ export async function getMiDiaData(sb: Sb, userId: string, refDate?: string): Pr
   const todayReal = plan.reduce((s, p) => s + p.real, 0)
 
   // ── Estado de la semana (lun → día de referencia) ──
+  // La meta semanal se prorratea por días hábiles transcurridos (lun→ref): el estado
+  // refleja el RITMO esperado a la fecha, no la semana completa. Así, a mitad de semana
+  // con buen avance el badge sale en meta/rango (y no falsamente en crítico).
   const weekGoal = activities.reduce((s, a) => s + getActivityGoal(a, 'weekly'), 0)
   const weekReal = (weekLogs ?? []).reduce((s, l) => s + l.real_executed, 0)
-  const weekCompliancePct = weekGoal > 0 ? Math.round((weekReal / weekGoal) * 1000) / 10 : 0
-  const weekDeviationPct = weekGoal > 0 ? Math.round(((weekReal - weekGoal) / weekGoal) * 1000) / 10 : 0
+  const bizDaysElapsed = Math.min(5, workingDaysBetween(weekStart, ref))
+  const weekGoalToDate = bizDaysElapsed > 0 ? weekGoal * (bizDaysElapsed / 5) : weekGoal
+  const weekCompliancePct = weekGoalToDate > 0 ? Math.round((weekReal / weekGoalToDate) * 1000) / 10 : 0
+  const weekDeviationPct = weekGoalToDate > 0 ? Math.round(((weekReal - weekGoalToDate) / weekGoalToDate) * 1000) / 10 : 0
   const weekSemaphore = getSemaphoreColor(weekCompliancePct)
   const weekState = weekStateFor(weekSemaphore)
 

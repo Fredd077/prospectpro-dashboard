@@ -75,6 +75,9 @@ interface UserDef {
   recipe: { goal: number; ticket: number; outRates: number[]; inRates: number[] }
   // perf: personalidad en el historial de activity_logs (cumplimiento + ausencias)
   perf: { min: number; max: number; missRate: number }
+  // todayFill: intensidad del DÍA DE HOY como fracción de la meta diaria (por personalidad).
+  // Garantiza que la demo parada en hoy se vea coherente: estrella casi completa, riesgo casi vacío.
+  todayFill: { min: number; max: number }
   // pipeline: forma del pipeline del mes en curso
   pipeline: { effFactor: number; stalled: boolean; earlyCount: number; lostCount: number }
 }
@@ -85,6 +88,7 @@ const USERS: UserDef[] = [
     market: 'Gerencia', orgRole: 'manager', isPlayerCoach: true,
     recipe: { goal: 400000, ticket: 60000, outRates: [33, 36, 39], inRates: [40, 40, 40] },
     perf: { min: 0.80, max: 0.95, missRate: 0.05 },
+    todayFill: { min: 0.80, max: 0.95 },
     pipeline: { effFactor: 0.85, stalled: false, earlyCount: 3, lostCount: 1 },
   },
   {
@@ -92,6 +96,7 @@ const USERS: UserDef[] = [
     market: 'Norteamérica', orgRole: 'member', isPlayerCoach: false,
     recipe: { goal: 350000, ticket: 50000, outRates: [32, 35, 38], inRates: [40, 40, 40] },
     perf: { min: 0.90, max: 1.10, missRate: 0.02 },
+    todayFill: { min: 0.80, max: 1.00 },
     pipeline: { effFactor: 1.0, stalled: true, earlyCount: 4, lostCount: 1 },
   },
   {
@@ -99,6 +104,7 @@ const USERS: UserDef[] = [
     market: 'Europa', orgRole: 'member', isPlayerCoach: false,
     recipe: { goal: 300000, ticket: 55000, outRates: [30, 33, 36], inRates: [40, 38, 40] },
     perf: { min: 0.60, max: 0.80, missRate: 0.08 },
+    todayFill: { min: 0.50, max: 0.70 },
     pipeline: { effFactor: 0.70, stalled: true, earlyCount: 3, lostCount: 2 },
   },
   {
@@ -106,6 +112,7 @@ const USERS: UserDef[] = [
     market: 'LATAM', orgRole: 'member', isPlayerCoach: false,
     recipe: { goal: 270000, ticket: 42000, outRates: [31, 34, 37], inRates: [38, 40, 38] },
     perf: { min: 0.30, max: 0.50, missRate: 0.30 },
+    todayFill: { min: 0.00, max: 0.30 },
     pipeline: { effFactor: 0.40, stalled: true, earlyCount: 4, lostCount: 2 },
   },
 ]
@@ -331,23 +338,37 @@ async function seedRecipeAndActivities(sb: Sb, def: UserDef, userId: string): Pr
 
 // ─── Historial de activity_logs (60 días hábiles con personalidad) ───────────
 async function seedActivityLogs(sb: Sb, def: UserDef, userId: string, acts: SeededActivity[]): Promise<number> {
-  const days = businessDaysWindow(HISTORY_MONTHS)
   const today = todayISO()
+  // El día de hoy se siembra aparte (abajo), así que lo excluimos del historial.
+  const pastDays = businessDaysWindow(HISTORY_MONTHS).filter((d) => d !== today)
   const logs: ActivityLogInsert[] = []
 
-  for (const date of days) {
+  // ── Historial (días pasados): personalidad + ausencias + habilidad de canal ──
+  for (const date of pastDays) {
     // Días enteros sin registro (más frecuentes en perfiles en riesgo)
     if (Math.random() < def.perf.missRate) continue
     for (const a of acts) {
       if (a.daily_goal <= 0) continue
-      // Cumplimiento = personalidad del vendedor × consistencia de ejecución del canal + jitter.
       const factor = rand(def.perf.min, def.perf.max) * a.execSkill + (Math.random() - 0.5) * 0.15
       const real = Math.max(0, Math.round(a.daily_goal * Math.max(0, factor)))
       logs.push({
         id: randomUUID(), user_id: userId, activity_id: a.id, log_date: date,
-        day_goal: a.daily_goal, real_executed: real, is_retroactive: date !== today,
+        day_goal: a.daily_goal, real_executed: real, is_retroactive: true,
       })
     }
+  }
+
+  // ── DÍA DE HOY: SIEMPRE presente (sin saltarse), intensidad según personalidad y
+  //    coherente con la meta diaria. Sin habilidad de canal, para que el Plan del Día
+  //    se lea limpio (estrella casi completa, riesgo casi vacío). Se acota a [0, meta]. ──
+  for (const a of acts) {
+    if (a.daily_goal <= 0) continue
+    const factor = rand(def.todayFill.min, def.todayFill.max)
+    const real = Math.max(0, Math.min(a.daily_goal, Math.round(a.daily_goal * factor)))
+    logs.push({
+      id: randomUUID(), user_id: userId, activity_id: a.id, log_date: today,
+      day_goal: a.daily_goal, real_executed: real, is_retroactive: false,
+    })
   }
 
   // Insertar por lotes para no exceder límites de payload
