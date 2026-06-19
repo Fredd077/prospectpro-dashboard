@@ -14,6 +14,8 @@ interface DatePickerInputProps {
   onChange: (date: string) => void
   max?: string
   min?: string
+  /** Permite fechas futuras (p. ej. citas agendadas/programadas). Ignora el tope `max`. */
+  allowFuture?: boolean
   className?: string
 }
 
@@ -22,17 +24,19 @@ export function DatePickerInput({
   onChange,
   max,
   min,
+  allowFuture = false,
   className,
 }: DatePickerInputProps) {
   const [open, setOpen] = useState(false)
 
-  const effectiveMax = max ?? todayISO()
+  // Sin allowFuture el tope por defecto es hoy; con allowFuture no hay límite superior.
+  const effectiveMax = allowFuture ? undefined : (max ?? todayISO())
   const selectedDate = value ? parseISO(value) : undefined
-  const maxDate      = parseISO(effectiveMax)
+  const maxDate      = effectiveMax ? parseISO(effectiveMax) : undefined
   const minDate      = min ? parseISO(min) : undefined
 
   const disabledMatchers = [
-    { after: maxDate },
+    ...(maxDate ? [{ after: maxDate }] : []),
     ...(minDate ? [{ before: minDate }] : []),
   ]
 

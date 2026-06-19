@@ -585,10 +585,18 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
                     {STAGES.map(s => <option key={s} value={s}>{STAGE_SHORT[s]}</option>)}
                   </select>
                 </div>
-                {/* Fecha */}
+                {/* Fecha — las etapas agendadas permiten fecha futura (cita programada) */}
                 <div>
                   <label className={labelClass}>Fecha *</label>
-                  <DatePickerInput value={formDate} onChange={d => setFormDate(d)} max={today} />
+                  <DatePickerInput
+                    value={formDate}
+                    onChange={d => setFormDate(d)}
+                    allowFuture={formStage === 'Cita agendada' || formStage === 'Reagendar'}
+                    max={today}
+                  />
+                  {(formStage === 'Cita agendada' || formStage === 'Reagendar') && (
+                    <p className="mt-1 text-[10px] text-muted-foreground/60">Puedes programar una fecha futura.</p>
+                  )}
                 </div>
               </div>
 

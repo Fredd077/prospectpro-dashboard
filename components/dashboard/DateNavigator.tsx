@@ -13,6 +13,8 @@ import type { PeriodType } from '@/lib/types/common'
 interface DateNavigatorProps {
   period: PeriodType
   refDate: string
+  /** Permite navegar a períodos futuros (p. ej. pipeline: ver citas agendadas a futuro). */
+  allowFuture?: boolean
 }
 
 function shiftDate(period: PeriodType, date: Date, direction: -1 | 1): Date {
@@ -33,7 +35,7 @@ const QUICK_JUMP_LABEL: Record<PeriodType, string> = {
   yearly:    'Año ant.',
 }
 
-export function DateNavigator({ period, refDate }: DateNavigatorProps) {
+export function DateNavigator({ period, refDate, allowFuture = false }: DateNavigatorProps) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
@@ -43,6 +45,8 @@ export function DateNavigator({ period, refDate }: DateNavigatorProps) {
   const today = todayISO()
   const currentStart = getPeriodRange(period, parseISO(today)).start
   const refStart = getPeriodRange(period, ref).start
+  // Con allowFuture nunca se bloquea avanzar; sin él, no se puede pasar del período actual.
+  const blockForward = !allowFuture && refStart >= currentStart
   const isCurrentOrFuture = refStart >= currentStart
 
   function navigateTo(isoDate: string) {
@@ -52,7 +56,7 @@ export function DateNavigator({ period, refDate }: DateNavigatorProps) {
   }
 
   function navigate(direction: -1 | 1) {
-    if (direction === 1 && isCurrentOrFuture) return
+    if (direction === 1 && blockForward) return
     navigateTo(toISODate(shiftDate(period, ref, direction)))
   }
 
@@ -90,7 +94,7 @@ export function DateNavigator({ period, refDate }: DateNavigatorProps) {
                 setOpen(false)
               }
             }}
-            disabled={{ after: new Date() }}
+            disabled={allowFuture ? undefined : { after: new Date() }}
             locale={es}
             initialFocus
           />
@@ -99,7 +103,7 @@ export function DateNavigator({ period, refDate }: DateNavigatorProps) {
 
       <button
         onClick={() => navigate(1)}
-        disabled={isCurrentOrFuture}
+        disabled={blockForward}
         className="p-1.5 rounded-md border border-border hover:border-primary/40 hover:text-primary transition-colors text-muted-foreground disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:text-muted-foreground"
         title="Período siguiente"
       >

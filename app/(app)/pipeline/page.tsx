@@ -123,7 +123,8 @@ export default async function PipelinePage({ searchParams }: PageProps) {
           </div>
 
           <Suspense>
-            <DateNavigator period={period} refDate={refDateParam || today} />
+            {/* allowFuture: permite navegar a períodos futuros para ver/planear citas agendadas */}
+            <DateNavigator period={period} refDate={refDateParam || today} allowFuture />
           </Suspense>
         </div>
 
