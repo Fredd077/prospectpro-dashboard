@@ -60,33 +60,29 @@ const TAB_LABELS: { value: TabType; label: string }[] = [
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function FunnelChart({ entries }: { entries: PipelineSimple[] }) {
-  const counts = [
-    entries.filter(e => e.stage === 'Cita agendada').length,
-    entries.filter(e => e.stage === 'Reagendar').length,
-    entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length,
-    entries.filter(e => e.stage === 'Propuesta Presentada').length,
-    entries.filter(e => e.stage === 'Por facturar/cobrar').length,
-  ]
-  const maxCount = Math.max(...counts, 1)
+  // Reagendar NO es un paso del embudo (rompe la conversión): se reporta aparte, informativo.
+  const reagendar = entries.filter(e => e.stage === 'Reagendar').length
 
+  // Cadena real del embudo: Cita agendada → 1ra Reunión → Propuesta → Cierre.
   const bars = [
-    { label: 'Cita agenda.', count: counts[0], color: 'bg-blue-500/70',    text: 'text-blue-400'    },
-    { label: 'Reagendar',    count: counts[1], color: 'bg-rose-500/70',    text: 'text-rose-400'    },
-    { label: 'Reuniones',    count: counts[2], color: 'bg-cyan-500/70',    text: 'text-cyan-400'    },
-    { label: 'Propuestas',   count: counts[3], color: 'bg-amber-500/70',   text: 'text-amber-400'   },
-    { label: 'Cierres',      count: counts[4], color: 'bg-emerald-500/70', text: 'text-emerald-400' },
+    { label: 'Cita agenda.', count: entries.filter(e => e.stage === 'Cita agendada').length,                                 color: 'bg-blue-500/70',    text: 'text-blue-400'    },
+    { label: 'Reuniones',    count: entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length, color: 'bg-cyan-500/70',    text: 'text-cyan-400'    },
+    { label: 'Propuestas',   count: entries.filter(e => e.stage === 'Propuesta Presentada').length,                           color: 'bg-amber-500/70',   text: 'text-amber-400'   },
+    { label: 'Cierres',      count: entries.filter(e => e.stage === 'Por facturar/cobrar').length,                            color: 'bg-emerald-500/70', text: 'text-emerald-400' },
   ]
-
-  const total = counts.reduce((s, c) => s + c, 0)
+  const maxCount = Math.max(...bars.map(b => b.count), 1)
+  const total = bars.reduce((s, b) => s + b.count, 0) + reagendar
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-2 py-4">
         {bars.map((b, i) => {
           const pct = b.count === maxCount ? 100 : Math.round(b.count / maxCount * 100)
-          const nextCount = i < bars.length - 1 ? counts[i + 1] : null
-          const convVal = b.count > 0 && nextCount !== null ? Math.round(nextCount / b.count * 100) : null
+          const nextCount = i < bars.length - 1 ? bars[i + 1].count : null
+          // Conversión a la siguiente etapa (acotada a 100%). La primera es CITA → 1RA REUNIÓN.
+          const convVal = b.count > 0 && nextCount !== null ? Math.min(100, Math.round(nextCount / b.count * 100)) : null
           const convColor = convVal !== null ? (convVal >= 50 ? 'text-emerald-400' : convVal >= 25 ? 'text-amber-400' : 'text-red-400') : ''
+          const convLabel = i === 0 ? 'a 1ra reunión' : 'conv.'
           return (
             <div key={b.label} className="w-full max-w-md">
               <div className="flex justify-between mb-1 px-1">
@@ -98,13 +94,23 @@ function FunnelChart({ entries }: { entries: PipelineSimple[] }) {
               </div>
               {convVal !== null && (
                 <div className="flex justify-center mt-0.5">
-                  <span className={`text-xs font-semibold ${convColor}`}>↓ {convVal}% conv.</span>
+                  <span className={`text-xs font-semibold ${convColor}`}>↓ {convVal}% {convLabel}</span>
                 </div>
               )}
             </div>
           )
         })}
       </div>
+
+      {/* Reagendar — fuera del embudo, solo informativo */}
+      <div className="flex items-center justify-center gap-2 border-t border-border pt-3">
+        <span className="h-2 w-2 rounded-full bg-rose-400/70" />
+        <span className="text-[11px] text-muted-foreground">
+          Reagendar: <span className="font-bold tabular-nums text-rose-400">{reagendar}</span>{' '}
+          {reagendar === 1 ? 'cita reprogramada' : 'citas reprogramadas'} — informativo, fuera del embudo
+        </span>
+      </div>
+
       {total === 0 && (
         <p className="text-center text-xs text-muted-foreground py-8">Sin datos para el período seleccionado</p>
       )}
