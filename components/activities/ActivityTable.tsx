@@ -31,7 +31,7 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ActivityStatusBadge } from './ActivityStatusBadge'
-import { deleteActivity } from '@/lib/queries/activities'
+import { deleteActivityAction } from '@/lib/actions/activities'
 import type { Activity } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 
@@ -67,7 +67,7 @@ export function ActivityTable({ activities }: ActivityTableProps) {
     if (!deleteId) return
     setIsDeleting(true)
     try {
-      await deleteActivity(deleteId)
+      await deleteActivityAction(deleteId)
       toast.success('Actividad eliminada')
       router.refresh()
     } catch {

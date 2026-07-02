@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { deleteActivity } from '@/lib/queries/activities'
+import { deleteActivityAction } from '@/lib/actions/activities'
 import type { Activity, RecipeScenario } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 
@@ -36,7 +36,7 @@ export function WeightDistributor({ activities, activeScenario }: WeightDistribu
     if (!deleteId) return
     setIsDeleting(true)
     try {
-      await deleteActivity(deleteId)
+      await deleteActivityAction(deleteId)
       toast.success('Actividad eliminada')
       setDeleteId(null)
       router.refresh()

@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { startOfWeek, parseISO, isValid, format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -18,6 +17,7 @@ import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
 import type { PipelineMiniRow } from '@/components/dashboard/PipelineMiniCard'
 import { RecetarioFunnelCard } from '@/components/dashboard/RecetarioFunnelCard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getRecipePerformance } from '@/lib/queries/recipe-performance'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
 import { calcCompliance } from '@/lib/calculations/compliance'
 import { calcProjection } from '@/lib/calculations/projection'
@@ -128,6 +128,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     { data: activeScenario },
     { data: todayLogs },
     { data: pipelineRows },
+    recipePerf,
   ] = await Promise.all([
     query,
     sb.from('activities').select('id,name,channel,type,daily_goal,weekly_goal,monthly_goal,weight,status,conversion_rate_pct,meetings_expected').eq('status', 'active'),
@@ -145,6 +146,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       .eq('user_id', user.id)
       .gte('entry_date', start)
       .lte('entry_date', end),
+    // Rendimiento de actividades (LOGRO): fuente central única, SIEMPRE mes en curso.
+    getRecipePerformance(sb, today),
   ])
 
   const channels = [...new Set(activities?.map((a) => a.channel) ?? [])].sort()
@@ -323,25 +326,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     ? 'este trimestre'
     : 'este año'
 
-  // --- Per-activity reunion/cierre counts from pipeline ---
-  const reunionesMap: Record<string, number> = {}
-  const cierresMap:   Record<string, number> = {}
-  for (const row of allPipelineRows) {
-    const aid = row.origin_activity_id
-    if (!aid) continue
-    reunionesMap[aid] = (reunionesMap[aid] ?? 0) + 1
-    if (row.status === 'ganado') cierresMap[aid] = (cierresMap[aid] ?? 0) + 1
-  }
-
-  // --- ActivityPerformanceSummary rows ---
-  const activityPerfRows: ActivityPerfRow[] = allActivities.map(a => ({
+  // --- Rendimiento de actividades (LOGRO): fuente central única, mes en curso ---
+  // Reuniones/cierres reales desde pipeline_simple con la definición correcta,
+  // idénticos a los de la pestaña Rendimiento del Recetario (misma función).
+  const activityPerfRows: ActivityPerfRow[] = recipePerf.activities.map(a => ({
     id: a.id,
     name: a.name,
     type: a.type,
-    meetingsExpected: a.meetings_expected ?? 0,
-    conversionRatePct: a.conversion_rate_pct ?? 0,
-    reunionesReales: reunionesMap[a.id] ?? 0,
-    cierresReales:   cierresMap[a.id] ?? 0,
+    meetingsExpected: a.meetingsExpected,
+    conversionRatePct: a.conversionRatePct,
+    reunionesReales: a.reunionesReales,
+    cierresReales: a.cierresReales,
   }))
 
   // --- Citas alignment for RecetarioFunnelCard ---

@@ -22,7 +22,7 @@ import {
   FieldError,
   FieldGroup,
 } from '@/components/ui/field'
-import { createActivity, updateActivity } from '@/lib/queries/activities'
+import { createActivityAction, updateActivityAction } from '@/lib/actions/activities'
 import type { Activity } from '@/lib/types/database'
 
 const CHANNEL_SUGGESTIONS = [
@@ -102,10 +102,10 @@ export function ActivityForm({ activity }: ActivityFormProps) {
   async function onSubmit(values: FormValues) {
     try {
       if (isEdit) {
-        await updateActivity(activity.id, values)
+        await updateActivityAction(activity.id, values)
         toast.success('Actividad actualizada')
       } else {
-        await createActivity(values)
+        await createActivityAction(values)
         toast.success('Actividad creada')
       }
       router.push('/activities')

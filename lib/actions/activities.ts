@@ -4,6 +4,16 @@ import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { assertCanWrite } from '@/lib/utils/authz'
 import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
+import type { ActivityInsert, ActivityUpdate } from '@/lib/types/database'
+
+/** Revalida TODAS las rutas que muestran actividades o sus metas/logro, para que
+ *  ninguna vista se quede con datos viejos tras crear/editar/borrar o cambiar metas. */
+function revalidateActivityPaths() {
+  revalidatePath('/dashboard')
+  revalidatePath('/recipe', 'layout')
+  revalidatePath('/activities')
+  revalidatePath('/checkin')
+}
 
 export async function saveActivityMeetingsExpected(
   activityId: string,
@@ -17,7 +27,7 @@ export async function saveActivityMeetingsExpected(
     .eq('id', activityId)
     .eq('user_id', user.id)
 
-  revalidatePath('/recipe', 'layout')
+  revalidateActivityPaths()
 }
 
 export async function saveActivityConversionRates(
@@ -37,9 +47,7 @@ export async function saveActivityConversionRates(
     }),
   )
 
-  revalidatePath('/recipe', 'layout')
-  revalidatePath('/activities')
-  revalidatePath('/dashboard')
+  revalidateActivityPaths()
 }
 
 interface WeightUpdate {
@@ -63,9 +71,7 @@ export async function saveWeightDistribution(updates: WeightUpdate[]) {
     ),
   )
 
-  revalidatePath('/activities')
-  revalidatePath('/dashboard')
-  revalidatePath('/checkin')
+  revalidateActivityPaths()
 }
 
 // Replaces setActiveScenario from lib/queries/recipe — also recalculates
@@ -120,8 +126,49 @@ export async function activateScenario(scenarioId: string) {
     )
   }
 
-  revalidatePath('/recipe')
-  revalidatePath('/activities')
-  revalidatePath('/dashboard')
-  revalidatePath('/checkin')
+  revalidateActivityPaths()
+}
+
+// ── CRUD de actividades (server actions con revalidación) ─────────────────────
+// Antes vivía en lib/queries/activities.ts escribiendo desde el navegador SIN
+// revalidatePath, por lo que el dashboard/recipe quedaban con datos viejos.
+
+export async function createActivityAction(payload: ActivityInsert) {
+  const sb = await getSupabaseServerClient()
+  const user = await assertCanWrite(sb)
+  const { data, error } = await sb
+    .from('activities')
+    .insert({ ...payload, user_id: user.id })
+    .select()
+    .single()
+  if (error) throw error
+  revalidateActivityPaths()
+  return data
+}
+
+export async function updateActivityAction(id: string, payload: ActivityUpdate) {
+  const sb = await getSupabaseServerClient()
+  const user = await assertCanWrite(sb)
+  const { data, error } = await sb
+    .from('activities')
+    .update(payload)
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .select()
+    .single()
+  if (error) throw error
+  revalidateActivityPaths()
+  return data
+}
+
+export async function deleteActivityAction(id: string) {
+  const sb = await getSupabaseServerClient()
+  const user = await assertCanWrite(sb)
+  const { error } = await sb
+    .from('activities')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
+  if (error) throw error
+  revalidateActivityPaths()
 }

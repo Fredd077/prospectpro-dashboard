@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { getRecipePerformance } from '@/lib/queries/recipe-performance'
 import type { RecipeScenario } from '@/lib/types/database'
 import type { ActivityForSupervision } from '@/components/recipe/SupervisionPanel'
 
@@ -84,51 +85,37 @@ export function usePerformanceData(
   const [montoMap,       setMontoMap]       = useState<Record<string, number>>({})
   const [loading,        setLoading]        = useState(true)
 
-  // Sync editable state when activities list changes
+  // Sync editable state when activities list changes (derived-state sync desde props).
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- resync intencional del estado editable cuando cambian las props */
     setLocalRates(Object.fromEntries(activities.map((a) => [a.id, a.conversion_rate_pct ?? 0])))
     setLocalExpected(Object.fromEntries(activities.map((a) => [a.id, a.meetings_expected ?? 0])))
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [activities])
 
-  // Fetch pipeline data for selected month
+  // "Lo logrado" (reuniones/cierres/monto por actividad) proviene de la FUENTE
+  // CENTRAL única (getRecipePerformance, desde pipeline_simple, mensual), la misma
+  // que consume el Dashboard — así ambas vistas nunca muestran cifras distintas.
   useEffect(() => {
-    setLoading(true)
-    const { start, end } = monthRange(selectedMonth)
-    getSupabaseBrowserClient()
-      .from('pipeline_simple')
-      .select('origin_activity_id,status,amount_usd,stage')
-      .gte('entry_date', start)
-      .lte('entry_date', end)
-      .not('origin_activity_id', 'is', null)
-      .then(({ data }) => {
+    let active = true
+    getRecipePerformance(getSupabaseBrowserClient(), `${selectedMonth}-01`)
+      .then((perf) => {
+        if (!active) return
         const rMap: Record<string, number> = {}
         const cMap: Record<string, number> = {}
         const mMap: Record<string, number> = {}
-        // Stages where a meeting actually happened (past the scheduling stage)
-        const REUNION_STAGES = new Set([
-          'Primera reu ejecutada/Propuesta en preparación',
-          'Propuesta Presentada',
-          'Por facturar/cobrar',
-        ])
-
-        for (const row of data ?? []) {
-          const aid = row.origin_activity_id
-          if (!aid) continue
-          // Only count as "reunión real" if the deal reached an executed-meeting stage.
-          // Cita agendada and Reagendar are scheduled, not yet executed.
-          if (REUNION_STAGES.has(row.stage)) {
-            rMap[aid] = (rMap[aid] ?? 0) + 1
-          }
-          if (row.stage === 'Por facturar/cobrar') {
-            cMap[aid] = (cMap[aid] ?? 0) + 1
-            mMap[aid] = (mMap[aid] ?? 0) + (row.amount_usd ?? 0)
-          }
+        for (const a of perf.activities) {
+          rMap[a.id] = a.reunionesReales
+          cMap[a.id] = a.cierresReales
+          mMap[a.id] = a.montoReal
         }
         setReunionesMap(rMap)
         setCierresMap(cMap)
         setMontoMap(mMap)
         setLoading(false)
       })
+      .catch(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [selectedMonth])
 
   // ── Scenario-derived constants ─────────────────────────────────────────────
