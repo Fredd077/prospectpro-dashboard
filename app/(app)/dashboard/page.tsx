@@ -146,8 +146,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       .eq('user_id', user.id)
       .gte('entry_date', start)
       .lte('entry_date', end),
-    // Rendimiento de actividades (LOGRO): fuente central única, SIEMPRE mes en curso.
-    getRecipePerformance(sb, today),
+    // Rendimiento de actividades (LOGRO): fuente central única, mes del período que
+    // se está viendo (refDate). OJO: NO usar `today`, que se calcula en el servidor
+    // (reloj de Vercel) y caería en un mes sin datos, dando reuniones/cierres en cero.
+    getRecipePerformance(sb, refDate),
   ])
 
   const channels = [...new Set(activities?.map((a) => a.channel) ?? [])].sort()
