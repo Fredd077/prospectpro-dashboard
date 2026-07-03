@@ -9,6 +9,8 @@ export interface ActivityPerfRow {
   conversionRatePct: number
   reunionesReales: number
   cierresReales: number
+  /** Ingreso real = suma de montos reales de oportunidades GANADAS (no cierres × ticket). */
+  montoReal: number
 }
 
 interface ActivityPerformanceSummaryProps {
@@ -42,70 +44,15 @@ const SEM_TEXT: Record<string, string> = {
   none:  'text-muted-foreground/40',
 }
 
-interface GroupRowProps {
-  row: ActivityPerfRow
-  avgTicket: number
-}
-
-function ActivityRowItem({ row, avgTicket }: GroupRowProps) {
-  const efic = eficiencia(row.reunionesReales, row.meetingsExpected)
-  const sem  = semaphore(efic)
-  const contribUsd = row.cierresReales * avgTicket
-
-  return (
-    <tr className="border-b border-border/30 hover:bg-muted/20 transition-colors">
-      <td className="py-2 pr-2">
-        <p className="text-xs text-foreground truncate max-w-[160px]">{row.name}</p>
-        {row.conversionRatePct > 0 && (
-          <p className="text-[10px] text-cyan-400/70">{row.conversionRatePct}% conv.</p>
-        )}
-      </td>
-      <td className="py-2 px-2 text-right tabular-nums">
-        {row.meetingsExpected > 0
-          ? <span className="text-xs text-foreground">{row.meetingsExpected}</span>
-          : <span className="text-xs text-muted-foreground/40">—</span>
-        }
-      </td>
-      <td className="py-2 px-2 text-right tabular-nums">
-        <span className={cn('text-xs font-medium', row.reunionesReales > 0 ? 'text-foreground' : 'text-muted-foreground/40')}>
-          {row.reunionesReales}
-        </span>
-      </td>
-      <td className="py-2 px-2 text-right tabular-nums">
-        {efic !== null
-          ? <span className={cn('text-xs font-semibold', SEM_TEXT[sem])}>{efic.toFixed(0)}%</span>
-          : <span className="text-xs text-muted-foreground/40">—</span>
-        }
-      </td>
-      <td className="py-2 px-2 text-right tabular-nums">
-        {row.cierresReales > 0
-          ? <span className="text-xs text-emerald-400">{row.cierresReales}</span>
-          : <span className="text-xs text-muted-foreground/40">0</span>
-        }
-      </td>
-      <td className="py-2 pl-2 text-right tabular-nums">
-        {contribUsd > 0
-          ? <span className="text-xs text-emerald-400">${Math.round(contribUsd).toLocaleString('es')}</span>
-          : <span className="text-xs text-muted-foreground/40">—</span>
-        }
-      </td>
-      <td className="py-2 pl-2">
-        <div className={cn('w-2 h-2 rounded-full mx-auto', SEM_DOT[sem])} />
-      </td>
-    </tr>
-  )
-}
-
 interface GroupTotalRowProps {
   rows: ActivityPerfRow[]
-  avgTicket: number
 }
 
-function GroupTotalRow({ rows, avgTicket }: GroupTotalRowProps) {
+function GroupTotalRow({ rows }: GroupTotalRowProps) {
   const totalEsp     = rows.reduce((s, r) => s + r.meetingsExpected, 0)
   const totalReales  = rows.reduce((s, r) => s + r.reunionesReales, 0)
   const totalCierres = rows.reduce((s, r) => s + r.cierresReales, 0)
-  const totalContrib = totalCierres * avgTicket
+  const totalContrib = rows.reduce((s, r) => s + r.montoReal, 0)
   const efic         = eficiencia(totalReales, totalEsp)
   const sem          = semaphore(efic)
 
@@ -138,8 +85,7 @@ function GroupTotalRow({ rows, avgTicket }: GroupTotalRowProps) {
 
 const HEADERS = ['Actividad', 'Esp.', 'Real', 'Efic.%', 'Cierres', 'Contrib.$', '']
 
-export function ActivityPerformanceSummary({ rows, scenario }: ActivityPerformanceSummaryProps) {
-  const avgTicket = scenario?.average_ticket ?? 0
+export function ActivityPerformanceSummary({ rows }: ActivityPerformanceSummaryProps) {
   const outbound  = rows.filter(r => r.type === 'OUTBOUND')
   const inbound   = rows.filter(r => r.type === 'INBOUND')
   const hasData   = rows.length > 0
@@ -220,14 +166,14 @@ export function ActivityPerformanceSummary({ rows, scenario }: ActivityPerforman
                       {row.cierresReales > 0 ? <span className="text-xs text-emerald-400">{row.cierresReales}</span> : <span className="text-xs text-muted-foreground/40">0</span>}
                     </td>
                     <td className="py-2 pl-2 text-right tabular-nums">
-                      {row.cierresReales > 0 && avgTicket > 0 ? <span className="text-xs text-emerald-400">${Math.round(row.cierresReales * avgTicket).toLocaleString('es')}</span> : <span className="text-xs text-muted-foreground/40">—</span>}
+                      {row.montoReal > 0 ? <span className="text-xs text-emerald-400">${Math.round(row.montoReal).toLocaleString('es')}</span> : <span className="text-xs text-muted-foreground/40">—</span>}
                     </td>
                     <td className="py-2 pl-2 pr-4">
                       {(() => { const e = eficiencia(row.reunionesReales, row.meetingsExpected); const s = semaphore(e); return <div className={cn('w-2 h-2 rounded-full mx-auto', SEM_DOT[s])} /> })()}
                     </td>
                   </tr>
                 ))}
-                <GroupTotalRow rows={outbound} avgTicket={avgTicket} />
+                <GroupTotalRow rows={outbound} />
               </>
             )}
             {inbound.length > 0 && (
@@ -258,14 +204,14 @@ export function ActivityPerformanceSummary({ rows, scenario }: ActivityPerforman
                       {row.cierresReales > 0 ? <span className="text-xs text-emerald-400">{row.cierresReales}</span> : <span className="text-xs text-muted-foreground/40">0</span>}
                     </td>
                     <td className="py-2 pl-2 text-right tabular-nums">
-                      {row.cierresReales > 0 && avgTicket > 0 ? <span className="text-xs text-emerald-400">${Math.round(row.cierresReales * avgTicket).toLocaleString('es')}</span> : <span className="text-xs text-muted-foreground/40">—</span>}
+                      {row.montoReal > 0 ? <span className="text-xs text-emerald-400">${Math.round(row.montoReal).toLocaleString('es')}</span> : <span className="text-xs text-muted-foreground/40">—</span>}
                     </td>
                     <td className="py-2 pl-2 pr-4">
                       {(() => { const e = eficiencia(row.reunionesReales, row.meetingsExpected); const s = semaphore(e); return <div className={cn('w-2 h-2 rounded-full mx-auto', SEM_DOT[s])} /> })()}
                     </td>
                   </tr>
                 ))}
-                <GroupTotalRow rows={inbound} avgTicket={avgTicket} />
+                <GroupTotalRow rows={inbound} />
               </>
             )}
           </tbody>

@@ -275,7 +275,8 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
   const ingresoProyectado = allRows.reduce(
     (s, r) => s + r.reunionesReales * (r.convRate / 100) * avgTicket, 0,
   )
-  const ingresoReal = allTotals.cierresReales * avgTicket
+  // Ingreso real = suma de montos reales de oportunidades GANADAS (no cierres × ticket).
+  const ingresoReal = allTotals.contribGlobalUsd
 
   const deltaProyVsMeta = monthlyGoal > 0 ? ((ingresoProyectado - monthlyGoal) / monthlyGoal) * 100 : null
   const deltaRealVsMeta = monthlyGoal > 0 ? ((ingresoReal - monthlyGoal) / monthlyGoal) * 100 : null
@@ -862,7 +863,7 @@ export function RecipeDashboardTab({ scenario, activities }: RecipeDashboardTabP
                           />
                         </div>
                         <p className="mt-1 font-mono font-semibold" style={{ fontSize: 14, fontWeight: 600, color: GREEN }}>
-                          {fmtCop(r.cierresReales * avgTicket)}
+                          {fmtCop(r.contribGlobalUsd)}
                         </p>
                       </div>
                       <span className="font-mono font-bold shrink-0" style={{ fontSize: 15, color: rankGreen[i] }}>

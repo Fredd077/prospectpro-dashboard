@@ -339,6 +339,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     conversionRatePct: a.conversionRatePct,
     reunionesReales: a.reunionesReales,
     cierresReales: a.cierresReales,
+    montoReal: a.montoReal,
   }))
 
   // --- Citas alignment for RecetarioFunnelCard ---

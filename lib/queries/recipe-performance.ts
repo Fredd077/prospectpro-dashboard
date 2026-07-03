@@ -20,14 +20,15 @@ import { getPeriodRange, todayISO, periodLabel } from '@/lib/utils/dates'
 
 type Sb = SupabaseClient<Database>
 
-// Etapas donde la reunión ya se ejecutó (= "cita real"). Misma definición que el
-// motor de inteligencia, para que todo el producto cuente igual.
+// Etapas donde la reunión ya se ejecutó (= "cita real"), independiente del estado.
 const REUNION_STAGES = new Set([
   'Primera reu ejecutada/Propuesta en preparación',
   'Propuesta Presentada',
   'Por facturar/cobrar',
 ])
-const CIERRE_STAGE = 'Por facturar/cobrar'
+// DEFINICIÓN ÚNICA de cierre real: oportunidad efectivamente GANADA (estado 'ganado'),
+// y su valor es el MONTO REAL de esa oportunidad (nunca el ticket promedio ni las
+// que están en etapa "Por facturar" pero aún no ganadas).
 
 export interface RecipeActivityPerf {
   id: string
@@ -110,7 +111,7 @@ export async function getRecipePerformance(sb: Sb, refDate?: string): Promise<Re
       .order('type', { ascending: true })
       .order('sort_order', { ascending: true }),
     sb.from('pipeline_simple')
-      .select('origin_activity_id,stage,amount_usd')
+      .select('origin_activity_id,stage,status,amount_usd')
       .gte('entry_date', monthStart)
       .lte('entry_date', monthEnd),
     sb.from('recipe_scenarios')
@@ -134,7 +135,8 @@ export async function getRecipePerformance(sb: Sb, refDate?: string): Promise<Re
     const aid = row.origin_activity_id
     if (!aid) continue
     if (isReunion) reunionesByAct[aid] = (reunionesByAct[aid] ?? 0) + 1
-    if (row.stage === CIERRE_STAGE) {
+    // Cierre real = estado GANADO; su valor es el monto real de la oportunidad.
+    if (row.status === 'ganado') {
       cierresByAct[aid] = (cierresByAct[aid] ?? 0) + 1
       montoByAct[aid] = (montoByAct[aid] ?? 0) + (row.amount_usd ?? 0)
     }
