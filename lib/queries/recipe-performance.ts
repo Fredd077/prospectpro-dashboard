@@ -26,9 +26,11 @@ const REUNION_STAGES = new Set([
   'Propuesta Presentada',
   'Por facturar/cobrar',
 ])
-// DEFINICIÓN ÚNICA de cierre real: oportunidad efectivamente GANADA (estado 'ganado'),
-// y su valor es el MONTO REAL de esa oportunidad (nunca el ticket promedio ni las
-// que están en etapa "Por facturar" pero aún no ganadas).
+// DEFINICIÓN ÚNICA Y DEFINITIVA de cierre ganado: la oportunidad cumple LAS DOS
+// condiciones a la vez → etapa 'Por facturar/cobrar' Y estado 'ganado'. Su valor es
+// el MONTO REAL de esa oportunidad (nunca el ticket promedio). Una 'Por facturar'
+// que sigue 'abierta' NO cuenta; una 'ganada' fuera de esa etapa TAMPOCO cuenta.
+const CIERRE_STAGE = 'Por facturar/cobrar'
 
 export interface RecipeActivityPerf {
   id: string
@@ -135,8 +137,8 @@ export async function getRecipePerformance(sb: Sb, refDate?: string): Promise<Re
     const aid = row.origin_activity_id
     if (!aid) continue
     if (isReunion) reunionesByAct[aid] = (reunionesByAct[aid] ?? 0) + 1
-    // Cierre real = estado GANADO; su valor es el monto real de la oportunidad.
-    if (row.status === 'ganado') {
+    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas). Valor = monto real.
+    if (row.stage === CIERRE_STAGE && row.status === 'ganado') {
       cierresByAct[aid] = (cierresByAct[aid] ?? 0) + 1
       montoByAct[aid] = (montoByAct[aid] ?? 0) + (row.amount_usd ?? 0)
     }

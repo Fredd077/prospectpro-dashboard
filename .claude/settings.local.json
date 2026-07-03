@@ -18,7 +18,8 @@
       "Bash(findstr recipe *)",
       "Bash(findstr calculations *)",
       "PowerShell(git add \"lib/integrations/pipedrive/adapter.ts\" \"lib/integrations/core/deal-processor.ts\" \"app/api/webhooks/inbound/[company]/route.ts\" \"components/admin/WebhookLogsTable.tsx\")",
-      "PowerShell(git push origin main)"
+      "PowerShell(git push origin main)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\fd1056la\\\\projects\\\\prospectpro-dashboard\\\\app\" -Recurse | Select-Object FullName, PSIsContainer | Where-Object { $_.PSIsContainer -eq $false } | Select-Object -First 40)"
     ]
   }
 }

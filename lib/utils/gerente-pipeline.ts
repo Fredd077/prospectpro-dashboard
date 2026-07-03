@@ -371,7 +371,8 @@ export async function fetchTeamPipeline(
   // ── Inbound vs outbound ───────────────────────────────────────────────────
   const inboundVsOutbound = ['inbound', 'outbound'].map((type) => {
     const td  = deals.filter((d) => d.prospectType === type)
-    const tW  = td.filter((d) => d.status === 'ganado').length
+    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
+    const tW  = td.filter((d) => d.status === 'ganado' && d.stage === 'Por facturar/cobrar').length
     const tL  = td.filter((d) => d.status === 'perdido').length
     const tO  = td.filter((d) => d.status === 'abierto').length
     const cl  = tW + tL

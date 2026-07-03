@@ -44,7 +44,8 @@ async function fetchPipelineSummary(
 
   const all = rows ?? []
   const lastStage  = 'Por facturar/cobrar'
-  const wonAmount  = all.filter(r => r.stage === lastStage && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
+  // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
+  const wonAmount  = all.filter(r => r.stage === lastStage && r.status === 'ganado' && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
   const openAmount = all.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación' && r.stage !== 'Cita agendada' && r.stage !== 'Reagendar' && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
   const lostAmount = all.filter(r => r.status === 'perdido' && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
   const wonCount   = all.filter(r => r.stage === lastStage && r.status === 'ganado').length

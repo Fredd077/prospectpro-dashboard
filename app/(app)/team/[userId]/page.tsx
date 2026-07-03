@@ -283,7 +283,8 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
 
   // ── Pipeline ─────────────────────────────────────────────────────────────
   const pipeRows   = pipelineRes.data ?? []
-  const wonAmount  = pipeRows.filter(r => r.stage === 'Por facturar/cobrar' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+  // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
+  const wonAmount  = pipeRows.filter(r => r.stage === 'Por facturar/cobrar' && r.status === 'ganado' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
   const openAmount = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación' && r.stage !== 'Cita agendada' && r.stage !== 'Reagendar' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
   const lostAmount = pipeRows.filter(r => r.status === 'perdido' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
   const wonCount   = pipeRows.filter(r => r.stage === 'Por facturar/cobrar' && r.status === 'ganado').length

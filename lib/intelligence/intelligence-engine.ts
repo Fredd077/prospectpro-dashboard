@@ -187,7 +187,8 @@ async function gatherData(params: VendedorReportParams) {
     if (!stageMap[row.stage]) stageMap[row.stage] = { count: 0, amount: 0 }
     stageMap[row.stage].count++
     stageMap[row.stage].amount += row.amount_usd ?? 0
-    if (row.status === 'ganado') {
+    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
+    if (row.stage === 'Por facturar/cobrar' && row.status === 'ganado') {
       won_count++
       closed_amount += row.amount_usd ?? 0
     } else if (row.status === 'perdido') {
@@ -449,7 +450,7 @@ async function gatherTeamData(
   ] = await Promise.all([
     sb.from('activities').select('id,user_id,name,type,daily_goal,weekly_goal,monthly_goal').in('user_id', memberIds).eq('status', 'active'),
     sb.from('activity_logs').select('user_id,activity_id,real_executed').in('user_id', memberIds).gte('log_date', periodStart).lte('log_date', periodEnd),
-    sb.from('pipeline_simple').select('user_id,status,amount_usd').in('user_id', memberIds).gte('entry_date', monthStart).lte('entry_date', monthEnd),
+    sb.from('pipeline_simple').select('user_id,stage,status,amount_usd').in('user_id', memberIds).gte('entry_date', monthStart).lte('entry_date', monthEnd),
     sb.from('recipe_scenarios').select('user_id,monthly_revenue_goal,average_ticket,outbound_rates').in('user_id', memberIds).eq('is_active', true),
   ])
 
@@ -478,7 +479,8 @@ async function gatherTeamData(
 
     let open_amount = 0, closed_amount = 0, won_count = 0, lost_count = 0
     for (const row of pipeline) {
-      if (row.status === 'ganado') { won_count++; closed_amount += row.amount_usd ?? 0 }
+      // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
+      if (row.stage === 'Por facturar/cobrar' && row.status === 'ganado') { won_count++; closed_amount += row.amount_usd ?? 0 }
       else if (row.status === 'perdido') { lost_count++ }
       else { open_amount += row.amount_usd ?? 0 }
     }

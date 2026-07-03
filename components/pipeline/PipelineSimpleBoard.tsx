@@ -359,10 +359,11 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   const countCita      = filtered.filter(e => e.stage === 'Cita agendada').length
   const countReunion   = filtered.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length
   const countPropuesta = filtered.filter(e => e.stage === 'Propuesta Presentada').length
-  const countCierre    = filtered.filter(e => e.stage === 'Por facturar/cobrar').length
+  // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
+  const countCierre    = filtered.filter(e => e.stage === 'Por facturar/cobrar' && e.status === 'ganado').length
   const pipelineValue  = filtered.filter(e => e.stage === 'Propuesta Presentada' && e.status === 'abierto').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
   const perdidoValue   = filtered.filter(e => e.status === 'perdido').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-  const closedValue    = filtered.filter(e => e.stage === 'Por facturar/cobrar').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+  const closedValue    = filtered.filter(e => e.stage === 'Por facturar/cobrar' && e.status === 'ganado').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
 
   const convRP = countReunion > 0   ? Math.round(countPropuesta / countReunion * 100)   : 0
   const convPC = countPropuesta > 0 ? Math.round(countCierre / countPropuesta * 100) : 0

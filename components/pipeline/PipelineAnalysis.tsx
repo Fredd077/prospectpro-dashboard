@@ -119,7 +119,8 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: P
     const reagendar  = entries.filter(e => e.stage === 'Reagendar')
     const reuniones  = entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación')
     const propuestas = entries.filter(e => e.stage === 'Propuesta Presentada')
-    const cierres    = entries.filter(e => e.stage === 'Por facturar/cobrar')
+    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
+    const cierres    = entries.filter(e => e.stage === 'Por facturar/cobrar' && e.status === 'ganado')
 
     const propAbiertas = propuestas.filter(e => e.status === 'abierto')
     const propGanadas  = propuestas.filter(e => e.status === 'ganado')

@@ -246,7 +246,8 @@ export async function _fetchActivityEffectiveness(
       const aid = e.origin_activity_id
       if (!aid) continue
       if (REUNION_STAGES.has(e.stage)) meetingsByAct[aid] = (meetingsByAct[aid] ?? 0) + 1
-      if (e.stage === 'Por facturar/cobrar') closesByAct[aid] = (closesByAct[aid] ?? 0) + 1
+      // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
+      if (e.stage === 'Por facturar/cobrar' && e.status === 'ganado') closesByAct[aid] = (closesByAct[aid] ?? 0) + 1
     }
     return activities
       .filter((a) => isOutOrIn((a.type ?? '').toUpperCase()))
@@ -276,7 +277,8 @@ export async function _fetchActivityEffectiveness(
     const t = (entry.prospect_type ?? '').toUpperCase()
     if (t !== 'OUTBOUND' && t !== 'INBOUND') continue
     meetingsByType[t] = (meetingsByType[t] ?? 0) + 1
-    if (entry.status === 'ganado') closesByType[t] = (closesByType[t] ?? 0) + 1
+    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
+    if (entry.stage === 'Por facturar/cobrar' && entry.status === 'ganado') closesByType[t] = (closesByType[t] ?? 0) + 1
   }
 
   const totalExecByType: Record<string, number> = { OUTBOUND: 0, INBOUND: 0 }
