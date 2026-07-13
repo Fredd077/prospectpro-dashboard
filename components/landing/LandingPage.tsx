@@ -762,10 +762,9 @@ export default function LandingPage() {
       {/* STATS STRIP */}
       <div className="pp-stats-strip">
         <div className="pp-stats-inner">
-          <div className="pp-stat-item pp-reveal"><div className="pp-stat-num" data-count="74" data-suffix="%">0%</div><div className="pp-stat-label">Cumplimiento promedio de equipos activos</div></div>
-          <div className="pp-stat-item pp-reveal pp-reveal-delay-1"><div className="pp-stat-num" data-count="2" data-suffix=" min">0 min</div><div className="pp-stat-label">Check-in diario completo</div></div>
-          <div className="pp-stat-item pp-reveal pp-reveal-delay-2"><div className="pp-stat-num" data-count="3" data-suffix="x">0x</div><div className="pp-stat-label">Más reuniones reservadas vs sin sistema</div></div>
-          <div className="pp-stat-item pp-reveal pp-reveal-delay-3"><div className="pp-stat-num" data-count="100" data-suffix="%">0%</div><div className="pp-stat-label">En español, para LATAM</div></div>
+          <div className="pp-stat-item pp-reveal"><div className="pp-stat-num">2 minutos</div><div className="pp-stat-label">Lo que toma el check-in diario</div></div>
+          <div className="pp-stat-item pp-reveal pp-reveal-delay-1"><div className="pp-stat-num">Outbound + Inbound</div><div className="pp-stat-label">Calculados por separado · tasa real por canal</div></div>
+          <div className="pp-stat-item pp-reveal pp-reveal-delay-2"><div className="pp-stat-num">100% en español</div><div className="pp-stat-label">Para venta consultiva B2B en LATAM</div></div>
         </div>
       </div>
 
