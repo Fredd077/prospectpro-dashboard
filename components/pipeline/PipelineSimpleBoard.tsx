@@ -18,19 +18,14 @@ import {
 } from '@/lib/actions/pipeline-simple'
 import { PipelineSimpleCharts } from '@/components/pipeline/PipelineSimpleCharts'
 import { PipelineStagesManager } from '@/components/pipeline/PipelineStagesManager'
+import { CANONICAL_PIPELINE_STAGES } from '@/lib/utils/pipeline-stages'
 import type { PipelineStageOption } from '@/lib/actions/pipeline-stages'
 import type { PipelineSimple } from '@/lib/types/database'
 
-// Etapas canónicas por defecto — solo como respaldo visual cuando el usuario aún
-// no tiene etapas propias en pipeline_stages. La lista REAL llega por props
-// (stages) y es totalmente editable por el usuario, independiente del Recetario.
-const CANONICAL_STAGES = [
-  'Cita agendada',
-  'Reagendar',
-  'Primera reu ejecutada/Propuesta en preparación',
-  'Propuesta Presentada',
-  'Por facturar/cobrar',
-] as const
+// Respaldo visual cuando el usuario aún no tiene etapas propias en
+// pipeline_stages. La lista REAL llega por props (stages) y es totalmente
+// editable por el usuario, independiente del Recetario. Comparte la definición
+// con el sembrado automático de getPipelineStages para que nunca diverjan.
 type Status = 'abierto' | 'perdido' | 'ganado'
 type ProspectType = 'inbound' | 'outbound'
 
@@ -327,7 +322,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   // Lista de etapas del Pipeline: propia del usuario (pipeline_stages). Respaldo
   // a las canónicas solo si el usuario aún no tiene etapas propias, para que el
   // board nunca quede vacío.
-  const stageList: string[] = stages.length ? stages.map((s) => s.name) : [...CANONICAL_STAGES]
+  const stageList: string[] = stages.length ? stages.map((s) => s.name) : [...CANONICAL_PIPELINE_STAGES]
   const firstStage = stageList[0] ?? 'Cita agendada'
 
   type ModalMode = 'create' | 'edit' | 'duplicate'

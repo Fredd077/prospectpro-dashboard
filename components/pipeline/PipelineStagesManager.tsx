@@ -36,10 +36,28 @@ export function PipelineStagesManager({ stages }: Props) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
 
-  function openModal() {
+  async function openModal() {
     setItems(stages.map((s) => ({ id: s.id, name: s.name })))
     setNewName('')
     setOpen(true)
+
+    // El usuario todavía no tiene etapas propias (no tenía historial cuando corrió
+    // el seed de la migración 039). getPipelineStages siembra las 5 canónicas y
+    // devuelve esa lista, así nunca ve el gestor vacío y agregar una etapa se suma
+    // a esas 5 en vez de reemplazar el respaldo del tablero.
+    if (stages.length === 0) {
+      setBusy(true)
+      try {
+        const fresh = await getPipelineStages()
+        setItems(fresh.map((s) => ({ id: s.id, name: s.name })))
+        // El tablero deja de usar el respaldo y pasa a las etapas reales.
+        if (fresh.length > 0) router.refresh()
+      } catch {
+        toast.error('No se pudieron cargar las etapas')
+      } finally {
+        setBusy(false)
+      }
+    }
   }
 
   // Recarga ids reales desde el servidor tras crear/eliminar/reordenar.

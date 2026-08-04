@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { assertCanWrite } from '@/lib/utils/authz'
+import { CANONICAL_PIPELINE_STAGES } from '@/lib/utils/pipeline-stages'
 import type { PipelineStage } from '@/lib/types/database'
 
 export type PipelineStageOption = Pick<PipelineStage, 'id' | 'name' | 'color' | 'sort_order'>
@@ -10,6 +11,12 @@ export type PipelineStageOption = Pick<PipelineStage, 'id' | 'name' | 'color' | 
 /**
  * Lista de etapas del Pipeline del usuario autenticado, ordenada por sort_order.
  * Fuente única de las etapas del Pipeline (independiente del Recetario).
+ *
+ * Si el usuario todavía no tiene NINGUNA etapa propia, siembra las 5 canónicas y
+ * devuelve esa lista recién creada. Esto cubre a los usuarios que no tenían
+ * historial de pipeline cuando corrió el seed de la migración 039: sin esto
+ * verían el gestor vacío mientras el tablero les muestra el respaldo de 5, y al
+ * agregar una etapa esa única etapa REEMPLAZARÍA el respaldo en vez de sumarse.
  */
 export async function getPipelineStages(): Promise<PipelineStageOption[]> {
   const sb = await getSupabaseServerClient()
@@ -22,7 +29,28 @@ export async function getPipelineStages(): Promise<PipelineStageOption[]> {
     .eq('user_id', user.id)
     .order('sort_order', { ascending: true })
 
-  return data ?? []
+  if (data && data.length > 0) return data
+
+  // Primera vez: sembrar las canónicas. `color` queda null a propósito, igual que
+  // en el seed de la migración: el tablero resuelve el color por NOMBRE de etapa
+  // (STAGE_COLOR_KNOWN), así que el resultado visual es idéntico al respaldo y se
+  // mantiene consistente con las filas que ya creó la migración.
+  // No se usa assertCanWrite: esto es un default del sistema, no una edición del
+  // usuario, y no debe romper la lectura de una cuenta en modo solo lectura.
+  const { data: seeded, error } = await sb
+    .from('pipeline_stages')
+    .insert(
+      CANONICAL_PIPELINE_STAGES.map((name, i) => ({
+        user_id: user.id,
+        name,
+        sort_order: i,
+        source: 'manual' as const,
+      })),
+    )
+    .select('id,name,color,sort_order')
+
+  if (error || !seeded) return []
+  return [...seeded].sort((a, b) => a.sort_order - b.sort_order)
 }
 
 /** Inserta una etapa nueva (source 'manual') con sort_order = máximo actual + 1. */
