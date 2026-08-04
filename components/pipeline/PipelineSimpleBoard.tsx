@@ -17,25 +17,47 @@ import {
   deletePipelineSimple,
 } from '@/lib/actions/pipeline-simple'
 import { PipelineSimpleCharts } from '@/components/pipeline/PipelineSimpleCharts'
+import { PipelineStagesManager } from '@/components/pipeline/PipelineStagesManager'
+import type { PipelineStageOption } from '@/lib/actions/pipeline-stages'
 import type { PipelineSimple } from '@/lib/types/database'
 
-const STAGES = [
+// Etapas canónicas por defecto — solo como respaldo visual cuando el usuario aún
+// no tiene etapas propias en pipeline_stages. La lista REAL llega por props
+// (stages) y es totalmente editable por el usuario, independiente del Recetario.
+const CANONICAL_STAGES = [
   'Cita agendada',
   'Reagendar',
   'Primera reu ejecutada/Propuesta en preparación',
   'Propuesta Presentada',
   'Por facturar/cobrar',
 ] as const
-type Stage = (typeof STAGES)[number]
 type Status = 'abierto' | 'perdido' | 'ganado'
 type ProspectType = 'inbound' | 'outbound'
 
-const STAGE_SHORT: Record<Stage, string> = {
+// Etiquetas cortas y colores CONOCIDOS por nombre. Cualquier etapa personalizada
+// usa su nombre completo y un color neutro de respaldo.
+const STAGE_SHORT_KNOWN: Record<string, string> = {
   'Cita agendada':                                  'Cita agenda.',
   'Reagendar':                                      'Reagendar',
   'Primera reu ejecutada/Propuesta en preparación': '1ra Reunión',
   'Propuesta Presentada':                           'Prop. Presentada',
   'Por facturar/cobrar':                            'Por facturar',
+}
+function stageShort(name: string): string {
+  return STAGE_SHORT_KNOWN[name] ?? name
+}
+
+type StageColor = { border: string; label: string; badge: string }
+const STAGE_COLOR_KNOWN: Record<string, StageColor> = {
+  'Cita agendada':                                  { border: 'border-t-blue-500/50',    label: 'text-blue-400',    badge: 'bg-blue-400/10 text-blue-400'       },
+  'Reagendar':                                      { border: 'border-t-rose-500/50',    label: 'text-rose-400',    badge: 'bg-rose-400/10 text-rose-400'       },
+  'Primera reu ejecutada/Propuesta en preparación': { border: 'border-t-cyan-500/50',    label: 'text-cyan-400',    badge: 'bg-cyan-400/10 text-cyan-400'       },
+  'Propuesta Presentada':                           { border: 'border-t-amber-500/50',   label: 'text-amber-400',   badge: 'bg-amber-400/10 text-amber-400'     },
+  'Por facturar/cobrar':                            { border: 'border-t-emerald-500/50', label: 'text-emerald-400', badge: 'bg-emerald-400/10 text-emerald-400' },
+}
+const STAGE_COLOR_FALLBACK: StageColor = { border: 'border-t-slate-500/50', label: 'text-slate-300', badge: 'bg-slate-400/10 text-slate-300' }
+function stageColor(name: string): StageColor {
+  return STAGE_COLOR_KNOWN[name] ?? STAGE_COLOR_FALLBACK
 }
 
 type ActiveScenario = {
@@ -49,16 +71,6 @@ type ActivityOption = {
   id: string
   name: string
   type: 'OUTBOUND' | 'INBOUND'
-}
-
-// ── Stage config ──────────────────────────────────────────────────────────────
-
-const STAGE_COLOR: Record<Stage, { border: string; label: string; badge: string }> = {
-  'Cita agendada':                                  { border: 'border-t-blue-500/50',    label: 'text-blue-400',    badge: 'bg-blue-400/10 text-blue-400'       },
-  'Reagendar':                                      { border: 'border-t-rose-500/50',    label: 'text-rose-400',    badge: 'bg-rose-400/10 text-rose-400'       },
-  'Primera reu ejecutada/Propuesta en preparación': { border: 'border-t-cyan-500/50',    label: 'text-cyan-400',    badge: 'bg-cyan-400/10 text-cyan-400'       },
-  'Propuesta Presentada':                           { border: 'border-t-amber-500/50',   label: 'text-amber-400',   badge: 'bg-amber-400/10 text-amber-400'     },
-  'Por facturar/cobrar':                            { border: 'border-t-emerald-500/50', label: 'text-emerald-400', badge: 'bg-emerald-400/10 text-emerald-400' },
 }
 
 // ── Toggle button ─────────────────────────────────────────────────────────────
@@ -218,14 +230,17 @@ function FilterBar({
   filterOrigen, setFilterOrigen,
   filterEstado, setFilterEstado,
   filterEtapa,  setFilterEtapa,
+  stageList, managerStages,
   onNewEntry,
 }: {
   filterOrigen: 'all' | ProspectType
   setFilterOrigen: (v: 'all' | ProspectType) => void
   filterEstado: 'all' | Status
   setFilterEstado: (v: 'all' | Status) => void
-  filterEtapa:  'all' | Stage
-  setFilterEtapa:  (v: 'all' | Stage) => void
+  filterEtapa:  string
+  setFilterEtapa:  (v: string) => void
+  stageList: string[]
+  managerStages: PipelineStageOption[]
   onNewEntry: () => void
 }) {
   const btnBase = 'px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors'
@@ -274,13 +289,14 @@ function FilterBar({
       {/* Etapa */}
       <div className="flex items-center gap-1">
         <span className="text-muted-foreground/60 mr-1 uppercase tracking-widest">Etapa</span>
-        {(['all', ...STAGES] as const).map((v) => (
-          <button key={v} onClick={() => setFilterEtapa(v as 'all' | Stage)}
+        {['all', ...stageList].map((v) => (
+          <button key={v} onClick={() => setFilterEtapa(v)}
             className={cn(btnBase, filterEtapa === v ? active : inactive)}
           >
-            {v === 'all' ? 'Todas' : STAGE_SHORT[v as Stage]}
+            {v === 'all' ? 'Todas' : stageShort(v)}
           </button>
         ))}
+        <PipelineStagesManager stages={managerStages} />
       </div>
 
       {/* Nueva entrada — right-aligned */}
@@ -301,11 +317,18 @@ interface PipelineSimpleBoardProps {
   period: string
   activeScenario: ActiveScenario
   activities?: ActivityOption[]
+  stages?: PipelineStageOption[]
 }
 
-export function PipelineSimpleBoard({ entries, period, activeScenario, activities = [] }: PipelineSimpleBoardProps) {
+export function PipelineSimpleBoard({ entries, period, activeScenario, activities = [], stages = [] }: PipelineSimpleBoardProps) {
   const router = useRouter()
   const today = todayISO()
+
+  // Lista de etapas del Pipeline: propia del usuario (pipeline_stages). Respaldo
+  // a las canónicas solo si el usuario aún no tiene etapas propias, para que el
+  // board nunca quede vacío.
+  const stageList: string[] = stages.length ? stages.map((s) => s.name) : [...CANONICAL_STAGES]
+  const firstStage = stageList[0] ?? 'Cita agendada'
 
   type ModalMode = 'create' | 'edit' | 'duplicate'
 
@@ -315,7 +338,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   const [editingEntry, setEditingEntry] = useState<PipelineSimple | null>(null)
   const [deletingId, setDeletingId]   = useState<string | null>(null)
   const [sourceEntryId, setSourceEntryId]     = useState<string | null>(null)
-  const [sourceEntryStage, setSourceEntryStage] = useState<Stage | null>(null)
+  const [sourceEntryStage, setSourceEntryStage] = useState<string | null>(null)
 
   // Auto-refresh: poll every 30s + refresh on tab focus to pick up Pipedrive webhook updates
   useEffect(() => {
@@ -331,10 +354,10 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   // Filters
   const [filterOrigen, setFilterOrigen] = useState<'all' | ProspectType>('all')
   const [filterEstado, setFilterEstado] = useState<'all' | Status>('all')
-  const [filterEtapa,  setFilterEtapa]  = useState<'all' | Stage>('all')
+  const [filterEtapa,  setFilterEtapa]  = useState<string>('all')
 
   // Form state
-  const [formStage,             setFormStage]             = useState<Stage>('Primera reu ejecutada/Propuesta en preparación')
+  const [formStage,             setFormStage]             = useState<string>(firstStage)
   const [formStatus,            setFormStatus]            = useState<Status>('abierto')
   const [formProspectType,      setFormProspectType]      = useState<ProspectType>('outbound')
   const [formDate,              setFormDate]              = useState(today)
@@ -373,7 +396,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  function resetForm(stage: Stage = 'Cita agendada', source?: PipelineSimple) {
+  function resetForm(stage: string = firstStage, source?: PipelineSimple) {
     setFormStage(source?.stage ?? stage)
     setFormStatus(source?.status ?? 'abierto')
     setFormProspectType(source?.prospect_type ?? 'outbound')
@@ -385,7 +408,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
     setFormOriginActivityId(source?.origin_activity_id ?? '')
   }
 
-  function openCreate(stage: Stage = 'Cita agendada') {
+  function openCreate(stage: string = firstStage) {
     setEditingEntry(null)
     setModalMode('create')
     setSourceEntryId(null)
@@ -416,12 +439,12 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
     setModalMode('duplicate')
     setSourceEntryId(entry.id)
     setSourceEntryStage(entry.stage)
-    resetForm('Cita agendada', entry)
+    resetForm(firstStage, entry)
     setShowForm(true)
   }
 
   // Auto-set status when stage changes in the modal
-  function handleFormStageChange(s: Stage) {
+  function handleFormStageChange(s: string) {
     setFormStage(s)
     if (s === 'Por facturar/cobrar') setFormStatus('ganado')
     if (s === 'Cita agendada' || s === 'Reagendar' || s === 'Primera reu ejecutada/Propuesta en preparación') setFormStatus('abierto')
@@ -509,19 +532,20 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
         filterOrigen={filterOrigen} setFilterOrigen={setFilterOrigen}
         filterEstado={filterEstado} setFilterEstado={setFilterEstado}
         filterEtapa={filterEtapa}   setFilterEtapa={setFilterEtapa}
+        stageList={stageList}       managerStages={stages}
         onNewEntry={() => openCreate()}
       />
 
       {/* Kanban columns */}
       <div className="flex gap-4 overflow-x-auto pb-6">
-        {STAGES.map((stage) => {
-          const col          = STAGE_COLOR[stage]
+        {stageList.map((stage) => {
+          const col          = stageColor(stage)
           const stageEntries = filtered.filter(e => e.stage === stage)
           return (
             <div key={stage} className="flex flex-col gap-3 min-w-[240px] max-w-[240px]">
               {/* Column header */}
               <div className="flex items-center gap-2 mb-2">
-                <span className={cn('text-xs font-bold', col.label)}>{STAGE_SHORT[stage]}</span>
+                <span className={cn('text-xs font-bold', col.label)}>{stageShort(stage)}</span>
                 <span className={cn('text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center', col.badge)}>
                   {stageEntries.length}
                 </span>
@@ -580,10 +604,10 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
                   <label className={labelClass}>Etapa *</label>
                   <select
                     value={formStage}
-                    onChange={e => handleFormStageChange(e.target.value as Stage)}
+                    onChange={e => handleFormStageChange(e.target.value)}
                     className={inputClass}
                   >
-                    {STAGES.map(s => <option key={s} value={s}>{STAGE_SHORT[s]}</option>)}
+                    {stageList.map(s => <option key={s} value={s}>{stageShort(s)}</option>)}
                   </select>
                 </div>
                 {/* Fecha — las etapas agendadas permiten fecha futura (cita programada) */}

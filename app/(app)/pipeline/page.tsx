@@ -9,6 +9,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPeriodRange, todayISO, periodLabel } from '@/lib/utils/dates'
 import type { PeriodType } from '@/lib/types/common'
 import type { PipelineSimple } from '@/lib/types/database'
+import type { PipelineStageOption } from '@/lib/actions/pipeline-stages'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,14 +76,18 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     { data: scenario },
     { data: pipelineSimpleRaw },
     { data: activitiesRaw },
+    { data: stagesRaw },
   ] = await Promise.all([
     sb.from('recipe_scenarios').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     sb.from('pipeline_simple').select('*').eq('user_id', user?.id ?? '').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }),
     sb.from('activities').select('id,name,type').eq('user_id', user?.id ?? '').eq('status', 'active').order('type').order('sort_order'),
+    // Etapas del Pipeline propias del usuario (independientes del Recetario), ordenadas.
+    sb.from('pipeline_stages').select('id,name,color,sort_order').eq('user_id', user?.id ?? '').order('sort_order', { ascending: true }),
   ])
 
   const pipelineSimple     = (pipelineSimpleRaw ?? []) as PipelineSimple[]
   const activitiesForBoard = (activitiesRaw ?? []) as { id: string; name: string; type: 'OUTBOUND' | 'INBOUND' }[]
+  const pipelineStages     = (stagesRaw ?? []) as PipelineStageOption[]
   const monthlyRevenueGoal = scenario?.monthly_revenue_goal ?? null
   const pLabel             = periodLabel(period, anchorDate)
 
@@ -135,6 +140,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
               entries={pipelineSimple}
               period={period}
               activities={activitiesForBoard}
+              stages={pipelineStages}
               activeScenario={scenario ? {
                 funnel_stages:          scenario.funnel_stages,
                 outbound_rates:         scenario.outbound_rates,

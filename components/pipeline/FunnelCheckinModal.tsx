@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { X, BarChart2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FunnelCheckin } from './FunnelCheckin'
-import { getActiveScenarioForFunnel } from '@/lib/actions/pipeline'
+import { getPipelineStages } from '@/lib/actions/pipeline-stages'
 
 interface FunnelCheckinModalProps {
   /** If provided, the open button is not rendered — control open state externally */
@@ -27,16 +27,20 @@ export function FunnelCheckinModal({
   defaultDate,
 }: FunnelCheckinModalProps) {
   const [internalOpen, setInternalOpen] = useState(false)
-  const [scenario, setScenario] = useState<{ id: string; funnel_stages: string[] } | null | undefined>(undefined)
+  // Etapas del Pipeline propias del usuario (pipeline_stages), independientes del
+  // Recetario. undefined = cargando; [] = el usuario aún no tiene etapas.
+  const [stageNames, setStageNames] = useState<string[] | undefined>(undefined)
   const router = useRouter()
 
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen
 
   useEffect(() => {
-    if (isOpen && scenario === undefined) {
-      getActiveScenarioForFunnel().then(setScenario).catch(() => setScenario(null))
+    if (isOpen && stageNames === undefined) {
+      getPipelineStages()
+        .then((rows) => setStageNames(rows.map((r) => r.name)))
+        .catch(() => setStageNames([]))
     }
-  }, [isOpen, scenario])
+  }, [isOpen, stageNames])
 
   function handleClose() {
     if (controlledOpen !== undefined) {
@@ -79,18 +83,21 @@ export function FunnelCheckinModal({
               </button>
             </div>
             <div className="p-5">
-              {scenario === undefined && (
+              {stageNames === undefined && (
                 <p className="text-sm text-muted-foreground text-center py-8">Cargando...</p>
               )}
-              {scenario === null && (
+              {stageNames !== undefined && stageNames.length === 0 && (
                 <p className="text-sm text-amber-400 text-center py-8">
-                  Configura un Recetario activo para usar esta función.
+                  Configura las etapas de tu Pipeline para usar esta función.
                 </p>
               )}
-              {scenario && (
+              {stageNames !== undefined && stageNames.length > 0 && (
                 <FunnelCheckin
-                  stages={scenario.funnel_stages}
-                  scenarioId={scenario.id}
+                  /* FunnelCheckin descarta el primer elemento (stages.slice(1));
+                     anteponemos un placeholder para conservar ese contrato sin
+                     tocar el componente compartido con el check-in. */
+                  stages={['Actividad', ...stageNames]}
+                  scenarioId={null}
                   defaultDate={defaultDate}
                   allowDateEdit={allowDateEdit}
                   onSaved={handleSaved}

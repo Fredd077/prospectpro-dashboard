@@ -4,12 +4,13 @@ import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { assertCanWrite } from '@/lib/utils/authz'
 
-type Stage = 'Cita agendada' | 'Reagendar' | 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
+// stage es TEXT libre: la lista de etapas es propia de cada usuario (pipeline_stages)
+// y totalmente editable, así que no se restringe a un union de literales.
 type Status = 'abierto' | 'perdido' | 'ganado'
 type ProspectType = 'inbound' | 'outbound'
 
 export async function createPipelineSimple(data: {
-  stage: Stage
+  stage: string
   status?: Status
   prospect_type?: ProspectType
   entry_date: string
@@ -51,7 +52,7 @@ export async function createPipelineSimple(data: {
 export async function updatePipelineSimple(
   id: string,
   data: {
-    stage?: Stage
+    stage?: string
     status?: Status
     prospect_type?: ProspectType
     entry_date?: string

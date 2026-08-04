@@ -564,7 +564,7 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          stage: 'Cita agendada' | 'Reagendar' | 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
+          stage: string  // etapas propias del usuario (pipeline_stages), editables
           status: 'abierto' | 'perdido' | 'ganado'
           prospect_type: 'inbound' | 'outbound'
           entry_date: string
@@ -581,7 +581,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id?: string
-          stage: 'Cita agendada' | 'Reagendar' | 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
+          stage: string  // etapas propias del usuario (pipeline_stages), editables
           status?: 'abierto' | 'perdido' | 'ganado'
           prospect_type?: 'inbound' | 'outbound'
           entry_date?: string
@@ -596,7 +596,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
-          stage?: 'Cita agendada' | 'Reagendar' | 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
+          stage?: string  // etapas propias del usuario (pipeline_stages), editables
           status?: 'abierto' | 'perdido' | 'ganado'
           prospect_type?: 'inbound' | 'outbound'
           entry_date?: string
@@ -676,6 +676,36 @@ export interface Database {
         }
         Relationships: []
       }
+      pipeline_stages: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          color: string | null
+          sort_order: number
+          source: 'manual' | 'crm'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          name: string
+          color?: string | null
+          sort_order?: number
+          source?: 'manual' | 'crm'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          color?: string | null
+          sort_order?: number
+          source?: 'manual' | 'crm'
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       vw_daily_compliance: {
@@ -734,6 +764,10 @@ export type CoachMessageInsert = Database['public']['Tables']['coach_messages'][
 export type PipelineEntry = Database['public']['Tables']['pipeline_entries']['Row']
 export type PipelineEntryInsert = Database['public']['Tables']['pipeline_entries']['Insert']
 export type PipelineEntryUpdate = Database['public']['Tables']['pipeline_entries']['Update']
+
+export type PipelineStage = Database['public']['Tables']['pipeline_stages']['Row']
+export type PipelineStageInsert = Database['public']['Tables']['pipeline_stages']['Insert']
+export type PipelineStageUpdate = Database['public']['Tables']['pipeline_stages']['Update']
 
 export type Deal = Database['public']['Tables']['deals']['Row']
 export type DealInsert = Database['public']['Tables']['deals']['Insert']
