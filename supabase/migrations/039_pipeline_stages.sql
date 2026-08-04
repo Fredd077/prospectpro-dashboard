@@ -40,10 +40,36 @@ CREATE POLICY "pipeline_stages_own" ON pipeline_stages
   WITH CHECK (user_id = auth.uid());
 
 -- ─── Auto-update updated_at (reutiliza el helper existente) ───────────────
+-- OJO: el helper real de este proyecto es set_updated_at(), definido en
+-- 001_initial_schema.sql. update_updated_at_column() se referencia en 013 y 017
+-- pero NUNCA se define en ninguna migración — por eso el editor SQL falla con
+-- "function update_updated_at_column() does not exist".
+-- Se crea set_updated_at() SOLO si falta: si ya existe no se toca, para no
+-- alterar el comportamiento de las tablas que ya dependen de ella.
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE p.proname = 'set_updated_at'
+       AND n.nspname = 'public'
+  ) THEN
+    CREATE FUNCTION public.set_updated_at()
+    RETURNS TRIGGER AS $fn$
+    BEGIN
+      NEW.updated_at = now();
+      RETURN NEW;
+    END;
+    $fn$ LANGUAGE plpgsql;
+  END IF;
+END
+$do$;
+
 DROP TRIGGER IF EXISTS pipeline_stages_updated_at ON pipeline_stages;
 CREATE TRIGGER pipeline_stages_updated_at
   BEFORE UPDATE ON pipeline_stages
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ══════════════════════════════════════════════════════════════════════
 -- SEED: para cada usuario que ya tenga historial de pipeline y AÚN no tenga
