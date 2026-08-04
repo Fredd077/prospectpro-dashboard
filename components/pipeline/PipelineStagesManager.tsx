@@ -41,10 +41,9 @@ export function PipelineStagesManager({ stages }: Props) {
     setNewName('')
     setOpen(true)
 
-    // El usuario todavía no tiene etapas propias (no tenía historial cuando corrió
-    // el seed de la migración 039). getPipelineStages siembra las 5 canónicas y
-    // devuelve esa lista, así nunca ve el gestor vacío y agregar una etapa se suma
-    // a esas 5 en vez de reemplazar el respaldo del tablero.
+    // Solo si el usuario no tiene ninguna etapa: getPipelineStages siembra las 5
+    // canónicas y devuelve esa lista, así nunca ve el gestor vacío. Si ya tiene
+    // etapas se respeta su lista tal cual —incluido haber borrado alguna canónica.
     if (stages.length === 0) {
       setBusy(true)
       try {

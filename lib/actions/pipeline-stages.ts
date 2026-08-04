@@ -12,11 +12,12 @@ export type PipelineStageOption = Pick<PipelineStage, 'id' | 'name' | 'color' | 
  * Lista de etapas del Pipeline del usuario autenticado, ordenada por sort_order.
  * Fuente única de las etapas del Pipeline (independiente del Recetario).
  *
- * Si el usuario todavía no tiene NINGUNA etapa propia, siembra las 5 canónicas y
- * devuelve esa lista recién creada. Esto cubre a los usuarios que no tenían
- * historial de pipeline cuando corrió el seed de la migración 039: sin esto
- * verían el gestor vacío mientras el tablero les muestra el respaldo de 5, y al
- * agregar una etapa esa única etapa REEMPLAZARÍA el respaldo en vez de sumarse.
+ * Solo siembra cuando el usuario no tiene NINGUNA etapa (lista vacía), para que
+ * nadie abra el gestor y lo vea vacío. Deliberadamente NO garantiza en cada carga
+ * que las 5 canónicas existan: el estado de los usuarios ya creados lo corrigió
+ * de una vez la migración 040, y forzarlo permanentemente impediría borrar una
+ * canónica que no se usa (reaparecería sola en la siguiente carga), convirtiendo
+ * una lista editable en una lista fija.
  */
 export async function getPipelineStages(): Promise<PipelineStageOption[]> {
   const sb = await getSupabaseServerClient()
@@ -31,10 +32,10 @@ export async function getPipelineStages(): Promise<PipelineStageOption[]> {
 
   if (data && data.length > 0) return data
 
-  // Primera vez: sembrar las canónicas. `color` queda null a propósito, igual que
-  // en el seed de la migración: el tablero resuelve el color por NOMBRE de etapa
-  // (STAGE_COLOR_KNOWN), así que el resultado visual es idéntico al respaldo y se
-  // mantiene consistente con las filas que ya creó la migración.
+  // Lista vacía (usuario nuevo): sembrar las 5 canónicas.
+  // `color` queda null a propósito, igual que en el seed de la migración: el
+  // tablero resuelve el color por NOMBRE de etapa (STAGE_COLOR_KNOWN), así que el
+  // resultado visual es idéntico y se mantiene consistente con las filas ya creadas.
   // No se usa assertCanWrite: esto es un default del sistema, no una edición del
   // usuario, y no debe romper la lectura de una cuenta en modo solo lectura.
   const { data: seeded, error } = await sb
@@ -49,6 +50,7 @@ export async function getPipelineStages(): Promise<PipelineStageOption[]> {
     )
     .select('id,name,color,sort_order')
 
+  // Si el insert falla (p. ej. RLS), degrada con gracia devolviendo vacío.
   if (error || !seeded) return []
   return [...seeded].sort((a, b) => a.sort_order - b.sort_order)
 }
