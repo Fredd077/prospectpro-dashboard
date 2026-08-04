@@ -93,9 +93,11 @@ export function FunnelCheckinModal({
               )}
               {stageNames !== undefined && stageNames.length > 0 && (
                 <FunnelCheckin
-                  /* FunnelCheckin descarta el primer elemento (stages.slice(1));
-                     anteponemos un placeholder para conservar ese contrato sin
-                     tocar el componente compartido con el check-in. */
+                  /* Placeholder descartable: FunnelCheckin hace stages.slice(1) porque
+                     nació del Recetario, cuya primera etapa es "Actividad". Lo compartimos
+                     con CheckinPipelineSection (check-in diario), que sigue pasando
+                     funnel_stages; anteponerlo conserva ese contrato sin tocar el
+                     componente compartido ahora que el Pipeline usa pipeline_stages. */
                   stages={['Actividad', ...stageNames]}
                   scenarioId={null}
                   defaultDate={defaultDate}
