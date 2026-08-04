@@ -24,13 +24,20 @@ CREATE TABLE IF NOT EXISTS pipeline_stages (
 CREATE INDEX IF NOT EXISTS idx_pipeline_stages_user_order
   ON pipeline_stages (user_id, sort_order);
 
--- ─── RLS: cada usuario gestiona solo sus propias etapas (mismo patrón que
---     pipeline_entries / pipeline_simple) ─────────────────────────────────
+-- ─── RLS: cada usuario gestiona solo sus propias etapas ───────────────────
+-- SIN "OR is_admin()": la migración 010_fix_admin_rls.sql quitó ese helper de
+-- todas las tablas de datos personales (activities, activity_logs,
+-- recipe_scenarios, recipe_actuals, coach_messages) y dejó documentado que el
+-- acceso de admin a datos de otros usuarios va SOLO por el cliente service_role
+-- (que ignora RLS). pipeline_stages es dato personal, así que sigue ese patrón
+-- —el mismo de la tabla más reciente, daily_briefs (037).
 ALTER TABLE pipeline_stages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "pipeline_stages_own" ON pipeline_stages;
 CREATE POLICY "pipeline_stages_own" ON pipeline_stages
-  FOR ALL USING (user_id = auth.uid() OR is_admin());
+  FOR ALL
+  USING      (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
 
 -- ─── Auto-update updated_at (reutiliza el helper existente) ───────────────
 DROP TRIGGER IF EXISTS pipeline_stages_updated_at ON pipeline_stages;
