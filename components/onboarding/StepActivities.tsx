@@ -50,7 +50,6 @@ export interface OnboardingActivityData {
   type: 'OUTBOUND' | 'INBOUND'
   channel: string
   sort_order: number
-  weight: number
   monthly_goal: number
   weekly_goal: number
   daily_goal: number
@@ -105,12 +104,15 @@ export function StepActivities({ onSave, saving, recipeData }: StepActivitiesPro
       const w = weights[act.name] ?? 0
       const typeTotal = act.type === 'OUTBOUND' ? outboundTotal : inboundTotal
       const { monthly, weekly, daily } = calcGoals(w, typeTotal)
+      // El reparto porcentual sigue siendo un recurso LOCAL de este paso para
+      // proponer metas iniciales; ya no se persiste en activities.weight.
+      // A partir del onboarding, las metas se recalculan desde
+      // meetings_expected / conversion_rate_pct (ver lib/queries/activity-goals.ts).
       return {
         name:        act.name,
         type:        act.type,
         channel:     act.channel,
         sort_order:  act.sort_order,
-        weight:      w,
         monthly_goal: monthly,
         weekly_goal:  weekly,
         daily_goal:   daily,

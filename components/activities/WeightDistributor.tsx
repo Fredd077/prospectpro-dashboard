@@ -76,6 +76,18 @@ export function WeightDistributor({ activities, activeScenario }: WeightDistribu
                   <p className="text-[10px] text-muted-foreground/60 truncate">{act.channel}</p>
                 </div>
 
+                {/* Sin configurar: falta meetings_expected o conversion_rate_pct, así que
+                    esta actividad NO participa del cálculo automático de metas. */}
+                {((act.meetings_expected ?? 0) <= 0 || (act.conversion_rate_pct ?? 0) <= 0) && (
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 text-[10px] border-amber-500/30 bg-amber-500/10 text-amber-400"
+                    title="Falta definir citas esperadas o tasa de conversión en Recetario → Rendimiento. Su meta no se calcula automáticamente."
+                  >
+                    Sin configurar
+                  </Badge>
+                )}
+
                 {/* Status badge */}
                 <Badge
                   variant="outline"

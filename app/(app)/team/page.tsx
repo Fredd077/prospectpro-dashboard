@@ -133,7 +133,7 @@ export default async function TeamPage({ searchParams }: Props) {
   const userIds  = allUsers.map((u) => u.id)
 
   let weekLogs: { user_id: string; activity_id: string; real_executed: number }[] = []
-  let activitiesData: { id: string; user_id: string; weekly_goal: number; weight: number | null }[] = []
+  let activitiesData: { id: string; user_id: string; weekly_goal: number }[] = []
   let recentLogs: { user_id: string; log_date: string }[] = []
   let recipesData: { user_id: string }[] = []
 
@@ -141,7 +141,7 @@ export default async function TeamPage({ searchParams }: Props) {
     const [wl, ad, rl, rd] = await Promise.all([
       service.from('activity_logs').select('user_id,activity_id,real_executed')
         .gte('log_date', weekStart).lte('log_date', weekEnd).in('user_id', userIds),
-      service.from('activities').select('id,user_id,weekly_goal,weight')
+      service.from('activities').select('id,user_id,weekly_goal')
         .eq('status', 'active').in('user_id', userIds),
       service.from('activity_logs').select('user_id,log_date')
         .gte('log_date', past14).in('user_id', userIds)
@@ -188,17 +188,16 @@ export default async function TeamPage({ searchParams }: Props) {
     const goal = weekGoalByUser[u.id] ?? 0
     const userActs = activitiesByUser[u.id] ?? []
     const userRealByAct = weekRealByUserActivity[u.id] ?? {}
-    let wReal = 0, wGoal = 0
+    // Promedio de ratios topados: cada actividad pesa igual y su cumplimiento se
+    // topa al 100%, para que un exceso no compense un canal abandonado.
+    let ratioSum = 0, ratioCount = 0
     for (const a of userActs) {
       const aGoal = a.weekly_goal
-      const aReal = userRealByAct[a.id] ?? 0
-      const weight = a.weight ?? 0
-      if (aGoal > 0 && weight > 0) {
-        wGoal += weight
-        wReal += Math.min(aReal, aGoal) * (weight / aGoal)
-      }
+      if (aGoal <= 0) continue
+      ratioSum += Math.min(userRealByAct[a.id] ?? 0, aGoal) / aGoal
+      ratioCount++
     }
-    const pct = wGoal > 0 ? Math.round((wReal / wGoal) * 100) : (goal > 0 ? Math.round((real / goal) * 100) : 0)
+    const pct = ratioCount > 0 ? Math.round((ratioSum / ratioCount) * 100) : (goal > 0 ? Math.round((real / goal) * 100) : 0)
     return {
       ...u,
       weeklyReal:       real,

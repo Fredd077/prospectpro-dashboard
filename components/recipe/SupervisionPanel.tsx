@@ -13,7 +13,6 @@ export type ActivityForSupervision = {
   name: string
   type: 'OUTBOUND' | 'INBOUND'
   channel: string
-  weight: number
   conversion_rate_pct: number | null
   meetings_expected: number | null
 }

@@ -265,9 +265,23 @@ export function ActivityPerformanceTab({ scenario, activities }: ActivityPerform
   function ActivityDataRow({ row, groupColor }: { row: ActivityRow; groupColor: string }) {
     const isEditingRate = editingRateId === row.id
     const isEditingExp  = editingExpId  === row.id
+    // Sin los dos campos, la meta de esta actividad NO se recalcula automáticamente.
+    const sinConfigurar = row.meetingsExpected <= 0 || row.convRate <= 0
     return (
       <tr className="border-b border-zinc-800/60 hover:bg-zinc-800/20 transition-colors">
-        <td className={`${tdL} font-medium text-zinc-200`}>{row.name}</td>
+        <td className={`${tdL} font-medium text-zinc-200`}>
+          <span className="inline-flex items-center gap-1.5">
+            {row.name}
+            {sinConfigurar && (
+              <span
+                className="shrink-0 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-400"
+                title="Define citas esperadas y tasa de conversión para que su meta se calcule automáticamente."
+              >
+                Sin configurar
+              </span>
+            )}
+          </span>
+        </td>
         <td className={td}>
           <InlineNumberCell value={row.meetingsExpected} isEditing={isEditingExp} editingVal={editingExpVal}
             displayText={row.meetingsExpected > 0 ? String(row.meetingsExpected) : '—'}

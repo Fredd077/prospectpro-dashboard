@@ -131,7 +131,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     recipePerf,
   ] = await Promise.all([
     query,
-    sb.from('activities').select('id,name,channel,type,daily_goal,weekly_goal,monthly_goal,weight,status,conversion_rate_pct,meetings_expected').eq('status', 'active'),
+    sb.from('activities').select('id,name,channel,type,daily_goal,weekly_goal,monthly_goal,status,conversion_rate_pct,meetings_expected').eq('status', 'active'),
     sb
       .from('recipe_scenarios')
       .select('*')
@@ -155,7 +155,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const channels = [...new Set(activities?.map((a) => a.channel) ?? [])].sort()
   const allLogs: DailyCompliance[] = logs ?? []
 
-  type ActivityWithGoals = { id: string; name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; daily_goal: number; weekly_goal: number; monthly_goal: number; weight: number | null; conversion_rate_pct: number | null; meetings_expected: number | null }
+  type ActivityWithGoals = { id: string; name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; daily_goal: number; weekly_goal: number; monthly_goal: number; conversion_rate_pct: number | null; meetings_expected: number | null }
   const allActivities: ActivityWithGoals[] = activities ?? []
 
   // Real per activity aggregated from logs
@@ -164,26 +164,28 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     realByActivity[log.activity_id] = (realByActivity[log.activity_id] ?? 0) + log.real_executed
   }
 
-  // --- KPIs ponderados por peso ---
+  // --- KPIs: promedio de ratios topados ---
+  // Cada actividad aporta su ratio de cumplimiento TOPADO al 100% y todas pesan
+  // igual. El tope es lo importante: pasarse en una actividad no compensa
+  // quedarse corto en otra, así que un canal abandonado no se puede tapar con
+  // exceso en otro. (Sustituye al promedio ponderado por activities.weight,
+  // campo que la app ya no usa.)
   const totalReal = allLogs.reduce((s, l) => s + l.real_executed, 0)
   const totalGoal = allActivities.reduce((s, a) => s + getActivityGoal(a, period), 0)
 
-  let weightedReal = 0
-  let weightedGoal = 0
+  let ratioSum = 0
+  let ratioCount = 0
   for (const a of allActivities) {
     const goal = getActivityGoal(a, period)
-    const real = realByActivity[a.id] ?? 0
-    const weight = a.weight ?? 0
-    if (goal > 0 && weight > 0) {
-      weightedGoal += weight
-      weightedReal += Math.min(real, goal) * (weight / goal)
-    }
+    if (goal <= 0) continue
+    ratioSum += Math.min(realByActivity[a.id] ?? 0, goal) / goal
+    ratioCount++
   }
-  const weightedPct = weightedGoal > 0 ? (weightedReal / weightedGoal) * 100 : 0
+  const cappedAvgPct = ratioCount > 0 ? (ratioSum / ratioCount) * 100 : 0
 
-  const compliance = calcCompliance(weightedPct, 100)
+  const compliance = calcCompliance(cappedAvgPct, 100)
   const deviation = totalReal - totalGoal
-  const projection = calcProjection(weightedPct, 100, start, end)
+  const projection = calcProjection(cappedAvgPct, 100, start, end)
 
   // --- Horizontal Bar data ---
   const barData = allActivities.map((a) => ({
@@ -404,7 +406,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               label="Cumplimiento"
               value={formatPercent(compliance.pct)}
               semaphore={compliance.semaphore}
-              description="Porcentaje de cumplimiento teniendo en cuenta el peso asignado a cada actividad"
+              description="Promedio de cumplimiento por actividad, topado al 100% cada una"
               icon={<BarChart2 className="h-4 w-4" />}
             />
             <KpiCard

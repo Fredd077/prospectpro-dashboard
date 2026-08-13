@@ -37,7 +37,6 @@ export interface RecipeActivityPerf {
   name: string
   type: 'OUTBOUND' | 'INBOUND'
   channel: string
-  weight: number
   conversionRatePct: number
   meetingsExpected: number
   monthlyGoal: number
@@ -108,7 +107,7 @@ export async function getRecipePerformance(sb: Sb, refDate?: string): Promise<Re
     { data: scenarioRaw },
   ] = await Promise.all([
     sb.from('activities')
-      .select('id,name,type,channel,weight,conversion_rate_pct,meetings_expected,daily_goal,weekly_goal,monthly_goal')
+      .select('id,name,type,channel,conversion_rate_pct,meetings_expected,daily_goal,weekly_goal,monthly_goal')
       .eq('status', 'active')
       .order('type', { ascending: true })
       .order('sort_order', { ascending: true }),
@@ -144,7 +143,7 @@ export async function getRecipePerformance(sb: Sb, refDate?: string): Promise<Re
     }
   }
 
-  type Row = { id: string; name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; weight: number | null; conversion_rate_pct: number | null; meetings_expected: number | null; daily_goal: number; weekly_goal: number; monthly_goal: number }
+  type Row = { id: string; name: string; type: 'OUTBOUND' | 'INBOUND'; channel: string; conversion_rate_pct: number | null; meetings_expected: number | null; daily_goal: number; weekly_goal: number; monthly_goal: number }
   const activities: RecipeActivityPerf[] = ((activitiesRaw ?? []) as Row[]).map((a) => {
     const meetingsExpected = a.meetings_expected ?? 0
     const reunionesReales = reunionesByAct[a.id] ?? 0
@@ -153,7 +152,6 @@ export async function getRecipePerformance(sb: Sb, refDate?: string): Promise<Re
       name: a.name,
       type: a.type,
       channel: a.channel,
-      weight: a.weight ?? 0,
       conversionRatePct: a.conversion_rate_pct ?? 0,
       meetingsExpected,
       monthlyGoal: a.monthly_goal,

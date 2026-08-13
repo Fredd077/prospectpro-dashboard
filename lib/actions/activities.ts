@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { assertCanWrite } from '@/lib/utils/authz'
-import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
+import { recalcActivityGoalsFromPerformance } from '@/lib/queries/activity-goals'
 import type { ActivityInsert, ActivityUpdate } from '@/lib/types/database'
 
 /** Revalida TODAS las rutas que muestran actividades o sus metas/logro, para que
@@ -27,55 +27,40 @@ export async function saveActivityMeetingsExpected(
     .eq('id', activityId)
     .eq('user_id', user.id)
 
+  // Las metas dependen de este campo: se recalculan al instante, sin necesidad
+  // de volver a activar el escenario.
+  await recalcActivityGoalsFromPerformance(sb, user.id)
+
   revalidateActivityPaths()
 }
 
 export async function saveActivityConversionRates(
-  rates: Array<{ activityId: string; conversionRatePct: number | null; weight?: number | null }>,
+  rates: Array<{ activityId: string; conversionRatePct: number | null }>,
 ): Promise<void> {
   const sb = await getSupabaseServerClient()
   const user = await assertCanWrite(sb)
 
   await Promise.all(
-    rates.map(({ activityId, conversionRatePct, weight }) => {
-      const patch: Record<string, unknown> = { conversion_rate_pct: conversionRatePct }
-      if (weight != null) patch.weight = weight
-      return sb.from('activities')
-        .update(patch)
-        .eq('id', activityId)
-        .eq('user_id', user.id)
-    }),
-  )
-
-  revalidateActivityPaths()
-}
-
-interface WeightUpdate {
-  id: string
-  weight: number
-  monthly_goal: number
-  weekly_goal: number
-  daily_goal: number
-}
-
-export async function saveWeightDistribution(updates: WeightUpdate[]) {
-  const sb = await getSupabaseServerClient()
-  const user = await assertCanWrite(sb)
-
-  await Promise.all(
-    updates.map(({ id, weight, monthly_goal, weekly_goal, daily_goal }) =>
+    rates.map(({ activityId, conversionRatePct }) =>
       sb.from('activities')
-        .update({ weight, monthly_goal, weekly_goal, daily_goal })
-        .eq('id', id)
+        .update({ conversion_rate_pct: conversionRatePct })
+        .eq('id', activityId)
         .eq('user_id', user.id),
     ),
   )
 
+  // Idem: la tasa de conversión alimenta directamente monthly_goal.
+  await recalcActivityGoalsFromPerformance(sb, user.id)
+
   revalidateActivityPaths()
 }
 
-// Replaces setActiveScenario from lib/queries/recipe — also recalculates
-// all activity goals using the new scenario's totals and stored weights.
+// Replaces setActiveScenario from lib/queries/recipe — also recalculates all
+// activity goals. Antes repartía una bolsa mensual entre actividades según
+// `weight`; ahora cada actividad se dimensiona con su propio meetings_expected
+// y conversion_rate_pct. Se sigue recalculando al activar porque
+// working_days_per_month cambia entre escenarios y afecta weekly/daily aunque
+// monthly no dependa del escenario.
 export async function activateScenario(scenarioId: string) {
   const sb = await getSupabaseServerClient()
   const user = await assertCanWrite(sb)
@@ -87,44 +72,12 @@ export async function activateScenario(scenarioId: string) {
     .update({ is_active: true })
     .eq('id', scenarioId)
     .eq('user_id', user.id)
-    .select('monthly_revenue_goal, average_ticket, outbound_pct, working_days_per_month, funnel_stages, outbound_rates, inbound_rates')
+    .select('working_days_per_month')
     .single()
 
   if (error || !scenario) throw error ?? new Error('Scenario not found')
 
-  // Use calcRecipe to get correct per-type activity counts (same formula as RecipeValidationCard)
-  const recipeResult = calcRecipe({
-    monthly_revenue_goal:   scenario.monthly_revenue_goal,
-    outbound_pct:           scenario.outbound_pct,
-    average_ticket:         scenario.average_ticket,
-    working_days_per_month: scenario.working_days_per_month ?? 20,
-    funnel_stages:  scenario.funnel_stages  ?? DEFAULT_FUNNEL_STAGES,
-    outbound_rates: scenario.outbound_rates ?? DEFAULT_OUTBOUND_RATES,
-    inbound_rates:  scenario.inbound_rates  ?? DEFAULT_INBOUND_RATES,
-  })
-  const outboundTotal = recipeResult.outbound.activities_monthly
-  const inboundTotal  = recipeResult.inbound.activities_monthly
-  const workingDays   = scenario.working_days_per_month ?? 20
-
-  const { data: activities } = await sb
-    .from('activities')
-    .select('id, type, weight')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-
-  if (activities && activities.length > 0) {
-    await Promise.all(
-      activities.map((act) => {
-        const typeTotal    = act.type === 'OUTBOUND' ? outboundTotal : inboundTotal
-        const monthly_goal = Math.ceil(typeTotal * (act.weight ?? 0) / 100)
-        const weekly_goal  = Math.ceil(monthly_goal / (workingDays / 5))
-        const daily_goal   = Math.ceil(monthly_goal / workingDays)
-        return sb.from('activities')
-          .update({ monthly_goal, weekly_goal, daily_goal })
-          .eq('id', act.id)
-      }),
-    )
-  }
+  await recalcActivityGoalsFromPerformance(sb, user.id, scenario.working_days_per_month ?? 20)
 
   revalidateActivityPaths()
 }

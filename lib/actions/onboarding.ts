@@ -66,7 +66,6 @@ interface OnboardingActivityData {
   type: 'OUTBOUND' | 'INBOUND'
   channel: string
   sort_order: number
-  weight: number
   monthly_goal: number
   weekly_goal: number
   daily_goal: number
@@ -89,7 +88,6 @@ export async function saveOnboardingActivities(activitiesData: OnboardingActivit
     name: act.name,
     type: act.type,
     channel: act.channel,
-    weight: act.weight,
     monthly_goal: act.monthly_goal,
     weekly_goal: act.weekly_goal,
     daily_goal: act.daily_goal,
