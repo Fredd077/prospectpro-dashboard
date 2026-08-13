@@ -19,9 +19,11 @@ interface Activity {
 interface TeamUserGoalEditorProps {
   activities: Activity[]
   userId: string
+  /** Días hábiles del escenario activo del vendedor editado (20 si no tiene). */
+  workingDays: number
 }
 
-function ActivityRow({ activity, userId }: { activity: Activity; userId: string }) {
+function ActivityRow({ activity, userId, workingDays }: { activity: Activity; userId: string; workingDays: number }) {
   const [editing, setEditing]   = useState(false)
   const [value, setValue]       = useState(activity.monthly_goal.toString())
   const [current, setCurrent]   = useState(activity.monthly_goal)
@@ -42,8 +44,11 @@ function ActivityRow({ activity, userId }: { activity: Activity; userId: string 
     setEditing(false)
   }
 
-  const weeklyCalc = Math.ceil(current / 4)
-  const dailyCalc  = Math.ceil(current / 20)
+  // Vista previa con los días hábiles REALES del vendedor — misma fórmula que
+  // updateUserActivityGoal, para que lo que se ve antes de guardar coincida con
+  // lo que se guarda.
+  const weeklyCalc = Math.ceil(current / (workingDays / 5))
+  const dailyCalc  = Math.ceil(current / workingDays)
 
   return (
     <tr className="border-b border-border/50 hover:bg-muted/20 transition-colors">
@@ -100,7 +105,7 @@ function ActivityRow({ activity, userId }: { activity: Activity; userId: string 
   )
 }
 
-export function TeamUserGoalEditor({ activities, userId }: TeamUserGoalEditorProps) {
+export function TeamUserGoalEditor({ activities, userId, workingDays }: TeamUserGoalEditorProps) {
   const active   = activities.filter((a) => a.status === 'active')
   const inactive = activities.filter((a) => a.status === 'inactive')
 
@@ -119,7 +124,7 @@ export function TeamUserGoalEditor({ activities, userId }: TeamUserGoalEditorPro
           </thead>
           <tbody>
             {active.map((a) => (
-              <ActivityRow key={a.id} activity={a} userId={userId} />
+              <ActivityRow key={a.id} activity={a} userId={userId} workingDays={workingDays} />
             ))}
           </tbody>
         </table>

@@ -211,7 +211,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
       .eq('user_id', userId).gte('log_date', past30Start).lte('log_date', today),
 
     service.from('recipe_scenarios')
-      .select('monthly_revenue_goal')
+      .select('monthly_revenue_goal,working_days_per_month')
       .eq('user_id', userId).eq('is_active', true)
       .order('created_at', { ascending: false }).limit(1).maybeSingle(),
 
@@ -354,7 +354,12 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
           <div style={{ maxWidth: 720 }}>
             {activitiesForEdit.length === 0
               ? <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>Sin actividades configuradas.</p>
-              : <TeamUserGoalEditor activities={activitiesForEdit} userId={userId} />
+              : <TeamUserGoalEditor
+                  activities={activitiesForEdit}
+                  userId={userId}
+                  /* Días hábiles del escenario activo del vendedor; 20 si no tiene. */
+                  workingDays={scenarioRes.data?.working_days_per_month ?? 20}
+                />
             }
           </div>
         </div>
