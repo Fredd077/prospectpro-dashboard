@@ -32,6 +32,9 @@ CREATE INDEX pipeline_entries_stage
   ON pipeline_entries(user_id, stage, entry_date DESC);
 
 -- Auto-update updated_at
+-- Usa set_updated_at(), el helper definido en 001_initial_schema.sql. Antes
+-- invocaba update_updated_at_column(), que NO se define en ninguna migración:
+-- sobre una base limpia esto fallaba con "function does not exist".
 CREATE TRIGGER pipeline_entries_updated_at
   BEFORE UPDATE ON pipeline_entries
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

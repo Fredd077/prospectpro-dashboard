@@ -56,9 +56,12 @@ CREATE INDEX idx_deals_entry_date
   ON deals(user_id, entry_date DESC);
 
 -- Auto-update updated_at
+-- Usa set_updated_at(), el helper definido en 001_initial_schema.sql. Antes
+-- invocaba update_updated_at_column(), que NO se define en ninguna migración:
+-- sobre una base limpia esto fallaba con "function does not exist".
 CREATE TRIGGER deals_updated_at
   BEFORE UPDATE ON deals
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ─── Agregar deal_id a pipeline_entries ──────────────
 -- pipeline_entries ahora registra cada movimiento de etapa.

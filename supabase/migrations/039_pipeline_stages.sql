@@ -40,10 +40,9 @@ CREATE POLICY "pipeline_stages_own" ON pipeline_stages
   WITH CHECK (user_id = auth.uid());
 
 -- ─── Auto-update updated_at (reutiliza el helper existente) ───────────────
--- OJO: el helper real de este proyecto es set_updated_at(), definido en
--- 001_initial_schema.sql. update_updated_at_column() se referencia en 013 y 017
--- pero NUNCA se define en ninguna migración — por eso el editor SQL falla con
--- "function update_updated_at_column() does not exist".
+-- El helper real de este proyecto es set_updated_at(), definido en
+-- 001_initial_schema.sql. (Las migraciones 013 y 017 invocaban un nombre
+-- inexistente, update_updated_at_column(); ya están corregidas.)
 -- Se crea set_updated_at() SOLO si falta: si ya existe no se toca, para no
 -- alterar el comportamiento de las tablas que ya dependen de ella.
 DO $do$
