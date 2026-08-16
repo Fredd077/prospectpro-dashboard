@@ -113,6 +113,37 @@ export interface ReportGerenteContent {
   // Inyectados por el motor (no por la IA):
   citas?: CitasMetricsInput
   canales?: ChannelsInput
+  /**
+   * Detalle exacto de actividades por vendedor: realizado vs. lo que tocaba en
+   * el período. Lo inyecta el motor con los números reales — nunca lo redacta la
+   * IA, para que los conteos no puedan alucinarse.
+   */
+  detalle_actividades?: DetalleVendedorInput[]
+  /** Metas de actividades del Recetario activo del equipo. */
+  recetario?: RecetarioInput
+}
+
+/** Una actividad del período: lo que tocaba (goal) vs. lo realizado (real). */
+export interface ActividadDetalleInput {
+  name: string
+  type: string
+  goal: number
+  real: number
+  compliance_pct: number
+}
+
+export interface DetalleVendedorInput {
+  nombre: string
+  compliance: number
+  actividades: ActividadDetalleInput[]
+}
+
+/** Metas de actividades que exige el Recetario activo. */
+export interface RecetarioInput {
+  meta_mensual: number
+  actividades_necesarias_dia: number
+  actividades_necesarias_semana: number
+  actividades_necesarias_mes: number
 }
 
 export interface RedactorGerenteInput {
@@ -125,7 +156,9 @@ export interface RedactorGerenteInput {
   prediccion: import('./agent-prediccion').PrediccionGerenteOutput
   citas: CitasMetricsInput
   channels: ChannelsInput
-  members: { userName: string; overall_compliance: number }[]
+  /** Detalle por vendedor: la IA puede citarlo en su análisis. */
+  members: DetalleVendedorInput[]
+  recetario?: RecetarioInput
 }
 
 function extractJSON(raw: string): string {

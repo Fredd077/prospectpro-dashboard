@@ -9,6 +9,24 @@ import type { IntelligenceReport, Json } from '@/lib/types/database'
 import { toISODate, todayISO } from '@/lib/utils/dates'
 import { getAiConfig } from '@/lib/utils/ai-config'
 import { _fetchActivityEffectiveness, type ActivityEffectivenessItem } from '@/lib/utils/coach-context'
+import { getActivityGoal } from '@/lib/utils/goals'
+
+/**
+ * Cumplimiento como PROMEDIO DE RATIOS TOPADOS: cada actividad aporta su ratio
+ * limitado al 100% y todas pesan igual. Es la misma fórmula que usan el
+ * Dashboard y /team, para que un mismo vendedor no muestre dos porcentajes
+ * distintos según dónde se le mire. El tope evita que pasarse en una actividad
+ * compense haber abandonado otra.
+ */
+function cappedCompliance(items: { goal: number; real: number }[]): number {
+  let sum = 0, n = 0
+  for (const a of items) {
+    if (a.goal <= 0) continue
+    sum += Math.min(a.real, a.goal) / a.goal
+    n++
+  }
+  return n > 0 ? Math.round((sum / n) * 100) : 0
+}
 
 /** Count working days (Mon-Fri) from startISO to endISO inclusive. Pure UTC arithmetic. */
 function workingDaysBetween(startISO: string, endISO: string): number {
@@ -147,7 +165,11 @@ async function gatherData(params: VendedorReportParams) {
     sb.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
     sb.from('activities').select('id,name,type,daily_goal,weekly_goal,monthly_goal').eq('user_id', userId).eq('status', 'active'),
     sb.from('activity_logs').select('activity_id,real_executed').eq('user_id', userId).gte('log_date', periodStart).lte('log_date', periodEnd),
-    sb.from('pipeline_simple').select('stage,status,amount_usd').is('deleted_at', null).eq('user_id', userId).gte('entry_date', monthStart).lte('entry_date', monthEnd),
+    // El pipeline respeta el PERÍODO REPORTADO. Antes usaba siempre el mes
+    // completo, así que un reporte diario o semanal mezclaba actividades del día
+    // con montos del mes entero. (monthStart/monthEnd siguen usándose abajo para
+    // citas y canales, que sí son conceptos mensuales del Recetario.)
+    sb.from('pipeline_simple').select('stage,status,amount_usd').is('deleted_at', null).eq('user_id', userId).gte('entry_date', periodStart).lte('entry_date', periodEnd),
     sb.from('recipe_scenarios').select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages,outbound_rates').eq('user_id', userId).eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ])
 
@@ -450,8 +472,10 @@ async function gatherTeamData(
   ] = await Promise.all([
     sb.from('activities').select('id,user_id,name,type,daily_goal,weekly_goal,monthly_goal').in('user_id', memberIds).eq('status', 'active'),
     sb.from('activity_logs').select('user_id,activity_id,real_executed').in('user_id', memberIds).gte('log_date', periodStart).lte('log_date', periodEnd),
-    sb.from('pipeline_simple').select('user_id,stage,status,amount_usd').is('deleted_at', null).in('user_id', memberIds).gte('entry_date', monthStart).lte('entry_date', monthEnd),
-    sb.from('recipe_scenarios').select('user_id,monthly_revenue_goal,average_ticket,outbound_rates').in('user_id', memberIds).eq('is_active', true),
+    // Mismo criterio que el reporte de vendedor: el pipeline respeta el período
+    // reportado, no el mes completo.
+    sb.from('pipeline_simple').select('user_id,stage,status,amount_usd').is('deleted_at', null).in('user_id', memberIds).gte('entry_date', periodStart).lte('entry_date', periodEnd),
+    sb.from('recipe_scenarios').select('user_id,monthly_revenue_goal,average_ticket,outbound_rates,activities_needed_daily,activities_needed_weekly,activities_needed_monthly').in('user_id', memberIds).eq('is_active', true),
   ])
 
   const memberRows: TeamMemberRow[] = members.map((member) => {
@@ -466,10 +490,13 @@ async function gatherTeamData(
       realMap[log.activity_id] = (realMap[log.activity_id] ?? 0) + log.real_executed
     }
 
+    // Meta por período con el MISMO helper que usan Dashboard y /team, en vez de
+    // los divisores fijos ×5 y ×22 que ignoraban working_days_per_month.
     const activityData = activities.map((a) => {
-      const goal = periodType === 'daily' ? (a.daily_goal ?? 0)
-        : periodType === 'weekly' ? (a.weekly_goal ?? (a.daily_goal ?? 0) * 5)
-        : (a.monthly_goal ?? (a.daily_goal ?? 0) * 22)
+      const goal = getActivityGoal(
+        { daily_goal: a.daily_goal ?? 0, weekly_goal: a.weekly_goal ?? 0, monthly_goal: a.monthly_goal ?? 0 },
+        periodType,
+      )
       const real = realMap[a.id] ?? 0
       return { name: a.name, type: a.type as string, goal, real, compliance_pct: goal > 0 ? Math.round((real / goal) * 100) : 0 }
     })
@@ -489,7 +516,11 @@ async function gatherTeamData(
       userId: uid,
       userName: member.full_name ?? 'Vendedor',
       activities: activityData,
-      overall_compliance: totalGoal > 0 ? Math.round((totalReal / totalGoal) * 100) : 0,
+      // Promedio de ratios TOPADOS al 100% por actividad — la misma fórmula del
+      // Dashboard y de /team. Antes era totalReal/totalGoal (razón de totales,
+      // sin tope), así que un exceso en una actividad tapaba el abandono de otra
+      // y el mismo vendedor mostraba dos porcentajes distintos según la pantalla.
+      overall_compliance: cappedCompliance(activityData),
       pipeline: { open_amount, closed_amount, won_count, lost_count },
       monthly_goal: scenario?.monthly_revenue_goal ?? 0,
     }
@@ -511,10 +542,20 @@ async function gatherTeamData(
     alcanza: citasReqTotal > 0 ? citasProy >= citasReqTotal : false,
   }
 
+  // Metas de actividades que exige el Recetario activo, sumadas en el equipo.
+  // Antes solo se leía monthly_revenue_goal; el reporte no sabía cuántas
+  // actividades pide el Recetario, solo cuánto dinero.
+  const scenarios = allScenarios ?? []
+  const sumScenario = (key: 'activities_needed_daily' | 'activities_needed_weekly' | 'activities_needed_monthly') =>
+    scenarios.reduce((s, sc) => s + (sc[key] ?? 0), 0)
+
   return {
     managerName: manager.full_name ?? 'Gerente',
     members: memberRows,
     monthly_goal_total: memberRows.reduce((s, m) => s + m.monthly_goal, 0),
+    actividades_necesarias_dia:    sumScenario('activities_needed_daily'),
+    actividades_necesarias_semana: sumScenario('activities_needed_weekly'),
+    actividades_necesarias_mes:    sumScenario('activities_needed_monthly'),
     citas,
     channels,
   }
@@ -602,6 +643,21 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
   }
   const prediccion = await runAgentPrediccionGerente(prediccionInput)
 
+  // Detalle exacto por vendedor (se inyecta tal cual en la salida: números reales).
+  const detalleActividades = members.map((m) => ({
+    nombre: m.userName,
+    compliance: m.overall_compliance,
+    actividades: m.activities,
+  }))
+
+  // Metas de actividades que exige el Recetario, sumadas en todo el equipo.
+  const recetarioTotals = {
+    meta_mensual:                  teamData.monthly_goal_total,
+    actividades_necesarias_dia:    teamData.actividades_necesarias_dia,
+    actividades_necesarias_semana: teamData.actividades_necesarias_semana,
+    actividades_necesarias_mes:    teamData.actividades_necesarias_mes,
+  }
+
   const redactorInput: RedactorGerenteInput = {
     managerName: teamData.managerName,
     periodLabel: label,
@@ -612,7 +668,10 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
     prediccion,
     citas: teamData.citas,
     channels: teamData.channels,
-    members: members.map((m) => ({ userName: m.userName, overall_compliance: m.overall_compliance })),
+    // El redactor recibe el DETALLE por actividad, no solo el % agregado, para
+    // poder señalar qué actividad concreta se quedó corta en cada vendedor.
+    members: detalleActividades,
+    recetario: recetarioTotals,
   }
   const reportContent = await runAgentRedactorGerente(redactorInput, {
     tone: aiConfig.tone,
@@ -622,6 +681,8 @@ export async function generateGerenteReport(params: GerenteReportParams): Promis
   // Inyecta los números deterministas (no IA) para que sean exactos en la tarjeta.
   reportContent.citas = teamData.citas
   reportContent.canales = teamData.channels
+  reportContent.detalle_actividades = detalleActividades
+  reportContent.recetario = recetarioTotals
 
   const confidence_level: 'inicial' | 'parcial' | 'completo' =
     period_status === 'cerrado' ? 'completo' :

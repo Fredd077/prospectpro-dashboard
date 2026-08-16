@@ -5,7 +5,7 @@ import { format, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   AlertTriangle, TrendingUp, TrendingDown, Minus, Users, User,
-  ChevronDown, ChevronRight, Target, Activity, Radar,
+  ChevronDown, ChevronUp, ChevronRight, Target, Activity, Radar,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { todayISO } from '@/lib/utils/dates'
@@ -41,6 +41,28 @@ interface GerenteContent {
   mensaje_gerente?: string
   citas?: CitasBlock
   canales?: ChannelsBlock
+  detalle_actividades?: DetalleVendedor[]
+  recetario?: RecetarioBlock
+}
+
+/** Detalle exacto por vendedor — lo inyecta el motor, no lo redacta la IA. */
+interface ActividadDetalle {
+  name: string
+  type: string
+  goal: number
+  real: number
+  compliance_pct: number
+}
+interface DetalleVendedor {
+  nombre: string
+  compliance: number
+  actividades: ActividadDetalle[]
+}
+interface RecetarioBlock {
+  meta_mensual: number
+  actividades_necesarias_dia: number
+  actividades_necesarias_semana: number
+  actividades_necesarias_mes: number
 }
 
 export interface IntelligenceReportCardProps {
@@ -93,6 +115,73 @@ function estadoIcon(estado: string) {
   if (estado === 'destacado') return <TrendingUp className="h-3 w-3 text-emerald-400" />
   if (estado === 'en_riesgo') return <TrendingDown className="h-3 w-3 text-red-400" />
   return <Minus className="h-3 w-3 text-muted-foreground" />
+}
+
+/**
+ * Detalle de actividades por vendedor: realizado vs. lo que tocaba en el período.
+ * Antes el gerente solo veía "Juan: 62%"; ahora ve qué actividad concreta se
+ * quedó corta. Colapsable para no romper la lectura rápida de la tarjeta.
+ */
+function DetalleActividades({ detalle, periodLabelText }: { detalle: DetalleVendedor[]; periodLabelText: string }) {
+  const [open, setOpen] = useState(false)
+  const totalAct = detalle.reduce((s, v) => s + v.actividades.length, 0)
+  if (totalAct === 0) return null
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-1.5 text-left"
+      >
+        {open ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+        <SectionLabel>Detalle de actividades — {periodLabelText}</SectionLabel>
+      </button>
+
+      {open && (
+        <div className="space-y-3">
+          {detalle.map((v) => (
+            <div key={v.nombre} className="rounded-md border border-border bg-muted/10 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-foreground">{v.nombre}</span>
+                <span className={cn('text-xs font-semibold tabular-nums', complianceColor(capPct(v.compliance)))}>
+                  {capPct(v.compliance)}%
+                </span>
+              </div>
+
+              {v.actividades.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground/60">Sin actividades configuradas.</p>
+              ) : (
+                <div className="space-y-1">
+                  {v.actividades.map((a) => {
+                    const pct = a.goal > 0 ? Math.min(100, Math.round((a.real / a.goal) * 100)) : 0
+                    return (
+                      <div key={a.name} className="flex items-center gap-2">
+                        <span className="flex-1 truncate text-[11px] text-muted-foreground">{a.name}</span>
+                        <span className="font-mono text-[11px] tabular-nums text-foreground">
+                          {a.real}
+                          <span className="text-muted-foreground/50">/{a.goal}</span>
+                        </span>
+                        <div className="h-1 w-14 shrink-0 overflow-hidden rounded-full bg-muted/40">
+                          <div
+                            className={cn(
+                              'h-full rounded-full',
+                              pct >= 80 ? 'bg-emerald-400' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400',
+                            )}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -324,6 +413,12 @@ export function IntelligenceReportCard(props: IntelligenceReportCardProps) {
                 ))}
               </div>
             </div>
+          )}
+          {isGerente && content.detalle_actividades && content.detalle_actividades.length > 0 && (
+            <DetalleActividades
+              detalle={content.detalle_actividades}
+              periodLabelText={periodLabel(period_type, period_start, period_end)}
+            />
           )}
           {isGerente && content.alertas_individuales && content.alertas_individuales.length > 0 && (
             <div className="space-y-2">
