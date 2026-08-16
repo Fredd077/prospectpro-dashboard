@@ -652,7 +652,10 @@ function buildStageBreakdown(
     const cur = agg[r.stage] ?? { etapa: r.stage, negocios: 0, monto: 0, abiertos: 0, ganados: 0, perdidos: 0 }
     cur.negocios += 1
     cur.monto += r.amount_usd ?? 0
-    if (r.status === 'ganado') cur.ganados += 1
+    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas). Un
+    // 'ganado' en otra etapa es estado de flujo (auto-marcado al avanzar hacia
+    // Cierre), no un cierre real — ver lib/utils/gerente-pipeline.ts.
+    if (r.status === 'ganado' && r.stage === 'Por facturar/cobrar') cur.ganados += 1
     else if (r.status === 'perdido') cur.perdidos += 1
     else cur.abiertos += 1
     agg[r.stage] = cur
