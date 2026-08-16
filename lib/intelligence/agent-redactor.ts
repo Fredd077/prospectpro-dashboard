@@ -200,11 +200,12 @@ export async function runAgentRedactor(input: RedactorInput, config?: RedactorCo
   let lastRaw = ''
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       max_tokens: config?.maxTokens ?? 2048,
       system: buildPrompt(SYSTEM_PROMPT, config),
       messages: [{ role: 'user', content: JSON.stringify(input) }],
     })
+    console.log('[agent-redactor] usage', { attempt, input: response.usage.input_tokens, output: response.usage.output_tokens })
     lastRaw = response.content[0].type === 'text' ? response.content[0].text : ''
     try {
       return JSON.parse(extractJSON(lastRaw)) as ReportContent
@@ -257,11 +258,12 @@ export async function runAgentRedactorGerente(input: RedactorGerenteInput, confi
   let lastRaw = ''
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       max_tokens: config?.maxTokens ?? 2048,
       system: buildPrompt(GERENTE_SYSTEM_PROMPT, config),
       messages: [{ role: 'user', content: JSON.stringify(input) }],
     })
+    console.log('[agent-redactor-gerente] usage', { attempt, input: response.usage.input_tokens, output: response.usage.output_tokens })
     lastRaw = response.content[0].type === 'text' ? response.content[0].text : ''
     try {
       return JSON.parse(extractJSON(lastRaw)) as ReportGerenteContent

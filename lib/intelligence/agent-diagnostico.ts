@@ -98,11 +98,12 @@ function extractJSON(raw: string): string {
 
 export async function runAgentDiagnostico(input: DiagnosticoInput): Promise<DiagnosticoOutput> {
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-sonnet-5',
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: JSON.stringify(input) }],
   })
+  console.log('[agent-diagnostico] usage', { input: response.usage.input_tokens, output: response.usage.output_tokens })
 
   const raw = response.content[0].type === 'text' ? response.content[0].text : ''
   try {
@@ -137,11 +138,12 @@ Reglas:
 
 export async function runAgentDiagnosticoGerente(input: DiagnosticoGerenteInput): Promise<DiagnosticoGerenteOutput> {
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-sonnet-5',
     max_tokens: 1500,
     system: GERENTE_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: JSON.stringify(input) }],
   })
+  console.log('[agent-diagnostico-gerente] usage', { input: response.usage.input_tokens, output: response.usage.output_tokens })
   const raw = response.content[0].type === 'text' ? response.content[0].text : ''
   try {
     return JSON.parse(extractJSON(raw)) as DiagnosticoGerenteOutput
