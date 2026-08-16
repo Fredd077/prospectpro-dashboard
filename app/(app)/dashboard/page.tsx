@@ -143,6 +143,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     sb
       .from('pipeline_simple')
       .select('stage, amount_usd, status, origin_activity_id, prospect_type')
+      .is('deleted_at', null)
       .eq('user_id', user.id)
       .gte('entry_date', start)
       .lte('entry_date', end),

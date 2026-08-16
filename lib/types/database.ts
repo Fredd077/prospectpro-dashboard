@@ -575,6 +575,8 @@ export interface Database {
           external_id: string | null
           integration_source: string | null
           origin_activity_id: string | null
+          /** Borrado suave: eliminado en el CRM de origen. NULL = vigente. */
+          deleted_at: string | null
           created_at: string
           updated_at: string
         }
@@ -592,6 +594,7 @@ export interface Database {
           external_id?: string | null
           integration_source?: string | null
           origin_activity_id?: string | null
+          deleted_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -607,6 +610,7 @@ export interface Database {
           external_id?: string | null
           integration_source?: string | null
           origin_activity_id?: string | null
+          deleted_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -673,6 +677,62 @@ export interface Database {
         }
         Update: {
           content?: string
+        }
+        Relationships: []
+      }
+      hubspot_connections: {
+        Row: {
+          id: string
+          company_name: string
+          connected_by_user_id: string
+          /** Cifrado AES-256-GCM. Nunca se expone al frontend. */
+          private_app_token: string
+          /** Client secret de la App Privada, cifrado. Solo para validar webhooks. */
+          client_secret: string | null
+          hub_id: string | null
+          hub_domain: string | null
+          pipeline_id: string | null
+          stage_mapping: Json
+          owner_mapping: Json
+          sync_status: 'pending' | 'active' | 'error' | 'disconnected'
+          last_sync_at: string | null
+          last_webhook_at: string | null
+          last_sync_error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_name: string
+          connected_by_user_id: string
+          private_app_token: string
+          client_secret?: string | null
+          hub_id?: string | null
+          hub_domain?: string | null
+          pipeline_id?: string | null
+          stage_mapping?: Json
+          owner_mapping?: Json
+          sync_status?: 'pending' | 'active' | 'error' | 'disconnected'
+          last_sync_at?: string | null
+          last_webhook_at?: string | null
+          last_sync_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          connected_by_user_id?: string
+          private_app_token?: string
+          client_secret?: string | null
+          hub_id?: string | null
+          hub_domain?: string | null
+          pipeline_id?: string | null
+          stage_mapping?: Json
+          owner_mapping?: Json
+          sync_status?: 'pending' | 'active' | 'error' | 'disconnected'
+          last_sync_at?: string | null
+          last_webhook_at?: string | null
+          last_sync_error?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -764,6 +824,10 @@ export type CoachMessageInsert = Database['public']['Tables']['coach_messages'][
 export type PipelineEntry = Database['public']['Tables']['pipeline_entries']['Row']
 export type PipelineEntryInsert = Database['public']['Tables']['pipeline_entries']['Insert']
 export type PipelineEntryUpdate = Database['public']['Tables']['pipeline_entries']['Update']
+
+export type HubspotConnection = Database['public']['Tables']['hubspot_connections']['Row']
+export type HubspotConnectionInsert = Database['public']['Tables']['hubspot_connections']['Insert']
+export type HubspotConnectionUpdate = Database['public']['Tables']['hubspot_connections']['Update']
 
 export type PipelineStage = Database['public']['Tables']['pipeline_stages']['Row']
 export type PipelineStageInsert = Database['public']['Tables']['pipeline_stages']['Insert']

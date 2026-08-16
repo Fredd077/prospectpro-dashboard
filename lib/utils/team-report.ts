@@ -38,6 +38,7 @@ async function fetchPipelineSummary(
   const { data: rows } = await sb
     .from('pipeline_simple')
     .select('stage, status, amount_usd')
+    .is('deleted_at', null)
     .eq('user_id', userId)
     .gte('entry_date', periodStart)
     .lte('entry_date', periodEnd)

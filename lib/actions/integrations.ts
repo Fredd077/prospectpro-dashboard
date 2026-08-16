@@ -1,7 +1,10 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
+
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { hashKey } from '@/lib/utils/crypto'
+import { resolveCompany } from '@/lib/integrations/company'
 import type { Integration, IntegrationApiKey, WebhookLog } from '@/lib/types/database'
 import type { GenericAdapterConfig } from '@/lib/integrations/generic/adapter'
 
@@ -27,12 +30,8 @@ async function assertUser() {
   return { user, profile }
 }
 
-// Derive a stable company identifier: profile.company → email prefix → user UUID
-function resolveCompany(profile: { company?: string | null }, userEmail: string | undefined, userId: string): string {
-  if (profile.company) return profile.company
-  if (userEmail) return userEmail
-  return userId
-}
+// resolveCompany se movió a lib/integrations/company.ts para que el flujo de
+// HubSpot agrupe la empresa exactamente igual que el flujo genérico por webhook.
 
 export async function generateIntegrationApiKey(label?: string): Promise<{ plaintext: string }> {
   const { user, profile } = await assertUser()
@@ -107,6 +106,28 @@ export async function getIntegrationStatus(): Promise<{
     pipedriveConfig: pdConfig ?? null,
     genericConfig:   genericConf ?? null,
   }
+}
+
+/**
+ * Selecciona el CRM desde la cuadrícula visual. Escribe en el MISMO campo que
+ * usaba el input de texto libre (integrations.crm_name), así que el flujo
+ * genérico por webhook sigue comportándose igual.
+ */
+export async function selectCrm(crmName: string): Promise<void> {
+  const { user, profile } = await assertUser()
+  const company = resolveCompany(profile, user.email, user.id)
+  const name = crmName.trim()
+  if (!name) throw new Error('Elige un CRM')
+
+  const service = getSupabaseServiceClient()
+  const { error } = await service
+    .from('integrations')
+    .upsert(
+      { company_name: company, admin_user_id: user.id, crm_name: name },
+      { onConflict: 'company_name' },
+    )
+  if (error) throw new Error(error.message)
+  revalidatePath('/integrations')
 }
 
 export async function saveCrmConfig(data: {

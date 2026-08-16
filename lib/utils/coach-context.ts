@@ -135,6 +135,7 @@ async function _fetchActivityPerformance(
   const pipelineQ = (() => {
     let q = sb.from('pipeline_simple')
       .select('origin_activity_id')
+      .is('deleted_at', null)
       .gte('entry_date', periodStart)
       .lte('entry_date', periodEnd)
       .not('origin_activity_id', 'is', null)
@@ -210,6 +211,7 @@ export async function _fetchActivityEffectiveness(
 
   const pipelineQ = (() => {
     let q = sb.from('pipeline_simple').select('origin_activity_id,prospect_type,stage,status')
+      .is('deleted_at', null)
       .gte('entry_date', dateStart)
       .lte('entry_date', dateEnd)
     if (userId) q = q.eq('user_id', userId)

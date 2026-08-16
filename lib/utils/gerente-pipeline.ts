@@ -206,6 +206,7 @@ export async function fetchTeamPipeline(
   const [dealsRes, scenariosRes, profilesRes] = await Promise.all([
     service.from('pipeline_simple')
       .select('id,user_id,stage,status,prospect_type,entry_date,amount_usd,company_name')
+      .is('deleted_at', null)
       .in('user_id', userIds)
       .gte('entry_date', startISO)
       .lte('entry_date', endISO),

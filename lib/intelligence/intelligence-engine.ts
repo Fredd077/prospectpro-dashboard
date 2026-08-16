@@ -147,7 +147,7 @@ async function gatherData(params: VendedorReportParams) {
     sb.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
     sb.from('activities').select('id,name,type,daily_goal,weekly_goal,monthly_goal').eq('user_id', userId).eq('status', 'active'),
     sb.from('activity_logs').select('activity_id,real_executed').eq('user_id', userId).gte('log_date', periodStart).lte('log_date', periodEnd),
-    sb.from('pipeline_simple').select('stage,status,amount_usd').eq('user_id', userId).gte('entry_date', monthStart).lte('entry_date', monthEnd),
+    sb.from('pipeline_simple').select('stage,status,amount_usd').is('deleted_at', null).eq('user_id', userId).gte('entry_date', monthStart).lte('entry_date', monthEnd),
     sb.from('recipe_scenarios').select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages,outbound_rates').eq('user_id', userId).eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ])
 
@@ -450,7 +450,7 @@ async function gatherTeamData(
   ] = await Promise.all([
     sb.from('activities').select('id,user_id,name,type,daily_goal,weekly_goal,monthly_goal').in('user_id', memberIds).eq('status', 'active'),
     sb.from('activity_logs').select('user_id,activity_id,real_executed').in('user_id', memberIds).gte('log_date', periodStart).lte('log_date', periodEnd),
-    sb.from('pipeline_simple').select('user_id,stage,status,amount_usd').in('user_id', memberIds).gte('entry_date', monthStart).lte('entry_date', monthEnd),
+    sb.from('pipeline_simple').select('user_id,stage,status,amount_usd').is('deleted_at', null).in('user_id', memberIds).gte('entry_date', monthStart).lte('entry_date', monthEnd),
     sb.from('recipe_scenarios').select('user_id,monthly_revenue_goal,average_ticket,outbound_rates').in('user_id', memberIds).eq('is_active', true),
   ])
 

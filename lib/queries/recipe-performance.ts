@@ -113,6 +113,7 @@ export async function getRecipePerformance(sb: Sb, refDate?: string): Promise<Re
       .order('sort_order', { ascending: true }),
     sb.from('pipeline_simple')
       .select('origin_activity_id,stage,status,amount_usd')
+      .is('deleted_at', null)
       .gte('entry_date', monthStart)
       .lte('entry_date', monthEnd),
     sb.from('recipe_scenarios')

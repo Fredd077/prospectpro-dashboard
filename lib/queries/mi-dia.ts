@@ -135,12 +135,14 @@ export async function getMiDiaData(sb: Sb, userId: string, refDate?: string): Pr
     // concuerden con lo que el vendedor ve en el Pipeline (que por defecto muestra el mes).
     // Si no se acota, aparecen deals de meses anteriores que no están en la vista del pipeline.
     sb.from('pipeline_simple').select('id,company_name,amount_usd,updated_at')
+      .is('deleted_at', null)
       .eq('user_id', userId).eq('status', 'abierto')
       .gte('entry_date', monthStart).lte('entry_date', monthEnd)
       .lt('updated_at', staleCutoff)
       .order('amount_usd', { ascending: false, nullsFirst: false }).limit(5),
     // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
     sb.from('pipeline_simple').select('amount_usd')
+      .is('deleted_at', null)
       .eq('user_id', userId).eq('stage', 'Por facturar/cobrar').eq('status', 'ganado')
       .gte('entry_date', monthStart).lte('entry_date', ref),
   ])

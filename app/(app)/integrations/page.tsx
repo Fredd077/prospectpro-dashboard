@@ -9,7 +9,12 @@ import { PipedriveConfigForm } from '@/components/admin/PipedriveConfigForm'
 import { PipedriveSetupGuide } from '@/components/admin/PipedriveSetupGuide'
 import { GenericAdapterConfigForm } from '@/components/admin/GenericAdapterConfigForm'
 import { WebhookLogsTable } from '@/components/admin/WebhookLogsTable'
+import { CrmSelector } from '@/components/integrations/CrmSelector'
+import { HubSpotPanel } from '@/components/integrations/HubSpotPanel'
 import { getIntegrationStatus } from '@/lib/actions/integrations'
+import { getSupabaseServiceClient } from '@/lib/supabase/server'
+import { buildWebhookUrl } from '@/lib/integrations/hubspot/setup-guide'
+import { matchCrm } from '@/components/integrations/crm-catalog'
 
 export const metadata: Metadata = { title: 'Integraciones — ProspectPro' }
 
@@ -32,8 +37,44 @@ export default async function IntegrationsPage() {
     redirect('/dashboard')
   }
 
-  const webhookUrl = `https://app.prospectpro.cloud/api/webhooks/inbound/${encodeURIComponent(status.company)}`
-  const isPipedrive       = status.crmConfig?.crm_name?.toLowerCase() === 'pipedrive'
+  const APP_URL = process.env.APP_URL ?? 'https://app.prospectpro.cloud'
+  const webhookUrl = `${APP_URL}/api/webhooks/inbound/${encodeURIComponent(status.company)}`
+  const crmName    = status.crmConfig?.crm_name ?? null
+  const matchedCrm = matchCrm(crmName)
+  const isHubSpot  = matchedCrm?.id === 'HubSpot'
+
+  // Conexión nativa de HubSpot (solo si ese es el CRM elegido).
+  let hs: {
+    connected: boolean
+    syncStatus: 'pending' | 'active' | 'error' | 'disconnected' | null
+    lastSyncAt: string | null
+    lastWebhookAt: string | null
+    lastError: string | null
+    hubDomain: string | null
+    hasClientSecret: boolean
+  } = { connected: false, syncStatus: null, lastSyncAt: null, lastWebhookAt: null, lastError: null, hubDomain: null, hasClientSecret: false }
+
+  if (isHubSpot) {
+    const service = getSupabaseServiceClient()
+    const { data: conn } = await service
+      .from('hubspot_connections')
+      .select('sync_status,last_sync_at,last_webhook_at,last_sync_error,hub_domain,client_secret')
+      .eq('company_name', status.company)
+      .maybeSingle()
+    if (conn) {
+      hs = {
+        connected:       true,
+        syncStatus:      conn.sync_status,
+        lastSyncAt:      conn.last_sync_at,
+        lastWebhookAt:   conn.last_webhook_at,
+        lastError:       conn.last_sync_error,
+        hubDomain:       conn.hub_domain,
+        hasClientSecret: !!conn.client_secret,
+      }
+    }
+  }
+
+  const isPipedrive       = matchedCrm?.id === 'Pipedrive'
   const hasGenericStageMap = Object.keys(status.genericConfig?.stage_map ?? {}).length > 0
   const isFullyConfigured = status.hasKey && (
     (isPipedrive && !!status.pipedriveConfig?.reunion_stage) ||
@@ -48,6 +89,28 @@ export default async function IntegrationsPage() {
       />
       <div className="flex-1 overflow-y-auto p-8 space-y-10 max-w-3xl">
 
+        {/* Selector visual de CRM — primero, siempre */}
+        <div className="space-y-3">
+          <SectionHeader icon={Database}>¿Qué CRM usas?</SectionHeader>
+          <CrmSelector current={crmName} />
+        </div>
+
+        {/* ── HubSpot: flujo nativo ── */}
+        {isHubSpot && (
+          <HubSpotPanel
+            connected={hs.connected}
+            syncStatus={hs.syncStatus}
+            lastSyncAt={hs.lastSyncAt}
+            lastWebhookAt={hs.lastWebhookAt}
+            lastError={hs.lastError}
+            hubDomain={hs.hubDomain}
+            hasClientSecret={hs.hasClientSecret}
+            webhookUrl={buildWebhookUrl(APP_URL, status.company)}
+          />
+        )}
+
+        {/* ── Resto de CRMs: flujo genérico por webhook, sin cambios ── */}
+        {!isHubSpot && (<>
         {/* Setup guide — Pipedrive only; generic users get inline instructions */}
         {isPipedrive && <PipedriveSetupGuide isConfigured={isFullyConfigured} />}
         {!isPipedrive && !status.crmConfig?.crm_name && (
@@ -126,6 +189,8 @@ export default async function IntegrationsPage() {
             webhookUrl={webhookUrl}
           />
         </div>
+
+        </>)}
 
         {/* Webhook Logs */}
         <div className="space-y-3">

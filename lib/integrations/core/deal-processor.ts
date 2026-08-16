@@ -1,34 +1,64 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { NormalizedDealEvent } from '../types'
 import { SkipError } from '../types'
+import { CANONICAL_PIPELINE_STAGES } from '@/lib/utils/pipeline-stages'
 
-const VALID_STAGES = new Set([
-  'Cita agendada',
-  'Reagendar',
-  'Primera reu ejecutada/Propuesta en preparación',
-  'Propuesta Presentada',
-  'Por facturar/cobrar',
-])
+const CIERRE_STAGE = 'Por facturar/cobrar'
+
+/**
+ * Etapas válidas para un usuario: las suyas propias de pipeline_stages.
+ *
+ * Antes era un Set hardcodeado con las 5 canónicas. Desde que las etapas del
+ * Pipeline son editables (migraciones 039/040), un usuario puede renombrarlas o
+ * crear las suyas, y esa lista fija habría descartado en silencio cualquier deal
+ * mapeado a una etapa personalizada.
+ *
+ * Fallback a las canónicas si el usuario aún no tiene ninguna fila (usuario
+ * nuevo que no ha abierto el gestor de etapas): sin él, un Set vacío rechazaría
+ * todo. Para cualquier usuario ya existente esto es un SUPERCONJUNTO de la lista
+ * fija anterior, así que no puede romper integraciones que hoy funcionan.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadValidStages(userId: string, service: SupabaseClient<any>): Promise<Set<string>> {
+  const { data } = await service
+    .from('pipeline_stages')
+    .select('name')
+    .eq('user_id', userId)
+
+  const names = (data ?? []).map((r: { name: string }) => r.name)
+  return names.length > 0 ? new Set(names) : new Set<string>(CANONICAL_PIPELINE_STAGES)
+}
 
 export type ProcessResult = {
   action: 'created' | 'updated'
   message: string
 }
 
+/**
+ * @param targetUserId  usuario de ProspectPro al que pertenece el negocio.
+ *   El webhook sigue pasando integration.admin_user_id (comportamiento intacto);
+ *   la sincronización de HubSpot pasa el dueño resuelto por owner_mapping.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function processDealEvent(
   event: NormalizedDealEvent,
-  adminId: string,
+  targetUserId: string,
   service: SupabaseClient<any>,
 ): Promise<ProcessResult> {
-  // Won/lost events always land on the final stage regardless of what the CRM sent
-  const stageOverride = event.action === 'won' ? 'Por facturar/cobrar' : null
-  const stage = stageOverride ?? event.stageInCrm ?? null
+  const validStages = await loadValidStages(targetUserId, service)
 
-  if (!stage || !VALID_STAGES.has(stage)) {
+  // Los eventos 'won' aterrizan en la etapa de cierre, como siempre. Pero si el
+  // usuario borró esa etapa canónica, se respeta la etapa que mandó el CRM en
+  // vez de descartar el negocio.
+  let stage = event.stageInCrm ?? null
+  if (event.action === 'won' && validStages.has(CIERRE_STAGE)) {
+    stage = CIERRE_STAGE
+  }
+
+  if (!stage || !validStages.has(stage)) {
     throw new SkipError(
       stage
-        ? `Stage "${stage}" is not a valid ProspectPro stage — configure stage_map in Integraciones`
+        ? `Stage "${stage}" is not a valid ProspectPro stage for this user — configure stage_map in Integraciones`
         : 'No stage provided — configure stage_field in Integraciones'
     )
   }
@@ -42,7 +72,7 @@ export async function processDealEvent(
     .select('id')
     .eq('external_id', event.externalId)
     .eq('integration_source', event.source)
-    .eq('user_id', adminId)
+    .eq('user_id', targetUserId)
     .maybeSingle()
 
   if (existing) {
@@ -54,6 +84,9 @@ export async function processDealEvent(
         company_name:  event.companyName,
         prospect_name: event.prospectName,
         amount_usd:    event.amountUsd,
+        // Si el negocio estaba marcado como eliminado en el CRM y vuelve a
+        // aparecer, se reactiva en vez de quedar oculto para siempre.
+        deleted_at:    null,
         updated_at:    new Date().toISOString(),
       })
       .eq('id', existing.id)
@@ -65,7 +98,7 @@ export async function processDealEvent(
   const { error } = await service
     .from('pipeline_simple')
     .insert({
-      user_id:            adminId,
+      user_id:            targetUserId,
       stage,
       status,
       prospect_type:      'outbound',
