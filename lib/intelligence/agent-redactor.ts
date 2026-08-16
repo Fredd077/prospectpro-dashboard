@@ -121,6 +121,30 @@ export interface ReportGerenteContent {
   detalle_actividades?: DetalleVendedorInput[]
   /** Metas de actividades del Recetario activo del equipo. */
   recetario?: RecetarioInput
+  /** Tasa de conversión planeada vs real por actividad. */
+  conversiones?: ConversionActividadInput[]
+  /** Negocios y monto por etapa real del pipeline. */
+  etapas_pipeline?: EtapaPipelineInput[]
+}
+
+/** "Definí que llamadas en frío convierten 20%, ¿de verdad convierten 20%?" */
+export interface ConversionActividadInput {
+  actividad: string
+  tipo: string
+  ejecuciones: number
+  citas_generadas: number
+  conversion_real: number
+  conversion_plan: number
+  brecha: number
+}
+
+export interface EtapaPipelineInput {
+  etapa: string
+  negocios: number
+  monto: number
+  abiertos: number
+  ganados: number
+  perdidos: number
 }
 
 /** Una actividad del período: lo que tocaba (goal) vs. lo realizado (real). */
@@ -159,6 +183,8 @@ export interface RedactorGerenteInput {
   /** Detalle por vendedor: la IA puede citarlo en su análisis. */
   members: DetalleVendedorInput[]
   recetario?: RecetarioInput
+  conversiones?: ConversionActividadInput[]
+  etapas_pipeline?: EtapaPipelineInput[]
 }
 
 function extractJSON(raw: string): string {

@@ -43,6 +43,27 @@ interface GerenteContent {
   canales?: ChannelsBlock
   detalle_actividades?: DetalleVendedor[]
   recetario?: RecetarioBlock
+  conversiones?: ConversionActividad[]
+  etapas_pipeline?: EtapaPipeline[]
+}
+
+/** Plan vs real por actividad: ¿de verdad convierten lo que dije? */
+interface ConversionActividad {
+  actividad: string
+  tipo: string
+  ejecuciones: number
+  citas_generadas: number
+  conversion_real: number
+  conversion_plan: number
+  brecha: number
+}
+interface EtapaPipeline {
+  etapa: string
+  negocios: number
+  monto: number
+  abiertos: number
+  ganados: number
+  perdidos: number
 }
 
 /** Detalle exacto por vendedor — lo inyecta el motor, no lo redacta la IA. */
@@ -180,6 +201,92 @@ function DetalleActividades({ detalle, periodLabelText }: { detalle: DetalleVend
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function fmtMoney(n: number): string {
+  return n.toLocaleString('es-CO', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+}
+
+/**
+ * Conversión planeada vs real por actividad. Responde la pregunta del Recetario:
+ * "definí que llamadas en frío convierten 20%, ¿de verdad convierten 20%?".
+ * Ordenado por brecha: primero lo que más se aleja del plan.
+ */
+function ConversionesActividad({ items }: { items: ConversionActividad[] }) {
+  const conPlan = items.filter((c) => c.conversion_plan > 0)
+  if (conPlan.length === 0) return null
+
+  return (
+    <div className="space-y-2">
+      <SectionLabel>Conversión por actividad — plan vs. real</SectionLabel>
+      <div className="overflow-hidden rounded-md border border-border">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border bg-muted/30 text-[10px] uppercase tracking-wider text-muted-foreground">
+              <th className="px-2 py-1.5 text-left font-semibold">Actividad</th>
+              <th className="px-2 py-1.5 text-right font-semibold">Real</th>
+              <th className="px-2 py-1.5 text-right font-semibold">Plan</th>
+              <th className="px-2 py-1.5 text-right font-semibold">Δ</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/40">
+            {conPlan.map((c) => (
+              <tr key={c.actividad}>
+                <td className="px-2 py-1.5 text-foreground/80">
+                  <span className="block truncate max-w-[160px]">{c.actividad}</span>
+                  <span className="text-[10px] text-muted-foreground/60">
+                    {c.ejecuciones} ejec. · {c.citas_generadas} citas
+                  </span>
+                </td>
+                <td className="px-2 py-1.5 text-right font-mono tabular-nums text-foreground">{c.conversion_real}%</td>
+                <td className="px-2 py-1.5 text-right font-mono tabular-nums text-muted-foreground">{c.conversion_plan}%</td>
+                <td className={cn(
+                  'px-2 py-1.5 text-right font-mono font-semibold tabular-nums',
+                  c.brecha >= 0 ? 'text-emerald-400' : c.brecha >= -10 ? 'text-amber-400' : 'text-red-400',
+                )}>
+                  {c.brecha >= 0 ? `+${c.brecha}` : c.brecha}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[10px] text-muted-foreground/60">
+        Δ negativo = la actividad convierte por debajo de lo planeado en el Recetario.
+      </p>
+    </div>
+  )
+}
+
+/** Estado del pipeline del equipo: negocios y dinero en cada etapa. */
+function EtapasPipeline({ etapas }: { etapas: EtapaPipeline[] }) {
+  if (etapas.length === 0) return null
+  const maxNeg = Math.max(...etapas.map((e) => e.negocios), 1)
+
+  return (
+    <div className="space-y-2">
+      <SectionLabel>Pipeline del equipo por etapa</SectionLabel>
+      <div className="space-y-1.5">
+        {etapas.map((e) => (
+          <div key={e.etapa} className="space-y-0.5">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="flex-1 truncate text-foreground/80">{e.etapa}</span>
+              <span className="font-mono tabular-nums text-foreground">{e.negocios}</span>
+              <span className="w-20 text-right font-mono tabular-nums text-emerald-400">{fmtMoney(e.monto)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted/40">
+                <div className="h-full rounded-full bg-cyan-400" style={{ width: `${(e.negocios / maxNeg) * 100}%` }} />
+              </div>
+              <span className="text-[10px] text-muted-foreground/60">
+                {e.abiertos} abiertos · {e.ganados} ganados · {e.perdidos} perdidos
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -419,6 +526,12 @@ export function IntelligenceReportCard(props: IntelligenceReportCardProps) {
               detalle={content.detalle_actividades}
               periodLabelText={periodLabel(period_type, period_start, period_end)}
             />
+          )}
+          {isGerente && content.conversiones && content.conversiones.length > 0 && (
+            <ConversionesActividad items={content.conversiones} />
+          )}
+          {isGerente && content.etapas_pipeline && content.etapas_pipeline.length > 0 && (
+            <EtapasPipeline etapas={content.etapas_pipeline} />
           )}
           {isGerente && content.alertas_individuales && content.alertas_individuales.length > 0 && (
             <div className="space-y-2">
