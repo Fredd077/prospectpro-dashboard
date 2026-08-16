@@ -7,6 +7,10 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 import { buildWeeklyContextForCron, buildMonthlyContextForCron, type ActivityCompliance } from './coach-context'
+import {
+  cappedCompliance, buildStageBreakdown, fetchTeamChannels, fetchTeamConversions,
+  type EtapaPipeline, type ConversionActividad,
+} from './team-metrics'
 import { todayISO, toISODate } from './dates'
 import { startOfWeek } from 'date-fns'
 import { format, parseISO } from 'date-fns'
@@ -205,10 +209,10 @@ export async function generateTeamReport(
   const scopeLabel = buildScopeLabel({ filterCompany, filterUserIds, scope, threshold })
 
   // 2. Build weekly context for each user (sequential to avoid DB overload)
+  const pipelineStart = isMonthly ? weekStart : weekEnd.slice(0, 8) + '01'
   const summaries: UserSummary[] = []
   for (const user of users) {
     try {
-      const pipelineStart = isMonthly ? weekStart : weekEnd.slice(0, 8) + '01'
       const [ctx, pipeline] = await Promise.all([
         isMonthly
           ? buildMonthlyContextForCron(user.id, weekStart, sb)
@@ -218,7 +222,11 @@ export async function generateTeamReport(
       summaries.push({
         userId:            user.id,
         userName:          ctx.userName,
-        overallCompliance: ctx.overallCompliance,
+        // Promedio de ratios TOPADOS al 100% por actividad — misma fórmula que
+        // Dashboard, /team y el reporte de gerente del Coach IA. ctx.overallCompliance
+        // usa totalReal/totalGoal (razón de totales, sin tope) y podía mostrar un
+        // % distinto al resto de las pantallas para el mismo vendedor.
+        overallCompliance: cappedCompliance(ctx.activities),
         trend:             ctx.trend,
         weakest:           ctx.weakestActivity?.name ?? null,
         strongest:         ctx.strongestActivity?.name ?? null,
@@ -347,16 +355,27 @@ ACCIÓN PRIORITARIA PARA EL MANAGER: UNA acción concreta, medible y con deadlin
 
 Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos puntos. Máximo 600 palabras. Responde en español.`
 
-  // 6. Call Claude
-  const aiResp = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 900,
-    messages: [{ role: 'user', content: prompt }],
-  })
+  // 6. Call Claude + fetch team-wide pipeline-por-etapa (mismas funciones que el
+  // reporte de gerente del Coach IA — ver lib/utils/team-metrics.ts) en paralelo.
+  const filteredIds = filtered.map((u) => u.userId)
+  const [aiResp, teamPipelineRes, teamChannelItems] = await Promise.all([
+    anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 900,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+    sb.from('pipeline_simple').select('stage,status,amount_usd')
+      .is('deleted_at', null).in('user_id', filteredIds)
+      .gte('entry_date', pipelineStart).lte('entry_date', weekEnd),
+    fetchTeamChannels(sb, filteredIds, pipelineStart, weekEnd),
+  ])
   const aiAnalysis = aiResp.content
     .filter((b): b is Anthropic.TextBlock => b.type === 'text')
     .map((b) => b.text)
     .join('')
+  const etapas = buildStageBreakdown(teamPipelineRes.data ?? [])
+  // Conversión por actividad: plan (activities.conversion_rate_pct) vs. real.
+  const conversiones = await fetchTeamConversions(sb, filteredIds, teamChannelItems)
 
   // 7. Build HTML email
   const html = buildTeamReportEmail({
@@ -374,6 +393,8 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
     decliningCount,
     top3,
     bottom3,
+    etapas,
+    conversiones,
     bestActivity,
     worstActivity,
     aiAnalysis,
@@ -464,13 +485,17 @@ function buildTeamReportEmail(p: {
   decliningCount: number
   top3:           UserSummary[]
   bottom3:        UserSummary[]
+  /** Pipeline del equipo agrupado por etapa real (buildStageBreakdown) — mismo cálculo que /coach. */
+  etapas:         EtapaPipeline[]
+  /** Conversión planeada vs. real por actividad (fetchTeamConversions) — mismo cálculo que /coach. */
+  conversiones:   ConversionActividad[]
   bestActivity:   { name: string; avgPct: number } | null
   worstActivity:  { name: string; avgPct: number } | null
   aiAnalysis:     string
   memberName?:    string
 }): string {
   const { weekStart, weekLabel, weekEndLabel, isMonthly, scopeLabel, threshold, summaries,
-          atRiskCount, avgCompliance, improvingCount, decliningCount,
+          atRiskCount, avgCompliance, improvingCount, decliningCount, etapas, conversiones,
           bestActivity, worstActivity, aiAnalysis, memberName } = p
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -631,6 +656,67 @@ function buildTeamReportEmail(p: {
     <p style="margin:6px 0 0; font-size:12px; color:#fbbf2480; line-height:1.5;">
       ${summaries.filter((u) => u.trend === 'declining').map((u) => u.userName).join(', ')}
     </p>
+  </div>` : ''
+
+  // ── Conversión por actividad: plan vs. real ───────────────────────────────
+  const conPlan = conversiones.filter((c) => c.conversion_plan > 0)
+  const conversionesSection = conPlan.length > 0 ? `
+  <div style="background:#0f0f0f; border:1px solid #1e1e1e; border-radius:8px; overflow:hidden; margin-bottom:20px;">
+    <div style="padding:12px 16px; border-bottom:1px solid #1a1a1a; background:#111111;">
+      <span style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.1em;">Conversión por actividad — plan vs. real</span>
+    </div>
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr style="background:#111111; border-bottom:1px solid #1e1e1e;">
+          <th style="padding:8px 16px; text-align:left; font-size:9px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">Actividad</th>
+          <th style="padding:8px 8px; text-align:right; font-size:9px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">Real</th>
+          <th style="padding:8px 8px; text-align:right; font-size:9px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">Plan</th>
+          <th style="padding:8px 16px; text-align:right; font-size:9px; color:#334155; text-transform:uppercase; letter-spacing:0.08em; font-weight:600;">&#916;</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${conPlan.map((c, i) => {
+          const brechaColor = c.brecha >= 0 ? '#34d399' : c.brecha >= -10 ? '#fbbf24' : '#f87171'
+          return `<tr style="border-bottom:1px solid #1a1a1a; ${i % 2 === 1 ? 'background:#0d0d0d;' : ''}">
+          <td style="padding:8px 16px; vertical-align:middle;">
+            <div style="font-size:12px; color:#e2e8f0;">${c.actividad}</div>
+            <div style="font-size:10px; color:#475569; margin-top:1px;">${c.ejecuciones} ejec. &#183; ${c.citas_generadas} citas</div>
+          </td>
+          <td style="padding:8px 8px; text-align:right; font-size:12px; color:#e2e8f0;">${c.conversion_real}%</td>
+          <td style="padding:8px 8px; text-align:right; font-size:12px; color:#94a3b8;">${c.conversion_plan}%</td>
+          <td style="padding:8px 16px; text-align:right; font-size:12px; font-weight:700; color:${brechaColor};">${c.brecha >= 0 ? `+${c.brecha}` : c.brecha}</td>
+        </tr>`
+        }).join('')}
+      </tbody>
+    </table>
+    <div style="padding:8px 16px; font-size:10px; color:#475569;">&#916; negativo = la actividad convierte por debajo de lo planeado en el Recetario.</div>
+  </div>` : ''
+
+  // ── Pipeline del equipo por etapa ─────────────────────────────────────────
+  const maxNegocios = Math.max(...etapas.map((e) => e.negocios), 1)
+  const etapasSection = etapas.length > 0 ? `
+  <div style="background:#0f0f0f; border:1px solid #1e1e1e; border-radius:8px; overflow:hidden; margin-bottom:20px;">
+    <div style="padding:12px 16px; border-bottom:1px solid #1a1a1a; background:#111111;">
+      <span style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.1em;">Pipeline del equipo por etapa</span>
+    </div>
+    <div style="padding:12px 16px;">
+      ${etapas.map((e) => {
+        const w = Math.min(100, Math.max(0, Math.round((e.negocios / maxNegocios) * 100)))
+        return `<div style="margin-bottom:12px;">
+        <table style="width:100%; border-collapse:collapse; margin-bottom:4px;"><tr>
+          <td style="padding:0; font-size:12px; color:#e2e8f0;">${e.etapa}</td>
+          <td style="padding:0; text-align:right; font-size:12px; color:#e2e8f0; width:30px;">${e.negocios}</td>
+          <td style="padding:0 0 0 8px; text-align:right; font-size:12px; color:#34d399; white-space:nowrap; width:90px;">$${e.monto.toLocaleString('es-CO')}</td>
+        </tr></table>
+        <table style="width:100%; border-collapse:collapse;"><tr>
+          <td style="padding:0;">
+            <div style="background:#1a1a1a; border-radius:3px; height:6px; overflow:hidden;"><div style="width:${w}%; background:#00D9FF; height:6px;"></div></div>
+          </td>
+        </tr></table>
+        <div style="font-size:10px; color:#475569; margin-top:3px;">${e.abiertos} abiertos &#183; ${e.ganados} ganados &#183; ${e.perdidos} perdidos</div>
+      </div>`
+      }).join('')}
+    </div>
   </div>` : ''
 
   return `<!DOCTYPE html>
@@ -803,6 +889,10 @@ function buildTeamReportEmail(p: {
       <tbody>${detailRows}</tbody>
     </table>
   </div>
+
+  <!-- ── CONVERSIÓN POR ACTIVIDAD Y PIPELINE POR ETAPA ───────────────────────── -->
+  ${conversionesSection}
+  ${etapasSection}
 
   <!-- ── ANÁLISIS AI ───────────────────────────────────────────────────────── -->
   <div style="background:#050505; border:1px solid #1e1e1e; border-left:3px solid #00D9FF; border-radius:8px; padding:24px; margin-bottom:20px;">
