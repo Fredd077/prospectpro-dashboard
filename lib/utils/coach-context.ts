@@ -4,7 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { todayISO, toISODate } from '@/lib/utils/dates'
-import { calcRealConversions, calcPipelineValue } from '@/lib/calculations/pipeline'
+import { calcRealConversions } from '@/lib/calculations/pipeline'
+import { CANONICAL_PIPELINE_STAGES } from '@/lib/utils/pipeline-stages'
 
 type SbClient = SupabaseClient<Database>
 
@@ -318,6 +319,24 @@ export async function _fetchActivityEffectiveness(
 
 // ─── Pipeline helper ─────────────────────────────────────────────────────────
 
+/**
+ * Estado del pipeline para el Coach IA individual.
+ *
+ * PORTADO a `pipeline_simple`. Antes leía `pipeline_entries`, la tabla legacy:
+ * en producción tiene 9 filas (todas de abril, con etapas de un modelo viejo) y
+ * 0 del mes en curso, así que esta sección del Coach venía saliendo VACÍA para
+ * todos los usuarios desde entonces.
+ *
+ * Además agrupa por las etapas REALES que traen los registros, no por
+ * recipe_scenarios.funnel_stages. Se verificó contra producción que esas dos
+ * listas no coinciden en ningún usuario (0 de 8), así que recorrer funnel_stages
+ * habría dado todas las etapas en cero — cambiar de tabla no bastaba.
+ *
+ * `plannedConversion` queda en 0: las tasas del Recetario están indexadas por
+ * posición contra funnel_stages, y emparejarlas con otras etapas sería inventar
+ * un dato. El plan vs. real que sí tiene fundamento es el de POR ACTIVIDAD
+ * (activities.conversion_rate_pct), que vive en el reporte de gerente.
+ */
 async function _fetchPipelineData(
   sb: SbClient,
   dateStart: string,
@@ -330,56 +349,74 @@ async function _fetchPipelineData(
   monthlyGoal: number,
   userId?: string,
 ): Promise<PipelineCoachData | undefined> {
+  void stages; void outboundRates; void inboundRates; void outboundPct
+
   let q = sb
-    .from('pipeline_entries')
-    .select('stage,quantity,amount_usd,prospect_type')
+    .from('pipeline_simple')
+    .select('stage,status,amount_usd,prospect_type')
+    .is('deleted_at', null)
     .gte('entry_date', dateStart)
     .lte('entry_date', dateEnd)
   if (userId) q = q.eq('user_id', userId)
-  const { data: entries } = await q
-  if (!entries?.length) return undefined
+  const { data: rows } = await q
+  if (!rows?.length) return undefined
 
-  const combinedRates = outboundRates.map((r, i) => {
-    const ob = outboundPct / 100
-    return Math.round(r * ob + (inboundRates[i] ?? r) * (1 - ob))
+  const CIERRE = 'Por facturar/cobrar'
+
+  // Etapas presentes, en orden canónico; las personalizadas van al final.
+  const canon = [...CANONICAL_PIPELINE_STAGES] as string[]
+  const present = [...new Set(rows.map((r) => r.stage))]
+  const ordered = present.sort((a, b) => {
+    const ia = canon.indexOf(a), ib = canon.indexOf(b)
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b, 'es')
   })
 
-  const conversions  = calcRealConversions(activityTotal, entries, stages, combinedRates)
-  const pipelineVal  = calcPipelineValue(entries, stages)
-  const revenuePct   = monthlyGoal > 0 ? Math.round((pipelineVal.closed / monthlyGoal) * 100) : 0
-
   const countMap: Record<string, number> = {}
-  const countOutboundMap: Record<string, number> = {}
-  const countInboundMap: Record<string, number> = {}
+  const outMap: Record<string, number> = {}
+  const inMap: Record<string, number> = {}
   const amountMap: Record<string, number> = {}
-  for (const e of entries) {
-    countMap[e.stage]  = (countMap[e.stage] ?? 0) + e.quantity
-    amountMap[e.stage] = (amountMap[e.stage] ?? 0) + (e.amount_usd ?? 0)
-    if (e.prospect_type === 'OUTBOUND') {
-      countOutboundMap[e.stage] = (countOutboundMap[e.stage] ?? 0) + e.quantity
-    } else {
-      countInboundMap[e.stage] = (countInboundMap[e.stage] ?? 0) + e.quantity
-    }
+  let openAmount = 0
+  let closedAmount = 0
+
+  for (const r of rows) {
+    countMap[r.stage]  = (countMap[r.stage] ?? 0) + 1
+    amountMap[r.stage] = (amountMap[r.stage] ?? 0) + (r.amount_usd ?? 0)
+    // prospect_type en pipeline_simple es minúscula ('outbound'/'inbound').
+    if (String(r.prospect_type).toLowerCase() === 'outbound') outMap[r.stage] = (outMap[r.stage] ?? 0) + 1
+    else inMap[r.stage] = (inMap[r.stage] ?? 0) + 1
+
+    // Cerrado = etapa de facturación Y estado ganado (regla única del proyecto).
+    if (r.stage === CIERRE && r.status === 'ganado') closedAmount += r.amount_usd ?? 0
+    else if (r.status !== 'perdido') openAmount += r.amount_usd ?? 0
   }
 
-  const byStage: PipelineStageData[] = stages.slice(1).map((s) => ({
+  const byStage: PipelineStageData[] = ordered.map((s) => ({
     stage: s,
     count: countMap[s] ?? 0,
-    countOutbound: countOutboundMap[s] ?? 0,
-    countInbound: countInboundMap[s] ?? 0,
+    countOutbound: outMap[s] ?? 0,
+    countInbound: inMap[s] ?? 0,
     amount: amountMap[s] ?? 0,
   }))
+
+  // Conversión REAL entre etapas consecutivas. Se reutiliza el helper existente
+  // mapeando cada negocio a quantity 1; el plan va en 0 (ver nota de arriba).
+  const slim = rows.map((r) => ({ stage: r.stage, quantity: 1, amount_usd: r.amount_usd }))
+  const convStages = ['__actividad__', ...ordered]
+  const conversions = calcRealConversions(activityTotal, slim, convStages, [])
 
   return {
     byStage,
     conversions: conversions.map((c) => ({
-      fromStage: c.fromStage, toStage: c.toStage,
-      realConversion: c.realConversion, plannedConversion: c.plannedConversion, gap: c.gap,
+      fromStage: c.fromStage === '__actividad__' ? 'Actividad' : c.fromStage,
+      toStage: c.toStage,
+      realConversion: c.realConversion,
+      plannedConversion: c.plannedConversion,
+      gap: c.gap,
     })),
-    openAmount:  pipelineVal.open,
-    closedAmount: pipelineVal.closed,
+    openAmount,
+    closedAmount,
     monthlyGoal,
-    revenuePct,
+    revenuePct: monthlyGoal > 0 ? Math.round((closedAmount / monthlyGoal) * 100) : 0,
   }
 }
 
