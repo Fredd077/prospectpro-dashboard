@@ -2,7 +2,7 @@
  * Desconecta HubSpot: borra la conexión y el token cifrado de ProspectPro.
  *
  * NO puede revocar el token en HubSpot — eso solo lo hace el admin desde su
- * propia cuenta (Configuración → Integraciones → Apps privadas). La respuesta lo
+ * propia cuenta (Configuración → Integraciones → Aplicaciones privadas). La respuesta lo
  * dice explícitamente para que el usuario sepa que le queda ese paso si quiere
  * invalidarlo del todo.
  */
@@ -41,6 +41,6 @@ export async function POST() {
 
   return Response.json({
     ok: true,
-    note: 'La conexión se eliminó de ProspectPro. Si además quieres invalidar el token, bórralo en HubSpot: Configuración → Integraciones → Apps privadas.',
+    note: 'La conexión se eliminó de ProspectPro. Si además quieres invalidar el token, bórralo en HubSpot: Configuración → Integraciones → Aplicaciones privadas.',
   })
 }

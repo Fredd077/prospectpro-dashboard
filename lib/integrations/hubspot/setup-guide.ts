@@ -15,11 +15,11 @@ export interface GuideStep {
 
 export const HUBSPOT_SETUP_STEPS: GuideStep[] = [
   { text: 'En HubSpot, ve a **Configuración** (el ícono de engranaje, arriba a la derecha).' },
-  { text: 'En el menú de la izquierda, busca **Integraciones → Apps privadas**.' },
-  { text: 'Haz clic en **"Crear una app privada"**.' },
+  { text: 'En el menú de la izquierda, busca **Integraciones → Aplicaciones privadas**. HubSpot puede mostrarte un aviso de que "tus aplicaciones privadas cambiaron de lugar" — haz clic en **"Ir a aplicaciones antiguas"**.' },
+  { text: 'Elige **"Privada"** (no "Claves de servicio"), marca la casilla que dice que entiendes que las apps privadas antiguas tienen funcionalidad limitada, y haz clic en **"Continuar con la aplicación privada anterior"**. Ahí verás el formulario para crear la app.' },
   { text: 'En la pestaña **"Información básica"**, ponle de nombre `ProspectPro`.' },
   {
-    text: 'Ve a la pestaña **"Scopes"** y activa (buscándolos en el buscador de permisos): `crm.objects.deals.read`, `crm.objects.owners.read`, `crm.schemas.deals.read`.',
+    text: 'Ve a la pestaña **"Permisos"** y activa (buscándolos en el buscador de permisos): `crm.objects.deals.read`, `crm.objects.owners.read`, `crm.schemas.deals.read`.',
     hint: 'Si quieres que también traigamos el nombre de la empresa asociada al negocio, activa además `crm.objects.contacts.read`.',
   },
   { text: 'Haz clic en **"Crear app"** (arriba a la derecha) y confirma.' },
@@ -37,7 +37,7 @@ export const HUBSPOT_SETUP_STEPS: GuideStep[] = [
  */
 export const HUBSPOT_WEBHOOK_STEPS: GuideStep[] = [
   {
-    text: 'En tu app privada de HubSpot, abre la pestaña **"Auth"** y, en **Client secret**, haz clic en **"Mostrar secreto"** y cópialo.',
+    text: 'En tu app privada de HubSpot, abre la pestaña **"Autenticación"** y, en **Client secret**, haz clic en **"Mostrar secreto"** y cópialo.',
     hint: 'Es distinto del token: sirve para que ProspectPro compruebe que los avisos vienen de verdad de HubSpot.',
   },
   {
@@ -50,7 +50,7 @@ export const HUBSPOT_WEBHOOK_STEPS: GuideStep[] = [
     text: 'En **"URL de destino"**, pega la dirección que ProspectPro te muestra abajo.',
   },
   {
-    text: 'Crea suscripciones para el objeto **Negocio (Deal)**: **Creado**, **Eliminado** y **Cambio de propiedad** sobre las propiedades `dealstage`, `amount` y `dealname`.',
+    text: 'Crea suscripciones para el objeto **Negocio (Deal)**: **Creado**, **Eliminados** y **Propiedad cambiada** sobre las propiedades `dealstage`, `amount` y `dealname`.',
     hint: '`dealstage` es la más importante: es la que avisa cuando un negocio cambia de etapa.',
   },
   {
