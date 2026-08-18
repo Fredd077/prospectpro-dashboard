@@ -108,11 +108,11 @@ export function CheckinSummary({
         {/* Daily compliance */}
         {dailyActivities.length > 0 && (
           <div className="rounded-md bg-muted/40 p-2.5 text-center">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Cumpl. diario</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Cumpl. diario</p>
             <span className={cn('text-lg font-bold tabular-nums', semaphoreBgClass(dailyCompliance.semaphore).split(' ')[1])}>
               {dailyCompliance.pct.toFixed(0)}%
             </span>
-            <p className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
+            <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
               {dailyRealTotal}/{dailyGoalTotal}
             </p>
           </div>
@@ -120,35 +120,35 @@ export function CheckinSummary({
 
         {/* Weekly compliance */}
         <div className="rounded-md bg-muted/40 p-2.5 text-center">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Cumpl. semanal</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Cumpl. semanal</p>
           <span className={cn('text-lg font-bold tabular-nums', semaphoreBgClass(weeklyCompliance.semaphore).split(' ')[1])}>
             {weeklyCompliance.pct.toFixed(0)}%
           </span>
-          <p className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
+          <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
             {weeklyRealTotal}/{weeklyGoalTotal}
           </p>
         </div>
 
         {/* Completed today */}
         <div className="rounded-md bg-muted/40 p-2.5 text-center">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Completadas hoy</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Completadas hoy</p>
           <span className="text-lg font-bold tabular-nums text-foreground">{completedToday}</span>
-          <p className="text-[10px] text-muted-foreground mt-0.5">de {activities.length}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">de {activities.length}</p>
         </div>
 
         {/* Week total */}
         <div className="rounded-md bg-muted/40 p-2.5 text-center">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Semana actual</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Semana actual</p>
           <span className="text-lg font-bold tabular-nums text-foreground">{weeklyRealTotal}</span>
-          <p className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">de {weeklyGoalTotal}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">de {weeklyGoalTotal}</p>
         </div>
       </div>
 
       {/* Weekly progress bar */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Progreso semanal</span>
-          <span className="text-[10px] tabular-nums text-muted-foreground">{weeklyCompliance.pct.toFixed(1)}%</span>
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">Progreso semanal</span>
+          <span className="text-xs tabular-nums text-muted-foreground">{weeklyCompliance.pct.toFixed(1)}%</span>
         </div>
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <div
@@ -174,7 +174,7 @@ export function CheckinSummary({
           .filter(({ items }) => items.length > 0)
           .map(({ label, items }) => (
             <div key={label}>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
                 {label}
               </p>
               <div className="space-y-2">
@@ -211,7 +211,7 @@ export function CheckinSummary({
                         </span>
                         {!isWeekly && (
                           <span className={cn(
-                            'ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
+                            'ml-auto shrink-0 rounded px-1.5 py-0.5 text-xs font-medium',
                             semaphoreBgClass(calcCompliance(todayReal, a.daily_goal).semaphore)
                           )}>
                             {a.daily_goal > 0 ? `${Math.round((todayReal / a.daily_goal) * 100)}%` : '—'}
@@ -226,7 +226,7 @@ export function CheckinSummary({
                         <span className="text-muted-foreground">de</span>
                         <span className="tabular-nums">{weekGoal}</span>
                         <span className={cn(
-                          'ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
+                          'ml-auto shrink-0 rounded px-1.5 py-0.5 text-xs font-medium',
                           semaphoreBgClass(weekSem)
                         )}>
                           {weekPct.toFixed(0)}%

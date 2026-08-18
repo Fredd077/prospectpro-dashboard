@@ -34,7 +34,7 @@ export function CheckinPipelineSection({ stages, scenarioId, date }: CheckinPipe
           <TrendingUp className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium text-foreground">¿Avanzaste en tu pipeline hoy?</span>
           {saved > 0 && (
-            <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+            <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
               {saved} guardado{saved > 1 ? 's' : ''}
             </span>
           )}
@@ -55,7 +55,7 @@ export function CheckinPipelineSection({ stages, scenarioId, date }: CheckinPipe
             allowDateEdit={false}
             onSaved={handleSaved}
           />
-          <p className="text-[10px] text-muted-foreground/60 text-center">
+          <p className="text-xs text-muted-foreground/60 text-center">
             Esta sección es opcional — no afecta el guardado del check-in.
           </p>
         </div>

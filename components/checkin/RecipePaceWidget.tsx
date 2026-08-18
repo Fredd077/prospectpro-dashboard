@@ -87,7 +87,7 @@ export function RecipePaceWidget({ validation, weeklyOutbound, weeklyInbound }: 
         <PaceRow label="Inbound esta semana"  real={weeklyInbound}  target={validation.weeklyRecipe.inbound} />
       </div>
 
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Basado en: <span className="text-foreground">{validation.scenario.name}</span>
       </p>
     </div>

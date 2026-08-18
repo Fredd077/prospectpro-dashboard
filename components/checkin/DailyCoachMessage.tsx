@@ -151,9 +151,9 @@ export function DailyCoachMessage({ show, date, existingMessage }: DailyCoachMes
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm">🤖</span>
           <span className="text-xs font-semibold text-cyan-400">Coach Pro</span>
-          <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] text-cyan-400">DIARIO</span>
+          <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs text-cyan-400">DIARIO</span>
           {periodLabel && (
-            <span className="flex items-center gap-1 text-[10px] text-cyan-400/80">
+            <span className="flex items-center gap-1 text-xs text-cyan-400/80">
               <span>📅</span><span className="capitalize">{periodLabel}</span>
             </span>
           )}
@@ -177,11 +177,11 @@ export function DailyCoachMessage({ show, date, existingMessage }: DailyCoachMes
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm">🤖</span>
         <span className="text-xs font-semibold text-cyan-400">Coach Pro</span>
-        <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] text-cyan-400 border border-cyan-500/20">
+        <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-xs text-cyan-400 border border-cyan-500/20">
           DIARIO
         </span>
         {periodLabel && (
-          <span className="flex items-center gap-1 text-[10px] text-cyan-400/80">
+          <span className="flex items-center gap-1 text-xs text-cyan-400/80">
             <span>📅</span><span className="capitalize">{periodLabel}</span>
           </span>
         )}
@@ -193,9 +193,9 @@ export function DailyCoachMessage({ show, date, existingMessage }: DailyCoachMes
       {/* Comment input */}
       {messageId && (
         <div className="pt-1 space-y-1.5">
-          <p className="text-[11px] text-muted-foreground">¿Quieres comentar algo?</p>
+          <p className="text-xs text-muted-foreground">¿Quieres comentar algo?</p>
           {commentSaved ? (
-            <p className="text-[11px] text-emerald-400">Comentario guardado ✓</p>
+            <p className="text-xs text-emerald-400">Comentario guardado ✓</p>
           ) : (
             <div className="flex gap-2">
               <input

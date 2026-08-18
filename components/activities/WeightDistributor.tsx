@@ -73,7 +73,7 @@ export function WeightDistributor({ activities, activeScenario }: WeightDistribu
                 {/* Name + channel */}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground truncate">{act.name}</p>
-                  <p className="text-[10px] text-muted-foreground/60 truncate">{act.channel}</p>
+                  <p className="text-xs text-muted-foreground/60 truncate">{act.channel}</p>
                 </div>
 
                 {/* Sin configurar: falta meetings_expected o conversion_rate_pct, así que
@@ -81,7 +81,7 @@ export function WeightDistributor({ activities, activeScenario }: WeightDistribu
                 {((act.meetings_expected ?? 0) <= 0 || (act.conversion_rate_pct ?? 0) <= 0) && (
                   <Badge
                     variant="outline"
-                    className="shrink-0 text-[10px] border-amber-500/30 bg-amber-500/10 text-amber-400"
+                    className="shrink-0 text-xs border-amber-500/30 bg-amber-500/10 text-amber-400"
                     title="Falta definir citas esperadas o tasa de conversión en Recetario → Rendimiento. Su meta no se calcula automáticamente."
                   >
                     Sin configurar
@@ -92,7 +92,7 @@ export function WeightDistributor({ activities, activeScenario }: WeightDistribu
                 <Badge
                   variant="outline"
                   className={cn(
-                    'shrink-0 text-[10px]',
+                    'shrink-0 text-xs',
                     act.status === 'active'
                       ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
                       : 'border-border bg-muted/30 text-muted-foreground',
@@ -141,7 +141,7 @@ export function WeightDistributor({ activities, activeScenario }: WeightDistribu
         <div className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-4 py-3 w-fit">
           <FlaskConical className="h-4 w-4 text-muted-foreground shrink-0" />
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Recetario activo</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Recetario activo</p>
             <p className="text-sm font-semibold text-foreground mt-0.5">
               {activeScenario?.name ?? <span className="text-muted-foreground italic">Sin recetario activo</span>}
             </p>

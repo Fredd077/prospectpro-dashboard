@@ -85,7 +85,7 @@ export function CheckinActivityRow({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium truncate">{activity.name}</span>
           {isWeekly && (
-            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-muted text-muted-foreground">
+            <span className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide bg-muted text-muted-foreground">
               SEMANAL
             </span>
           )}
@@ -106,7 +106,7 @@ export function CheckinActivityRow({
         </div>
 
         {/* Sub-label */}
-        <p className="mt-1 text-[11px] text-muted-foreground">
+        <p className="mt-1 text-xs text-muted-foreground">
           {isWeekly ? (
             <>Esta semana: <span className="tabular-nums text-foreground font-medium">{weeklyTotal}</span> de <span className="tabular-nums">{weeklyGoal}</span></>
           ) : (
