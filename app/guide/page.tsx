@@ -37,8 +37,21 @@ const SECTIONS: Record<Tab, Section[]> = {
       tip: 'Si tu cuenta lleva más de 24h en revisión, escríbenos por WhatsApp.',
     },
     {
+      icon: '🧪',
+      title: 'Paso 2 — Crea tu Recetario comercial',
+      steps: [
+        { label: 'Ve a "Recetario" en el menú lateral.', detail: 'El recetario es tu fórmula de prospección: define cuántas actividades de cada tipo debes ejecutar para alcanzar tu cuota de ingresos.' },
+        { label: 'Crear con IA (opción por defecto):', detail: 'Describe tu proceso de ventas en tus propias palabras, en un chat guiado. La IA te pregunta una cosa a la vez — cómo se llaman las etapas de tu proceso, qué porcentaje avanza de una etapa a la siguiente, tu meta de ingresos mensual, tu ticket promedio y tus días hábiles al mes. Al final te muestra un resumen y, cuando confirmas, se guarda automáticamente.' },
+        { label: 'Crear manual (alternativa):', detail: 'Si prefieres escribir tú mismo cada etapa y cada tasa de conversión, sin el chat: nombre del escenario (ej. "Q3 2026"), meta mensual de ingresos, ticket promedio y porcentaje OUTBOUND/INBOUND.' },
+        'Cualquiera de las dos formas define lo mismo al final: las etapas de tu embudo y la tasa de conversión entre cada una. Con eso, ProspectPro calcula hacia atrás cuántos cierres, citas y actividades necesitas por semana.',
+        'Activa el escenario. Solo puede haber uno activo a la vez.',
+        { label: 'Explora la pestaña "Rendimiento" dentro del escenario.', detail: 'Muestra en tiempo real si tus actividades reales están generando las reuniones y cierres necesarios para cumplir la meta. Es el puente entre tu actividad diaria y tu pipeline real.' },
+      ],
+      tip: 'El recetario es tu fórmula. Si la sigues cada semana, la cuota se cumple matemáticamente.',
+    },
+    {
       icon: '🎯',
-      title: 'Paso 2 — Define tus Actividades',
+      title: 'Paso 3 — Define tus Actividades',
       steps: [
         { label: 'Ve a "Actividades" en el menú lateral.', detail: 'Las actividades son los tipos de prospección que realizas: llamadas frías, DMs de LinkedIn, networking, referidos, leads, etc.' },
         'Crea cada actividad con: nombre, canal, tipo (OUTBOUND o INBOUND) y metas diarias, semanales y mensuales.',
@@ -47,18 +60,6 @@ const SECTIONS: Record<Tab, Section[]> = {
         'Solo las actividades en estado "Activo" se cuentan en el dashboard y el check-in.',
       ],
       tip: 'Entre más precisas sean las tasas de conversión, más útil será el análisis de rendimiento.',
-    },
-    {
-      icon: '🧪',
-      title: 'Paso 3 — Crea tu Recetario comercial',
-      steps: [
-        { label: 'Ve a "Recetario" en el menú lateral.', detail: 'El recetario es tu fórmula de prospección: define cuántas actividades de cada tipo debes ejecutar para alcanzar tu cuota de ingresos.' },
-        'Crea un escenario con nombre (ej. "Q3 2026"), meta mensual de ingresos, ticket promedio y porcentaje OUTBOUND/INBOUND.',
-        'ProspectPro calculará automáticamente cuántos cierres, citas y actividades necesitas por semana.',
-        'Activa el escenario. Solo puede haber uno activo a la vez.',
-        { label: 'Explora la pestaña "Rendimiento" dentro del escenario.', detail: 'Muestra en tiempo real si tus actividades reales están generando las reuniones y cierres necesarios para cumplir la meta. Es el puente entre tu actividad diaria y tu pipeline real.' },
-      ],
-      tip: 'El recetario es tu fórmula. Si la sigues cada semana, la cuota se cumple matemáticamente.',
     },
     {
       icon: '✅',
