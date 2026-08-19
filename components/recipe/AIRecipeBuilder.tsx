@@ -9,8 +9,22 @@ interface Message {
   content: string
 }
 
+// Espejo de SaveRecipeData en app/api/ai-recipe/route.ts — lo que el backend
+// devuelve junto al id cuando guarda el recetario.
+export interface SavedRecipeData {
+  name: string
+  monthly_revenue_goal: number
+  average_ticket: number
+  working_days: number
+  outbound_pct: number
+  funnel_stages: string[]
+  outbound_rates: number[]
+  inbound_rates: number[]
+}
+
 interface SavedRecipe {
   id: string
+  data: SavedRecipeData
 }
 
 const INITIAL_MESSAGE: Message = {
@@ -19,7 +33,10 @@ const INITIAL_MESSAGE: Message = {
 }
 
 interface AIRecipeBuilderProps {
-  onSaved?: () => void
+  // Recibe el recetario recién guardado (id + los datos que el usuario dio en
+  // la conversación) — el onboarding lo necesita para armar el paso de
+  // Actividades sin volver a consultar la base de datos.
+  onSaved?: (recipe: SavedRecipe) => void
 }
 
 export function AIRecipeBuilder({ onSaved }: AIRecipeBuilderProps) {
@@ -41,15 +58,20 @@ export function AIRecipeBuilder({ onSaved }: AIRecipeBuilderProps) {
 
   useEffect(() => {
     if (savedRecipe && onSaved) {
-      const timer = setTimeout(() => onSaved(), 2500)
+      const timer = setTimeout(() => onSaved(savedRecipe), 2500)
       return () => clearTimeout(timer)
     }
   }, [savedRecipe, onSaved])
 
+  // Descarta el último burbujazo del asistente antes de reintentar. Antes solo
+  // borraba si estaba vacío — cuando el backend corta una respuesta a mitad de
+  // camino (JSON incompleto, resumen cortado) y recién ahí señala el error, ya
+  // hay texto a medias en pantalla. Si no lo borramos, el reintento agrega una
+  // respuesta nueva completa DEBAJO del texto roto en vez de reemplazarlo.
   function removePlaceholder() {
     setMessages((prev) => {
       const last = prev[prev.length - 1]
-      if (last.role === 'assistant' && last.content === '') return prev.slice(0, -1)
+      if (last.role === 'assistant') return prev.slice(0, -1)
       return prev
     })
   }
@@ -120,8 +142,8 @@ export function AIRecipeBuilder({ onSaved }: AIRecipeBuilderProps) {
               })
             }
 
-            if (parsed.action === 'saved' && parsed.id) {
-              setSavedRecipe({ id: parsed.id })
+            if (parsed.action === 'saved' && parsed.id && parsed.data) {
+              setSavedRecipe({ id: parsed.id, data: parsed.data })
             }
           } catch {
             // skip malformed SSE lines
@@ -284,7 +306,7 @@ export function AIRecipeBuilder({ onSaved }: AIRecipeBuilderProps) {
               </ol>
               {onSaved && (
                 <button
-                  onClick={onSaved}
+                  onClick={() => onSaved(savedRecipe)}
                   className="w-full rounded-md bg-emerald-500/20 border border-emerald-500/30 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/30 transition-colors"
                 >
                   Continuar → Configurar actividades

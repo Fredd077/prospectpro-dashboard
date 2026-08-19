@@ -116,21 +116,23 @@ async function saveRecipeToDb(data: SaveRecipeData): Promise<string> {
   return scenario.id
 }
 
-// Detect if the last user message is a confirmation to save or a summary request
-// — those turns need more tokens for the full recipe summary + JSON payload
-function needsLongResponse(messages: Message[]): boolean {
-  const lastUser = [...messages].reverse().find((m) => m.role === 'user')
-  if (!lastUser) return false
-  const text = lastUser.content.toLowerCase()
-  const confirmWords = ['sí', 'si', 'guardar', 'guarda', 'confirmo', 'confirmar', 'dale', 'ok', 'listo', 'yes', 'claro', 'adelante']
-  return confirmWords.some((w) => text.includes(w)) || messages.length <= 2
-}
+// Presupuesto de tokens FIJO para todos los turnos. Antes se decidía con una lista
+// cerrada de "palabras de confirmación" (sí/dale/ok/...) — comprobado en producción
+// que es frágil: cualquier confirmación natural que no esté en la lista ("correcto",
+// "procede", "me parece bien") deja el turno con solo 200 tokens, que no alcanzan ni
+// para el resumen del paso 9 ni para el JSON del paso 10. Peor: una vez que el resumen
+// se corta, el modelo intenta "recalcular antes de mostrar el resumen final" en cada
+// turno siguiente, y ese intento TAMBIÉN se corta — la conversación queda atascada sin
+// ninguna señal de error. max_tokens es solo un techo, no se cobra por lo que no se usa
+// (los turnos normales de una pregunta usan 20-50 tokens con este mismo techo), así que
+// no hay costo por subirlo — solo evita el corte.
+const MAX_TOKENS = 2048
 
 export async function POST(req: Request) {
   const { messages }: { messages: Message[] } = await req.json()
 
   const encoder = new TextEncoder()
-  const maxTokens = needsLongResponse(messages) ? 1024 : 200
+  const maxTokens = MAX_TOKENS
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -164,27 +166,70 @@ export async function POST(req: Request) {
         }
         clearInterval(ping)
 
-        // Detect save_recipe JSON action in the full response
-        const jsonMatch = fullText.match(/\{"action"\s*:\s*"save_recipe"[^}]*\}(?:\s*\})?/)
-        if (jsonMatch) {
-          try {
-            // Extract the full JSON object — it may be nested
-            const jsonStart = fullText.indexOf('{"action"')
-            const jsonStr = fullText.substring(jsonStart)
-            // Find balanced closing brace
-            let depth = 0, end = 0
-            for (let i = 0; i < jsonStr.length; i++) {
-              if (jsonStr[i] === '{') depth++
-              else if (jsonStr[i] === '}') { depth--; if (depth === 0) { end = i + 1; break } }
-            }
-            const parsed = JSON.parse(jsonStr.substring(0, end))
-            if (parsed.action === 'save_recipe' && parsed.data) {
-              const id = await saveRecipeToDb(parsed.data as SaveRecipeData)
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ action: 'saved', id })}\n\n`))
-            }
-          } catch {
-            // JSON parse failed — ignore, don't block the stream
+        // stop_reason del mensaje completo. Con MAX_TOKENS=2048 esto NUNCA debería
+        // salir 'max_tokens' — si sale, el modelo se extendió de forma anómala
+        // (el system prompt limita a 3 líneas por turno, 10 en el resumen) y lo que
+        // se envió al cliente está incompleto a mitad de frase o de JSON.
+        const finalMessage = await claudeStream.finalMessage()
+        const wasTruncated = finalMessage.stop_reason === 'max_tokens'
+
+        // Detect save_recipe JSON action in the full response — el chequeo previo
+        // era una regex frágil (`[^}]*\}` no cruza el objeto anidado "data"); alcanza
+        // con confirmar que el marcador está presente, el parseo real usa el escaneo
+        // de llaves balanceadas de abajo.
+        //
+        // Tres desenlaces posibles, y hay que distinguirlos porque cada uno necesita
+        // un mensaje distinto: (1) el JSON nunca cerró → cortado por tokens, un
+        // reintento con una generación nueva puede salir bien; (2) el JSON cerró pero
+        // guardar en la base falló (auth, DB) → reintentar la MISMA respuesta no
+        // arregla eso, hay que decirlo distinto; (3) todo salió bien.
+        let jsonIncomplete = false
+        let saveFailed = false
+        if (fullText.includes('{"action"')) {
+          const jsonStart = fullText.indexOf('{"action"')
+          const jsonStr = fullText.substring(jsonStart)
+          // Find balanced closing brace
+          let depth = 0, end = 0
+          for (let i = 0; i < jsonStr.length; i++) {
+            if (jsonStr[i] === '{') depth++
+            else if (jsonStr[i] === '}') { depth--; if (depth === 0) { end = i + 1; break } }
           }
+          if (end === 0) {
+            // El objeto se abrió pero nunca cerró — cortado a mitad de JSON.
+            jsonIncomplete = true
+          } else {
+            try {
+              const parsed = JSON.parse(jsonStr.substring(0, end))
+              if (parsed.action === 'save_recipe' && parsed.data) {
+                try {
+                  const id = await saveRecipeToDb(parsed.data as SaveRecipeData)
+                  // Se devuelve también `data` (no solo el id): el onboarding la
+                  // necesita para armar el paso de Actividades sin tener que releer
+                  // el escenario recién creado.
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ action: 'saved', id, data: parsed.data })}\n\n`))
+                } catch (saveErr) {
+                  console.error('[ai-recipe] JSON válido pero saveRecipeToDb falló:', saveErr)
+                  saveFailed = true
+                }
+              }
+            } catch (parseErr) {
+              // El JSON parece completo (llaves balanceadas) pero no es válido —
+              // no debería pasar con el modelo, pero lo dejamos visible en logs
+              // para poder diagnosticarlo si vuelve a ocurrir.
+              console.error('[ai-recipe] JSON balanceado pero JSON.parse falló:', parseErr, jsonStr.substring(0, end))
+              jsonIncomplete = true
+            }
+          }
+        }
+
+        // Señal de fallo visible. Antes esto se tragaba en silencio — el usuario se
+        // quedaba con un mensaje a medias sin ningún error ni reintento. Ahora se
+        // trata igual que un error de red: el frontend ya sabe reintentar
+        // automáticamente (hasta 3 veces) cuando recibe `error`.
+        if (saveFailed) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Tu recetario se calculó bien pero no lo pude guardar. Reintentando...' })}\n\n`))
+        } else if (wasTruncated || jsonIncomplete) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Se me cortó la respuesta, dame un segundo para reintentar...' })}\n\n`))
         }
 
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
