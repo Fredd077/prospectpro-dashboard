@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { ArrowRight, Sparkles, SlidersHorizontal } from 'lucide-react'
 import { FunnelStageEditor } from '@/components/recipe/FunnelStageEditor'
-import { AIRecipeBuilder } from '@/components/recipe/AIRecipeBuilder'
+import { AIRecipeBuilder, type SavedRecipeData } from '@/components/recipe/AIRecipeBuilder'
 import {
   calcRecipe,
   adjustRates,
@@ -23,7 +23,10 @@ interface StepRecipeProps {
     inbound_rates: number[]
   }) => void
   saving: boolean
-  onNext?: () => void
+  // Se dispara cuando el modo IA termina de guardar — trae el id del escenario
+  // recién creado y los datos que el usuario dio en la conversación, para que
+  // el wizard arme el paso de Actividades sin volver a consultar la base.
+  onNext?: (recipe: { id: string; data: SavedRecipeData }) => void
 }
 
 function fmt(n: number) {

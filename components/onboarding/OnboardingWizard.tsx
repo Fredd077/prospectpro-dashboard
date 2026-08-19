@@ -6,6 +6,8 @@ import { StepWelcome } from './StepWelcome'
 import { StepRecipe } from './StepRecipe'
 import { StepActivities, type OnboardingActivityData } from './StepActivities'
 import { saveOnboardingRecipe, saveOnboardingActivities, saveOnboardingCompany } from '@/lib/actions/onboarding'
+import { activateScenario } from '@/lib/actions/activities'
+import type { SavedRecipeData } from '@/components/recipe/AIRecipeBuilder'
 
 export type WizardStep = 1 | 2 | 3
 
@@ -17,6 +19,9 @@ interface RecipeData {
   funnel_stages: string[]
   outbound_rates: number[]
   inbound_rates: number[]
+  // Solo lo trae el modo IA (el modo manual no pregunta días hábiles y usa 20
+  // siempre, igual que antes). StepActivities cae a 20 si no está.
+  working_days_per_month?: number
 }
 
 export function OnboardingWizard({ userName }: { userName: string | null }) {
@@ -36,7 +41,32 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
     setStep(2)
   }
 
-  function handleAIRecipeDone() {
+  async function handleAIRecipeDone(recipe: { id: string; data: SavedRecipeData }) {
+    // Antes esto solo avanzaba el paso — recipeData se quedaba en null porque
+    // nada lo llenaba en el camino de IA. Resultado: StepActivities calculaba
+    // typeTotal=0 para outbound/inbound y guardaba TODAS las metas en cero.
+    // Además el escenario quedaba is_active=false (saveRecipeToDb en
+    // ai-recipe/route.ts lo crea inactivo a propósito, porque esa misma función
+    // la usa /recipe para escenarios adicionales que NO deben reemplazar el
+    // activo). En onboarding es el primer y único escenario, así que sí debe
+    // quedar activo — igual que ya hace el camino manual.
+    setRecipeData({
+      name:                   recipe.data.name,
+      monthly_revenue_goal:   recipe.data.monthly_revenue_goal,
+      average_ticket:         recipe.data.average_ticket,
+      outbound_pct:           recipe.data.outbound_pct,
+      funnel_stages:          recipe.data.funnel_stages,
+      outbound_rates:         recipe.data.outbound_rates,
+      inbound_rates:          recipe.data.inbound_rates,
+      working_days_per_month: recipe.data.working_days,
+    })
+    try {
+      await activateScenario(recipe.id)
+    } catch (e) {
+      // No bloqueamos el onboarding por esto — el usuario puede activar el
+      // escenario manualmente desde /recipe si hace falta.
+      console.error('[onboarding] activateScenario failed:', e)
+    }
     setStep(3)
   }
 

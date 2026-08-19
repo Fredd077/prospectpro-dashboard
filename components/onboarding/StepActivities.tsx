@@ -43,6 +43,7 @@ interface RecipeData {
   funnel_stages: string[]
   outbound_rates: number[]
   inbound_rates: number[]
+  working_days_per_month?: number
 }
 
 export interface OnboardingActivityData {
@@ -61,22 +62,28 @@ interface StepActivitiesProps {
   recipeData?: RecipeData | null
 }
 
+// Misma fórmula que updateUserActivityGoal / recalcActivityGoalsFromPerformance
+// (lib/actions/team.ts, lib/queries/activity-goals.ts) — antes usaba /4 fijo,
+// que descuadra weekly_goal contra el resto de la app en cualquier escenario
+// con working_days_per_month != 20 (weekly terminaba siendo un ~9% más chico
+// de lo que debía para 22 días hábiles, por ejemplo).
 function calcGoals(weight: number, typeTotal: number, workingDays = 20) {
   const monthly = Math.ceil(typeTotal * weight / 100)
-  const weekly  = Math.ceil(monthly / 4)
+  const weekly  = Math.ceil(monthly / (workingDays / 5))
   const daily   = Math.ceil(monthly / workingDays)
   return { monthly, weekly, daily }
 }
 
 export function StepActivities({ onSave, saving, recipeData }: StepActivitiesProps) {
   const [weights, setWeights] = useState<Record<string, number>>(INITIAL_WEIGHTS)
+  const workingDays = recipeData?.working_days_per_month ?? 20
 
   const recipe = recipeData
     ? calcRecipe({
         monthly_revenue_goal:   recipeData.monthly_revenue_goal,
         average_ticket:         recipeData.average_ticket,
         outbound_pct:           recipeData.outbound_pct,
-        working_days_per_month: 20,
+        working_days_per_month: workingDays,
         funnel_stages:  recipeData.funnel_stages  ?? DEFAULT_FUNNEL_STAGES,
         outbound_rates: recipeData.outbound_rates ?? DEFAULT_OUTBOUND_RATES,
         inbound_rates:  recipeData.inbound_rates  ?? DEFAULT_INBOUND_RATES,
@@ -103,7 +110,7 @@ export function StepActivities({ onSave, saving, recipeData }: StepActivitiesPro
     const activities: OnboardingActivityData[] = DEFAULT_ACTIVITIES.map((act) => {
       const w = weights[act.name] ?? 0
       const typeTotal = act.type === 'OUTBOUND' ? outboundTotal : inboundTotal
-      const { monthly, weekly, daily } = calcGoals(w, typeTotal)
+      const { monthly, weekly, daily } = calcGoals(w, typeTotal, workingDays)
       // El reparto porcentual sigue siendo un recurso LOCAL de este paso para
       // proponer metas iniciales; ya no se persiste en activities.weight.
       // A partir del onboarding, las metas se recalculan desde
@@ -162,7 +169,7 @@ export function StepActivities({ onSave, saving, recipeData }: StepActivitiesPro
         <div className="space-y-1.5">
           {list.map((act) => {
             const w = weights[act.name] ?? 0
-            const { monthly } = calcGoals(w, typeTotal)
+            const { monthly } = calcGoals(w, typeTotal, workingDays)
             return (
               <div key={act.name} className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2">
                 <div className="flex-1 min-w-0">
