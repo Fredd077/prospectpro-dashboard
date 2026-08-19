@@ -109,7 +109,13 @@ async function saveRecipeToDb(data: SaveRecipeData): Promise<string> {
     activities_needed_monthly: result.activities_needed_monthly,
     activities_needed_weekly:  result.activities_needed_weekly,
     activities_needed_daily:   result.activities_needed_daily,
-    closes_needed_monthly:     result.closes_needed_monthly,
+    // closes_needed_monthly NO va acá: la migración 006_funnel_stages.sql
+    // eliminó esa columna de recipe_scenarios hace tiempo (DROP COLUMN IF
+    // EXISTS), pero este insert nunca se actualizó. Resultado: TODO guardado
+    // de Recetario vía IA fallaba siempre con "Could not find the
+    // 'closes_needed_monthly' column ... in the schema cache" — sin importar
+    // tokens ni redacción de la confirmación. Lo encontré recién, probando
+    // el onboarding de punta a punta con un usuario real.
   }).select('id').single()
 
   if (error) throw new Error(error.message)
