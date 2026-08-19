@@ -105,7 +105,7 @@ function FunnelChart({ entries }: { entries: PipelineSimple[] }) {
       {/* Reagendar — fuera del embudo, solo informativo */}
       <div className="flex items-center justify-center gap-2 border-t border-border pt-3">
         <span className="h-2 w-2 rounded-full bg-rose-400/70" />
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           Reagendar: <span className="font-bold tabular-nums text-rose-400">{reagendar}</span>{' '}
           {reagendar === 1 ? 'cita reprogramada' : 'citas reprogramadas'} — informativo, fuera del embudo
         </span>
@@ -215,7 +215,7 @@ export function PipelineSimpleCharts({ entries, period, activeScenario }: Props)
             <button
               key={value}
               onClick={() => setTab(value)}
-              className={`px-3 py-1 text-[10px] font-semibold transition-colors border-r border-border last:border-r-0 ${
+              className={`px-3 py-1 text-xs font-semibold transition-colors border-r border-border last:border-r-0 ${
                 tab === value ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted/20'
               }`}
             >

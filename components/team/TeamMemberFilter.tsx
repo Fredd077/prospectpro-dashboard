@@ -51,7 +51,7 @@ export function TeamMemberFilter({ members, selectedIds }: TeamMemberFilterProps
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider shrink-0">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground uppercase tracking-wider shrink-0">
         <Users className="h-3 w-3" />
         Miembros:
       </div>
@@ -60,7 +60,7 @@ export function TeamMemberFilter({ members, selectedIds }: TeamMemberFilterProps
       <button
         onClick={toggleAll}
         className={cn(
-          'rounded-full px-2.5 py-1 text-[10px] font-semibold border transition-colors',
+          'rounded-full px-2.5 py-1 text-xs font-semibold border transition-colors',
           isAll
             ? 'bg-primary/15 text-primary border-primary/30'
             : 'text-muted-foreground border-border hover:border-muted-foreground/40'
@@ -77,7 +77,7 @@ export function TeamMemberFilter({ members, selectedIds }: TeamMemberFilterProps
             key={m.id}
             onClick={() => toggleMember(m.id)}
             className={cn(
-              'rounded-full px-2.5 py-1 text-[10px] font-semibold border transition-colors',
+              'rounded-full px-2.5 py-1 text-xs font-semibold border transition-colors',
               isSelected
                 ? 'bg-primary/15 text-primary border-primary/30'
                 : 'text-muted-foreground border-border hover:border-muted-foreground/40'

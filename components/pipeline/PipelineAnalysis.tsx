@@ -19,7 +19,7 @@ function pct(num: number, den: number) {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
+    <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
       {children}
     </h3>
   )
@@ -36,7 +36,7 @@ function StatRow({ label, value, sub, color = 'text-foreground' }: {
       <span className="text-xs text-muted-foreground">{label}</span>
       <div className="text-right">
         <span className={`text-sm font-bold tabular-nums ${color}`}>{value}</span>
-        {sub && <p className="text-[10px] text-muted-foreground/60">{sub}</p>}
+        {sub && <p className="text-xs text-muted-foreground/60">{sub}</p>}
       </div>
     </div>
   )
@@ -96,14 +96,14 @@ function GoalBar({ value, goal }: { value: number; goal: number }) {
   const textColor = progress >= 100 ? 'text-emerald-400' : progress >= 60 ? 'text-amber-400' : 'text-primary'
   return (
     <div className="space-y-1.5">
-      <div className="flex justify-between text-[10px]">
+      <div className="flex justify-between text-xs">
         <span className="text-muted-foreground">Progreso hacia meta</span>
         <span className={`font-bold tabular-nums ${textColor}`}>{progress}%</span>
       </div>
       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${progress}%` }} />
       </div>
-      <div className="flex justify-between text-[10px] text-muted-foreground/60">
+      <div className="flex justify-between text-xs text-muted-foreground/60">
         <span>{fmtUSD(value)} ganado</span>
         <span>Meta: {fmtUSD(goal)}</span>
       </div>

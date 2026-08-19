@@ -59,7 +59,7 @@ function GroupTotalRow({ rows }: GroupTotalRowProps) {
   return (
     <tr className="border-t border-border/60 bg-muted/10">
       <td className="py-1.5 pr-2">
-        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Total</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total</p>
       </td>
       <td className="py-1.5 px-2 text-right tabular-nums text-xs font-semibold text-foreground">{totalEsp || '—'}</td>
       <td className="py-1.5 px-2 text-right tabular-nums text-xs font-semibold text-foreground">{totalReales}</td>
@@ -105,14 +105,14 @@ export function ActivityPerformanceSummary({ rows }: ActivityPerformanceSummaryP
     <div className="rounded-lg border border-border bg-card overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/50">
         <h2 className="text-xs font-semibold text-foreground">Rendimiento de actividades</h2>
-        <Link href="/recipe" className="text-[10px] text-primary hover:text-primary/80 transition-colors">
+        <Link href="/recipe" className="text-xs text-primary hover:text-primary/80 transition-colors">
           Configurar →
         </Link>
       </div>
 
       {noConvRates && (
         <div className="px-4 py-2 bg-amber-400/5 border-b border-amber-400/20">
-          <p className="text-[10px] text-amber-400">
+          <p className="text-xs text-amber-400">
             Configura las tasas de conversión y reuniones esperadas en el{' '}
             <Link href="/recipe" className="underline">Recetario</Link>{' '}
             para ver la eficiencia real de cada canal.
@@ -150,7 +150,7 @@ export function ActivityPerformanceSummary({ rows }: ActivityPerformanceSummaryP
                     <td className="py-2 pr-2 pl-4">
                       <p className="text-xs text-foreground truncate max-w-[160px]">{row.name}</p>
                       {row.conversionRatePct > 0 && (
-                        <p className="text-[10px] text-cyan-400/70">{row.conversionRatePct}% conv.</p>
+                        <p className="text-xs text-cyan-400/70">{row.conversionRatePct}% conv.</p>
                       )}
                     </td>
                     <td className="py-2 px-2 text-right tabular-nums">
@@ -188,7 +188,7 @@ export function ActivityPerformanceSummary({ rows }: ActivityPerformanceSummaryP
                     <td className="py-2 pr-2 pl-4">
                       <p className="text-xs text-foreground truncate max-w-[160px]">{row.name}</p>
                       {row.conversionRatePct > 0 && (
-                        <p className="text-[10px] text-violet-400/70">{row.conversionRatePct}% conv.</p>
+                        <p className="text-xs text-violet-400/70">{row.conversionRatePct}% conv.</p>
                       )}
                     </td>
                     <td className="py-2 px-2 text-right tabular-nums">

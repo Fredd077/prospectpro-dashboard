@@ -73,7 +73,7 @@ export function TeamFilters({ companies, currentCompany, currentStatus, currentS
             key={value}
             onClick={() => update('status', value === 'all' ? '' : value)}
             className={cn(
-              'rounded-full px-2.5 py-1 text-[10px] font-semibold border transition-colors',
+              'rounded-full px-2.5 py-1 text-xs font-semibold border transition-colors',
               currentStatus === value || (value === 'all' && !currentStatus)
                 ? 'bg-primary/15 text-primary border-primary/30'
                 : 'text-muted-foreground border-border hover:border-muted-foreground/40'
@@ -86,7 +86,7 @@ export function TeamFilters({ companies, currentCompany, currentStatus, currentS
 
       {/* Sort */}
       <div className="flex items-center gap-1.5 ml-auto">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Ordenar:</span>
+        <span className="text-xs text-muted-foreground uppercase tracking-wider">Ordenar:</span>
         <select
           value={currentSort}
           onChange={(e) => update('sort', e.target.value)}

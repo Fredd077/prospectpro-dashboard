@@ -52,7 +52,7 @@ function ActivityRow({ label, actual, target }: { label: string; actual: number;
         <span className="tabular-nums font-medium text-foreground">
           {actual}
           <span className="ml-1 font-normal text-muted-foreground">/ {target}</span>
-          <span className={cn('ml-1.5 text-[10px]', pctColor)}>{Math.round(pct)}%</span>
+          <span className={cn('ml-1.5 text-xs', pctColor)}>{Math.round(pct)}%</span>
         </span>
       </div>
       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
@@ -102,8 +102,8 @@ export function RecetarioFunnelCard({
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/50">
         <FlaskConical className="h-4 w-4 shrink-0 text-cyan-400" />
         <span className="text-xs font-semibold text-foreground">Recetario</span>
-        <span className="text-[11px] text-muted-foreground truncate">{validation.scenario.name}</span>
-        <Link href="/recipe" className="ml-auto text-[10px] text-primary hover:text-primary/80 transition-colors shrink-0">
+        <span className="text-xs text-muted-foreground truncate">{validation.scenario.name}</span>
+        <Link href="/recipe" className="ml-auto text-xs text-primary hover:text-primary/80 transition-colors shrink-0">
           Ver →
         </Link>
       </div>
@@ -113,24 +113,24 @@ export function RecetarioFunnelCard({
         {citasHasData && (
           <div className={cn('rounded-md border px-3 py-2.5 space-y-2', cfg.badge)}>
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Alineación de citas</p>
-              <span className={cn('inline-flex items-center gap-1 text-[10px] font-semibold rounded-full border px-2 py-0.5', cfg.badge)}>
+              <p className="text-xs font-bold uppercase tracking-widest opacity-70">Alineación de citas</p>
+              <span className={cn('inline-flex items-center gap-1 text-xs font-semibold rounded-full border px-2 py-0.5', cfg.badge)}>
                 <StatusIcon className="h-3 w-3" />{cfg.label}
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
-                <p className="text-[10px] opacity-60 mb-0.5">Citas proyectadas</p>
+                <p className="text-xs opacity-60 mb-0.5">Citas proyectadas</p>
                 <p className="font-mono font-bold text-sm">{citasProyectadas.toFixed(1)}</p>
                 <p className="text-[9px] opacity-40 mt-0.5">según reuniones esperadas</p>
               </div>
               <div>
-                <p className="text-[10px] opacity-60 mb-0.5">Citas requeridas</p>
+                <p className="text-xs opacity-60 mb-0.5">Citas requeridas</p>
                 <p className="font-mono font-bold text-sm">{citasRequeridas.toFixed(1)}</p>
                 <p className="text-[9px] opacity-40 mt-0.5">según recetario</p>
               </div>
               <div>
-                <p className="text-[10px] opacity-60 mb-0.5">{gap < 0 ? 'Faltan' : 'Excedente'}</p>
+                <p className="text-xs opacity-60 mb-0.5">{gap < 0 ? 'Faltan' : 'Excedente'}</p>
                 <p className={cn('font-mono font-bold text-sm', gap >= 0 ? 'text-emerald-400' : 'text-red-400')}>
                   {gap >= 0 ? `+${gap}` : gap}
                 </p>
@@ -140,7 +140,7 @@ export function RecetarioFunnelCard({
         )}
         {!citasHasData && (
           <div className="rounded-md border border-border/40 px-3 py-2.5 text-center space-y-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Alineación de citas</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Alineación de citas</p>
             <p className="text-xs text-muted-foreground">Configura las reuniones esperadas por actividad en el{' '}
               <Link href="/recipe" className="text-primary hover:underline">Recetario</Link> para ver este análisis.
             </p>
@@ -154,10 +154,10 @@ export function RecetarioFunnelCard({
             onClick={() => setActCollapsed(v => !v)}
             className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/30 transition-colors"
           >
-            <span className="text-[11px] font-medium text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Actividades {PERIOD_LABEL[period]}
             </span>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {actualTotal} / {targetTotal}
             </span>
           </button>
@@ -166,7 +166,7 @@ export function RecetarioFunnelCard({
               <ActivityRow label="Outbound" actual={actualOutbound} target={targetOut} />
               <ActivityRow label="Inbound"  actual={actualInbound}  target={targetIn} />
               <ActivityRow label="Total"    actual={actualTotal}     target={targetTotal} />
-              <p className="text-[10px] text-muted-foreground/60">vs target semanal del recetario × {mult}</p>
+              <p className="text-xs text-muted-foreground/60">vs target semanal del recetario × {mult}</p>
             </div>
           )}
         </div>
@@ -174,7 +174,7 @@ export function RecetarioFunnelCard({
         {/* Section C: Pipeline del período */}
         {hasPipeline && (
           <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
               Pipeline del período
             </p>
             <div className="grid grid-cols-5 gap-1 text-center">

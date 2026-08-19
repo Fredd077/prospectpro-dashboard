@@ -94,7 +94,7 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
         {STAGES.map((s, i) => (
           <div key={s.key} className="px-2 py-3 text-center">
             <p className={`text-xl font-bold tabular-nums ${s.color}`}>{stageCounts[i]}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{s.label}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{s.label}</p>
           </div>
         ))}
       </div>
@@ -103,7 +103,7 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
 
         {/* ── Revenue ── */}
         <div className="space-y-3">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">Revenue</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Revenue</p>
           {monthlyRevenueGoal > 0 && (
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs">
@@ -123,7 +123,7 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
               { label: 'Ticket prom.', value: avgTicket > 0 ? fmtUSD(avgTicket) : '—', color: 'text-foreground' },
             ].map(({ label, value, color, sub }) => (
               <div key={label} className="rounded-md bg-muted/20 p-2 text-center">
-                <p className="text-[10px] text-muted-foreground/60 leading-tight mb-1">{label}</p>
+                <p className="text-xs text-muted-foreground/60 leading-tight mb-1">{label}</p>
                 <p className={`text-xs font-bold tabular-nums ${color}`}>{value}</p>
                 {sub && <p className="text-[9px] text-muted-foreground/40 mt-0.5">{sub}</p>}
               </div>
@@ -133,7 +133,7 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
 
         {/* ── Conversión ── */}
         <div className="space-y-3 border-t border-border/40 pt-4">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">Conversión</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Conversión</p>
 
           {/* Rate cards */}
           <div className="grid grid-cols-3 gap-2">
@@ -143,11 +143,11 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
               { label: 'Tasa ganados',         value: tasaGanado,    hi: 60, lo: 30, num: propGanadas.length + cierres.length, den: propuestas.length + cierres.length },
             ].map(({ label, value, hi, lo, num, den }) => (
               <div key={label} className="rounded-md bg-muted/20 p-2.5 text-center">
-                <p className="text-[10px] text-muted-foreground/60 leading-tight mb-1.5">{label}</p>
+                <p className="text-xs text-muted-foreground/60 leading-tight mb-1.5">{label}</p>
                 <p className={`text-2xl font-bold tabular-nums leading-none ${semColor(value, hi, lo)}`}>
                   {value !== null ? `${value}%` : '—'}
                 </p>
-                <p className="text-[10px] text-muted-foreground/40 mt-1">{num}/{den}</p>
+                <p className="text-xs text-muted-foreground/40 mt-1">{num}/{den}</p>
               </div>
             ))}
           </div>
@@ -160,7 +160,7 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
               { label: 'Perdidas',  count: propPerdidas.length,                  color: 'text-red-400',     bg: 'bg-red-400/5     border-red-400/20'      },
             ].map(({ label, count, color, bg }) => (
               <div key={label} className={`rounded-md border px-3 py-2 text-center ${bg}`}>
-                <p className="text-[10px] text-muted-foreground/60 mb-0.5">{label}</p>
+                <p className="text-xs text-muted-foreground/60 mb-0.5">{label}</p>
                 <p className={`text-lg font-bold tabular-nums ${color}`}>{count}</p>
               </div>
             ))}
@@ -170,7 +170,7 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
         {/* ── Por etapa y origen ── */}
         <div className="space-y-2 border-t border-border/40 pt-4">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">Por etapa y origen</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Por etapa y origen</p>
             <p className="text-xs text-muted-foreground/40 tabular-nums">{rows.length} total</p>
           </div>
           {[

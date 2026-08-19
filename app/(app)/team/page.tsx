@@ -294,7 +294,7 @@ export default async function TeamPage({ searchParams }: Props) {
             <div key={label} className={`rounded-lg border bg-card p-4 border-t-2 ${color}`}>
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
                   <p className="mt-1.5 text-2xl font-bold font-data text-foreground">{value}</p>
                 </div>
                 <Icon className="h-4 w-4 text-muted-foreground/50 mt-0.5" />
@@ -348,10 +348,10 @@ export default async function TeamPage({ searchParams }: Props) {
                     <p className="text-sm font-semibold text-foreground truncate">
                       {u.full_name ?? u.email}
                     </p>
-                    <p className="text-[11px] text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground truncate">
                       {[u.company, u.email].filter(Boolean).join(' · ')}
                     </p>
-                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
                       {u.lastCheckIn
                         ? `Último check-in: ${formatDistanceToNow(parseISO(u.lastCheckIn), { addSuffix: true, locale: es })}`
                         : 'Sin check-ins recientes'}
@@ -363,7 +363,7 @@ export default async function TeamPage({ searchParams }: Props) {
                 {/* Compliance bar */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-muted-foreground">Cumplimiento semanal</span>
+                    <span className="text-xs text-muted-foreground">Cumplimiento semanal</span>
                     <span className={cn('text-sm font-bold font-data', complianceColor(u.weeklyCompliance))}>
                       {u.weeklyCompliance}%
                     </span>
@@ -394,7 +394,7 @@ export default async function TeamPage({ searchParams }: Props) {
                   )}
                   <div className="ml-auto">
                     <span className={cn(
-                      'text-[10px] font-medium',
+                      'text-xs font-medium',
                       u.hasRecipe ? 'text-emerald-400' : 'text-muted-foreground/50'
                     )}>
                       {u.hasRecipe ? '✅ Recetario' : '⚪ Sin recetario'}
@@ -405,7 +405,7 @@ export default async function TeamPage({ searchParams }: Props) {
                 {/* Link */}
                 <Link
                   href={`/team/${u.id}`}
-                  className="flex items-center justify-end gap-1 text-[11px] font-medium text-primary/70 hover:text-primary transition-colors"
+                  className="flex items-center justify-end gap-1 text-xs font-medium text-primary/70 hover:text-primary transition-colors"
                 >
                   Ver perfil
                   <ArrowRight className="h-3 w-3" />

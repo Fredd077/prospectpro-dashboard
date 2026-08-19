@@ -87,7 +87,7 @@ function ToggleGroup<T extends string>({
           type="button"
           onClick={() => onChange(o.value)}
           className={cn(
-            'flex-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border-r border-border last:border-r-0 transition-colors',
+            'flex-1 px-3 py-1.5 text-xs font-bold uppercase tracking-wider border-r border-border last:border-r-0 transition-colors',
             value === o.value ? o.activeClass : 'text-muted-foreground hover:text-foreground hover:bg-muted/20',
           )}
         >
@@ -118,9 +118,9 @@ function MetricCard({
   const c = colorMap[accent]
   return (
     <div className={`rounded-lg border border-border bg-card p-4 border-t-2 ${c.border}`}>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
       <p className={`text-xl font-bold tabular-nums ${c.value}`}>{value}</p>
-      {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
+      {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -194,7 +194,7 @@ function EntryCard({
       {(entry.company_name || entry.prospect_name) && (
         <div>
           {entry.company_name  && <p className="text-xs font-semibold text-foreground truncate">{entry.company_name}</p>}
-          {entry.prospect_name && <p className="text-[10px] text-muted-foreground truncate">{entry.prospect_name}</p>}
+          {entry.prospect_name && <p className="text-xs text-muted-foreground truncate">{entry.prospect_name}</p>}
         </div>
       )}
 
@@ -203,7 +203,7 @@ function EntryCard({
       )}
 
       {entry.notes && (
-        <p className="text-[10px] text-muted-foreground/70 italic line-clamp-2">{entry.notes}</p>
+        <p className="text-xs text-muted-foreground/70 italic line-clamp-2">{entry.notes}</p>
       )}
     </div>
   )
@@ -238,12 +238,12 @@ function FilterBar({
   managerStages: PipelineStageOption[]
   onNewEntry: () => void
 }) {
-  const btnBase = 'px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors'
+  const btnBase = 'px-2.5 py-1 rounded text-xs font-semibold uppercase tracking-wider transition-colors'
   const active  = 'bg-primary/15 text-primary border border-primary/30'
   const inactive = 'text-muted-foreground hover:text-foreground hover:bg-muted/20 border border-transparent'
 
   return (
-    <div className="flex flex-wrap gap-3 mb-4 items-center text-[10px]">
+    <div className="flex flex-wrap gap-3 mb-4 items-center text-xs">
       {/* Origen */}
       <div className="flex items-center gap-1">
         <span className="text-muted-foreground/60 mr-1 uppercase tracking-widest">Origen</span>
@@ -500,7 +500,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   }
 
   const inputClass   = 'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/60'
-  const labelClass   = 'block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1'
+  const labelClass   = 'block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1'
   const cancelBtnClass = 'flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors'
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -541,12 +541,12 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
               {/* Column header */}
               <div className="flex items-center gap-2 mb-2">
                 <span className={cn('text-xs font-bold', col.label)}>{stageShort(stage)}</span>
-                <span className={cn('text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center', col.badge)}>
+                <span className={cn('text-xs font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center', col.badge)}>
                   {stageEntries.length}
                 </span>
                 <button
                   onClick={() => openCreate(stage)}
-                  className="ml-auto text-[10px] text-muted-foreground hover:text-primary transition-colors px-1.5 py-0.5 rounded hover:bg-primary/10"
+                  className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-1.5 py-0.5 rounded hover:bg-primary/10"
                 >
                   + Nuevo
                 </button>
@@ -565,7 +565,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
               ))}
 
               {stageEntries.length === 0 && (
-                <p className="text-[10px] text-muted-foreground/40 text-center py-4 border border-dashed border-border rounded-lg">
+                <p className="text-xs text-muted-foreground/40 text-center py-4 border border-dashed border-border rounded-lg">
                   Sin entradas
                 </p>
               )}
@@ -615,7 +615,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
                     max={today}
                   />
                   {(formStage === 'Cita agendada' || formStage === 'Reagendar') && (
-                    <p className="mt-1 text-[10px] text-muted-foreground/60">Puedes programar una fecha futura.</p>
+                    <p className="mt-1 text-xs text-muted-foreground/60">Puedes programar una fecha futura.</p>
                   )}
                 </div>
               </div>

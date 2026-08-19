@@ -65,7 +65,7 @@ export function DateNavigator({ period, refDate, allowFuture = false }: DateNavi
       {isCurrentOrFuture && (
         <button
           onClick={() => navigate(-1)}
-          className="px-2 py-1 rounded-md border border-border hover:border-primary/40 hover:text-primary transition-colors text-[11px] text-muted-foreground font-medium"
+          className="px-2 py-1 rounded-md border border-border hover:border-primary/40 hover:text-primary transition-colors text-xs text-muted-foreground font-medium"
           title={`Ir a ${QUICK_JUMP_LABEL[period]}`}
         >
           {QUICK_JUMP_LABEL[period]}

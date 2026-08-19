@@ -166,7 +166,7 @@ export function PipelineStagesManager({ stages }: Props) {
             </button>
 
             <h2 className="text-sm font-bold text-foreground mb-1">Gestionar etapas</h2>
-            <p className="text-[10px] text-muted-foreground mb-4">
+            <p className="text-xs text-muted-foreground mb-4">
               Renombra, elimina, agrega o arrastra para reordenar. Solo afecta a tu Pipeline.
             </p>
 
@@ -211,7 +211,7 @@ export function PipelineStagesManager({ stages }: Props) {
                 </div>
               ))}
               {items.length === 0 && (
-                <p className="text-[11px] text-muted-foreground/60 text-center py-3 border border-dashed border-border rounded-md">
+                <p className="text-xs text-muted-foreground/60 text-center py-3 border border-dashed border-border rounded-md">
                   Aún no tienes etapas. Agrega la primera abajo.
                 </p>
               )}

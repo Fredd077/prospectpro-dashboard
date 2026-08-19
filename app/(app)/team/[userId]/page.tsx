@@ -539,17 +539,17 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
               <div className="flex items-start gap-8">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-3xl font-bold tabular-nums text-emerald-400">{dashPipeline.wonCount}</span>
-                  <span className="text-[11px] font-semibold text-emerald-400/60 uppercase tracking-wider">Ganados</span>
+                  <span className="text-xs font-semibold text-emerald-400/60 uppercase tracking-wider">Ganados</span>
                   <span className="text-sm font-semibold tabular-nums text-emerald-400/80">${dashPipeline.wonAmount.toLocaleString('es-CO')}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-3xl font-bold tabular-nums text-amber-400">{dashPipeline.openCount}</span>
-                  <span className="text-[11px] font-semibold text-amber-400/60 uppercase tracking-wider">Abiertos</span>
+                  <span className="text-xs font-semibold text-amber-400/60 uppercase tracking-wider">Abiertos</span>
                   <span className="text-sm font-semibold tabular-nums text-amber-400/80">${dashPipeline.openAmount.toLocaleString('es-CO')}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-3xl font-bold tabular-nums text-red-400">{dashPipeline.lostCount}</span>
-                  <span className="text-[11px] font-semibold text-red-400/60 uppercase tracking-wider">Perdidos</span>
+                  <span className="text-xs font-semibold text-red-400/60 uppercase tracking-wider">Perdidos</span>
                   {dashPipeline.lostAmount > 0 && (
                     <span className="text-sm font-semibold tabular-nums text-red-400/80">${dashPipeline.lostAmount.toLocaleString('es-CO')}</span>
                   )}

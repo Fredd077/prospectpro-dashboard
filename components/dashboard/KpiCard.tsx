@@ -53,7 +53,7 @@ export function KpiCard({
       />
 
       <div className="relative flex items-start justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
           {label}
         </p>
         {icon && (
@@ -76,7 +76,7 @@ export function KpiCard({
       </div>
 
       {description && (
-        <p className="relative mt-2 text-[11px] text-muted-foreground/70">{description}</p>
+        <p className="relative mt-2 text-xs text-muted-foreground/70">{description}</p>
       )}
     </div>
   )

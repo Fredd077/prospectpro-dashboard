@@ -55,12 +55,12 @@ function ActivityRow({ activity, userId, workingDays }: { activity: Activity; us
       <td className="px-4 py-3">
         <div>
           <p className="text-xs font-medium text-foreground">{activity.name}</p>
-          <p className="text-[10px] text-muted-foreground">{activity.channel}</p>
+          <p className="text-xs text-muted-foreground">{activity.channel}</p>
         </div>
       </td>
       <td className="px-4 py-3">
         <span className={cn(
-          'text-[10px] font-medium px-1.5 py-0.5 rounded border',
+          'text-xs font-medium px-1.5 py-0.5 rounded border',
           activity.type === 'OUTBOUND'
             ? 'text-primary border-primary/20 bg-primary/5'
             : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5'
@@ -115,11 +115,11 @@ export function TeamUserGoalEditor({ activities, userId, workingDays }: TeamUser
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30">
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actividad</th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tipo</th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Meta mensual</th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sem.</th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Día</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actividad</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Meta mensual</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sem.</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Día</th>
             </tr>
           </thead>
           <tbody>
@@ -139,7 +139,7 @@ export function TeamUserGoalEditor({ activities, userId, workingDays }: TeamUser
           </ul>
         </details>
       )}
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Haz clic en el lápiz (✏️) junto a la meta mensual para editarla. Sem. y Día se recalculan automáticamente.
       </p>
     </div>
