@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { fmtUSD } from '@/lib/calculations/pipeline'
+import { buildStageNameByRole, type PipelineStageRole } from '@/lib/utils/pipeline-stages'
 
 export interface PipelineMiniRow {
   stage: string
@@ -9,18 +10,27 @@ export interface PipelineMiniRow {
   prospect_type?: string | null
 }
 
+export interface PipelineMiniStage {
+  name: string
+  role: PipelineStageRole | null
+}
+
 interface PipelineMiniCardProps {
   rows: PipelineMiniRow[]
+  stages?: PipelineMiniStage[]
   periodLabel: string
   monthlyRevenueGoal?: number
 }
 
-const STAGES = [
-  { key: 'Cita agendada',                                          label: 'Cita',      color: 'text-blue-400'    },
-  { key: 'Reagendar',                                              label: 'Reagendar', color: 'text-rose-400'    },
-  { key: 'Primera reu ejecutada/Propuesta en preparación',         label: '1ª Reunión',color: 'text-cyan-400'    },
-  { key: 'Propuesta Presentada',                                   label: 'Propuesta', color: 'text-amber-400'   },
-  { key: 'Por facturar/cobrar',                                    label: 'Cierre',    color: 'text-emerald-400' },
+// Columnas fijas por ROL (no por nombre): el usuario puede llamar su etapa
+// como quiera, esta tarjeta siempre pregunta "¿cuál es la etapa con role=cita?"
+// en vez de comparar contra un nombre exacto. Ver buildStageNameByRole.
+const ROLE_STAGE_META: { role: PipelineStageRole; label: string; color: string }[] = [
+  { role: 'cita',      label: 'Cita',       color: 'text-blue-400'    },
+  { role: 'reagendar', label: 'Reagendar',  color: 'text-rose-400'    },
+  { role: 'reunion',   label: '1ª Reunión', color: 'text-cyan-400'    },
+  { role: 'propuesta', label: 'Propuesta',  color: 'text-amber-400'   },
+  { role: 'cierre',    label: 'Cierre',     color: 'text-emerald-400' },
 ]
 
 function pct(num: number, den: number) {
@@ -32,7 +42,14 @@ function semColor(v: number | null, hi: number, lo: number) {
   return v >= hi ? 'text-emerald-400' : v >= lo ? 'text-amber-400' : 'text-red-400'
 }
 
-export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: PipelineMiniCardProps) {
+export function PipelineMiniCard({ rows, stages = [], periodLabel, monthlyRevenueGoal = 0 }: PipelineMiniCardProps) {
+  // Nombre de etapa que tiene cada rol HOY — ver buildStageNameByRole. Si el
+  // usuario no le ha asignado role='cita' o role='reunion' a ninguna etapa
+  // todavía, esa tasa se omite más abajo en vez de mostrar un 0% falso.
+  const stageNameByRole = buildStageNameByRole(stages)
+  const isRole = (stage: string, role: PipelineStageRole) => stage === stageNameByRole[role]
+  const hasCitaReunionRoles = stageNameByRole.cita !== undefined && stageNameByRole.reunion !== undefined
+
   if (!rows.length) {
     return (
       <div className="rounded-lg border border-border bg-card overflow-hidden h-full flex flex-col">
@@ -47,11 +64,11 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
     )
   }
 
-  const citas      = rows.filter(r => r.stage === 'Cita agendada')
-  const reagendar  = rows.filter(r => r.stage === 'Reagendar')
-  const reuniones  = rows.filter(r => r.stage === 'Primera reu ejecutada/Propuesta en preparación')
-  const propuestas = rows.filter(r => r.stage === 'Propuesta Presentada')
-  const cierres    = rows.filter(r => r.stage === 'Por facturar/cobrar')
+  const citas      = rows.filter(r => isRole(r.stage, 'cita'))
+  const reagendar  = rows.filter(r => isRole(r.stage, 'reagendar'))
+  const reuniones  = rows.filter(r => isRole(r.stage, 'reunion'))
+  const propuestas = rows.filter(r => isRole(r.stage, 'propuesta'))
+  const cierres    = rows.filter(r => isRole(r.stage, 'cierre'))
 
   const propAbiertas = propuestas.filter(r => r.status === 'abierto')
   const propGanadas  = propuestas.filter(r => r.status === 'ganado')
@@ -68,6 +85,10 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
   const barColor  = progress >= 100 ? 'bg-emerald-500' : progress >= 60 ? 'bg-amber-500' : 'bg-primary'
   const pctColor  = progress >= 100 ? 'text-emerald-400' : progress >= 60 ? 'text-amber-400' : 'text-primary'
 
+  // Show rate: de las citas agendadas, cuántas se ejecutaron como 1ra reunión.
+  // null cuando no hay etapas con role asignado (no confundir con "—" por
+  // período sin datos, que también resuelve pct() a null de forma natural).
+  const convCitaReun   = hasCitaReunionRoles ? pct(reuniones.length, citas.length) : null
   const convReunProp   = pct(propuestas.length, reuniones.length)
   const convPropCierre = pct(cierres.length, propuestas.length)
   const tasaGanado     = pct(propGanadas.length + cierres.length, propuestas.length + cierres.length)
@@ -91,8 +112,8 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
 
       {/* Stage counts */}
       <div className="grid grid-cols-5 divide-x divide-border/50 border-b border-border/50">
-        {STAGES.map((s, i) => (
-          <div key={s.key} className="px-2 py-3 text-center">
+        {ROLE_STAGE_META.map((s, i) => (
+          <div key={s.role} className="px-2 py-3 text-center">
             <p className={`text-xl font-bold tabular-nums ${s.color}`}>{stageCounts[i]}</p>
             <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{s.label}</p>
           </div>
@@ -135,9 +156,14 @@ export function PipelineMiniCard({ rows, periodLabel, monthlyRevenueGoal = 0 }: 
         <div className="space-y-3 border-t border-border/40 pt-4">
           <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Conversión</p>
 
-          {/* Rate cards */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* Rate cards — cita→reunión solo si el usuario tiene esos roles
+              asignados (ver hasCitaReunionRoles); si no, se omite la tarjeta
+              en vez de inventar un 0%, y el grid vuelve a las 3 de siempre. */}
+          <div className={`grid gap-2 ${hasCitaReunionRoles ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
             {[
+              ...(hasCitaReunionRoles
+                ? [{ label: 'Cita → Reunión', value: convCitaReun, hi: 70, lo: 40, num: reuniones.length, den: citas.length }]
+                : []),
               { label: 'Reunión → Propuesta', value: convReunProp,   hi: 80, lo: 50, num: propuestas.length, den: reuniones.length },
               { label: 'Propuesta → Cierre',  value: convPropCierre, hi: 40, lo: 20, num: cierres.length,    den: propuestas.length },
               { label: 'Tasa ganados',         value: tasaGanado,    hi: 60, lo: 30, num: propGanadas.length + cierres.length, den: propuestas.length + cierres.length },

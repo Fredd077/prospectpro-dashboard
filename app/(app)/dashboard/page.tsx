@@ -14,7 +14,7 @@ import { ChartSwitcher } from '@/components/charts/ChartSwitcher'
 import { TodayWidget } from '@/components/dashboard/TodayWidget'
 import { CoachProCard } from '@/components/dashboard/CoachProCard'
 import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
-import type { PipelineMiniRow } from '@/components/dashboard/PipelineMiniCard'
+import type { PipelineMiniRow, PipelineMiniStage } from '@/components/dashboard/PipelineMiniCard'
 import { RecetarioFunnelCard } from '@/components/dashboard/RecetarioFunnelCard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getRecipePerformance } from '@/lib/queries/recipe-performance'
@@ -128,6 +128,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     { data: activeScenario },
     { data: todayLogs },
     { data: pipelineRows },
+    { data: pipelineStages },
     recipePerf,
   ] = await Promise.all([
     query,
@@ -147,6 +148,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       .eq('user_id', user.id)
       .gte('entry_date', start)
       .lte('entry_date', end),
+    // Etapas propias del usuario (con su role) para que PipelineMiniCard
+    // identifique "cita"/"reunión"/etc. sin depender del nombre exacto.
+    sb.from('pipeline_stages').select('name,role').eq('user_id', user.id).order('sort_order', { ascending: true }),
     // Rendimiento de actividades (LOGRO): fuente central única, mes del período que
     // se está viendo (refDate). OJO: NO usar `today`, que se calcula en el servidor
     // (reloj de Vercel) y caería en un mes sin datos, dando reuniones/cierres en cero.
@@ -315,6 +319,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   // --- Pipeline data for the selected period ---
   const allPipelineRows: PipelineMiniRow[] = pipelineRows ?? []
+  const pipelineStageRoles: PipelineMiniStage[] = pipelineStages ?? []
   const pipelineByStage: Record<string, number> = {}
   for (const row of allPipelineRows) {
     pipelineByStage[row.stage] = (pipelineByStage[row.stage] ?? 0) + 1
@@ -449,6 +454,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             )}
             <PipelineMiniCard
               rows={allPipelineRows}
+              stages={pipelineStageRoles}
               periodLabel={pipelinePeriodLabel}
               monthlyRevenueGoal={activeScenario?.monthly_revenue_goal ?? 0}
             />

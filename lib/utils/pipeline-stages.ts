@@ -46,3 +46,24 @@ export const CANONICAL_STAGE_ROLES: Record<string, PipelineStageRole> = {
   'Propuesta Presentada':                            'propuesta',
   'Por facturar/cobrar':                             'cierre',
 }
+
+/** Nombre canónico de cada rol — inverso de CANONICAL_STAGE_ROLES. */
+const CANONICAL_NAME_BY_ROLE = Object.fromEntries(
+  Object.entries(CANONICAL_STAGE_ROLES).map(([name, role]) => [role, name]),
+) as Record<PipelineStageRole, string>
+
+/**
+ * Nombre de etapa que tiene cada rol HOY, según cómo el usuario la haya
+ * llamado. Fuente única compartida por cualquier pantalla que necesite
+ * identificar "la etapa de cierre" etc. sin depender del texto exacto (ver
+ * PipelineStageRole arriba). Si `stages` viene vacío (usuario sin etapas
+ * propias todavía), usa el respaldo canónico.
+ */
+export function buildStageNameByRole(
+  stages: { name: string; role: PipelineStageRole | null }[],
+): Partial<Record<PipelineStageRole, string>> {
+  if (!stages.length) return { ...CANONICAL_NAME_BY_ROLE }
+  const map: Partial<Record<PipelineStageRole, string>> = {}
+  for (const s of stages) if (s.role) map[s.role] = s.name
+  return map
+}
