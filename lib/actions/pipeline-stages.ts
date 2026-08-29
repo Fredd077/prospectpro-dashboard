@@ -3,10 +3,10 @@
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { assertCanWrite } from '@/lib/utils/authz'
-import { CANONICAL_PIPELINE_STAGES } from '@/lib/utils/pipeline-stages'
+import { CANONICAL_PIPELINE_STAGES, CANONICAL_STAGE_ROLES, type PipelineStageRole } from '@/lib/utils/pipeline-stages'
 import type { PipelineStage } from '@/lib/types/database'
 
-export type PipelineStageOption = Pick<PipelineStage, 'id' | 'name' | 'color' | 'sort_order'>
+export type PipelineStageOption = Pick<PipelineStage, 'id' | 'name' | 'color' | 'sort_order' | 'role'>
 
 /**
  * Lista de etapas del Pipeline del usuario autenticado, ordenada por sort_order.
@@ -26,7 +26,7 @@ export async function getPipelineStages(): Promise<PipelineStageOption[]> {
 
   const { data } = await sb
     .from('pipeline_stages')
-    .select('id,name,color,sort_order')
+    .select('id,name,color,sort_order,role')
     .eq('user_id', user.id)
     .order('sort_order', { ascending: true })
 
@@ -36,6 +36,8 @@ export async function getPipelineStages(): Promise<PipelineStageOption[]> {
   // `color` queda null a propósito, igual que en el seed de la migración: el
   // tablero resuelve el color por NOMBRE de etapa (STAGE_COLOR_KNOWN), así que el
   // resultado visual es idéntico y se mantiene consistente con las filas ya creadas.
+  // `role` sí se siembra: es lo que le permite a las tarjetas de resumen
+  // identificar la etapa "cierre" etc. sin importar si luego se renombra.
   // No se usa assertCanWrite: esto es un default del sistema, no una edición del
   // usuario, y no debe romper la lectura de una cuenta en modo solo lectura.
   const { data: seeded, error } = await sb
@@ -46,9 +48,10 @@ export async function getPipelineStages(): Promise<PipelineStageOption[]> {
         name,
         sort_order: i,
         source: 'manual' as const,
+        role: CANONICAL_STAGE_ROLES[name] ?? null,
       })),
     )
-    .select('id,name,color,sort_order')
+    .select('id,name,color,sort_order,role')
 
   // Si el insert falla (p. ej. RLS), degrada con gracia devolviendo vacío.
   if (error || !seeded) return []
@@ -125,6 +128,37 @@ export async function renamePipelineStage(stageId: string, newName: string): Pro
     .eq('user_id', user.id)
     .eq('stage', oldName)
   if (entriesError) throw entriesError
+
+  revalidatePath('/pipeline')
+}
+
+/**
+ * Asigna (o quita, con role=null) el rol semántico de una etapa — qué
+ * representa en el embudo para las tarjetas de resumen, independiente de su
+ * nombre. Como a lo sumo una etapa por usuario puede tener cada rol, si otra
+ * etapa ya lo tenía se lo quita primero (reasignación tipo "swap": la nueva
+ * pasa a ser la etapa de ese rol, la vieja queda sin rol).
+ */
+export async function setPipelineStageRole(stageId: string, role: PipelineStageRole | null): Promise<void> {
+  const sb = await getSupabaseServerClient()
+  const user = await assertCanWrite(sb)
+
+  if (role) {
+    const { error: clearError } = await sb
+      .from('pipeline_stages')
+      .update({ role: null })
+      .eq('user_id', user.id)
+      .eq('role', role)
+      .neq('id', stageId)
+    if (clearError) throw clearError
+  }
+
+  const { error } = await sb
+    .from('pipeline_stages')
+    .update({ role })
+    .eq('id', stageId)
+    .eq('user_id', user.id)
+  if (error) throw error
 
   revalidatePath('/pipeline')
 }

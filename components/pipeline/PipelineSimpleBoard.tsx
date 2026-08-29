@@ -18,9 +18,16 @@ import {
 } from '@/lib/actions/pipeline-simple'
 import { PipelineSimpleCharts } from '@/components/pipeline/PipelineSimpleCharts'
 import { PipelineStagesManager } from '@/components/pipeline/PipelineStagesManager'
-import { CANONICAL_PIPELINE_STAGES } from '@/lib/utils/pipeline-stages'
+import { CANONICAL_PIPELINE_STAGES, CANONICAL_STAGE_ROLES, type PipelineStageRole } from '@/lib/utils/pipeline-stages'
 import type { PipelineStageOption } from '@/lib/actions/pipeline-stages'
 import type { PipelineSimple } from '@/lib/types/database'
+
+// Nombre de etapa canónico para cada rol — respaldo cuando el usuario aún no
+// tiene etapas propias (stages=[]) y fuente de verdad única para no duplicar
+// los 5 literales en otro lado.
+const CANONICAL_NAME_BY_ROLE = Object.fromEntries(
+  Object.entries(CANONICAL_STAGE_ROLES).map(([name, role]) => [role, name]),
+) as Record<PipelineStageRole, string>
 
 // Respaldo visual cuando el usuario aún no tiene etapas propias en
 // pipeline_stages. La lista REAL llega por props (stages) y es totalmente
@@ -130,12 +137,14 @@ function MetricCard({
 function EntryCard({
   entry,
   originActivityName,
+  showStatusBadge,
   onEdit,
   onDuplicate,
   onDelete,
 }: {
   entry: PipelineSimple
   originActivityName?: string | null
+  showStatusBadge: boolean
   onEdit: () => void
   onDuplicate: () => void
   onDelete: () => void
@@ -174,7 +183,7 @@ function EntryCard({
         <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border ${origenBadge}`}>
           {entry.prospect_type}
         </span>
-        {entry.stage === 'Propuesta Presentada' && (
+        {showStatusBadge && (
           <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border ${estadoBadge}`}>
             {entry.status}
           </span>
@@ -325,6 +334,25 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   const stageList: string[] = stages.length ? stages.map((s) => s.name) : [...CANONICAL_PIPELINE_STAGES]
   const firstStage = stageList[0] ?? 'Cita agendada'
 
+  // Nombre de la etapa que tiene cada rol HOY, según cómo el usuario la haya
+  // llamado o reordenado. Las tarjetas de resumen y el auto-marcado de estado
+  // preguntan por rol ("¿cuál es la etapa de cierre?"), nunca por nombre
+  // literal — así sobreviven a un rename (ver migración 045 y el bug de
+  // negocios huérfanos que causó tener esto hardcodeado por nombre).
+  // Si el usuario no le ha asignado rol a ninguna etapa (ej. etapas 100%
+  // personalizadas sin configurar todavía), el rol correspondiente queda sin
+  // resolver y esa métrica simplemente cuenta 0 en vez de adivinar mal.
+  const stageNameByRole: Partial<Record<PipelineStageRole, string>> = stages.length
+    ? Object.fromEntries(stages.filter((s) => s.role).map((s) => [s.role as PipelineStageRole, s.name]))
+    : CANONICAL_NAME_BY_ROLE
+
+  function stageIs(stageName: string, role: PipelineStageRole): boolean {
+    return stageName === stageNameByRole[role]
+  }
+  function stageIsAnyOf(stageName: string, roles: PipelineStageRole[]): boolean {
+    return roles.some((r) => stageIs(stageName, r))
+  }
+
   type ModalMode = 'create' | 'edit' | 'duplicate'
 
   const [saving, setSaving]           = useState(false)
@@ -373,15 +401,15 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
     return true
   })
 
-  // Derived metrics (on filtered data)
-  const countCita      = filtered.filter(e => e.stage === 'Cita agendada').length
-  const countReunion   = filtered.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length
-  const countPropuesta = filtered.filter(e => e.stage === 'Propuesta Presentada').length
-  // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
-  const countCierre    = filtered.filter(e => e.stage === 'Por facturar/cobrar' && e.status === 'ganado').length
-  const pipelineValue  = filtered.filter(e => e.stage === 'Propuesta Presentada' && e.status === 'abierto').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+  // Derived metrics (on filtered data) — por ROL de etapa, no por nombre literal.
+  const countCita      = filtered.filter(e => stageIs(e.stage, 'cita')).length
+  const countReunion   = filtered.filter(e => stageIs(e.stage, 'reunion')).length
+  const countPropuesta = filtered.filter(e => stageIs(e.stage, 'propuesta')).length
+  // Cierre ganado = etapa con rol 'cierre' Y estado 'ganado' (ambas condiciones).
+  const countCierre    = filtered.filter(e => stageIs(e.stage, 'cierre') && e.status === 'ganado').length
+  const pipelineValue  = filtered.filter(e => stageIs(e.stage, 'propuesta') && e.status === 'abierto').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
   const perdidoValue   = filtered.filter(e => e.status === 'perdido').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-  const closedValue    = filtered.filter(e => e.stage === 'Por facturar/cobrar' && e.status === 'ganado').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+  const closedValue    = filtered.filter(e => stageIs(e.stage, 'cierre') && e.status === 'ganado').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
 
   const convRP = countReunion > 0   ? Math.round(countPropuesta / countReunion * 100)   : 0
   const convPC = countPropuesta > 0 ? Math.round(countCierre / countPropuesta * 100) : 0
@@ -441,8 +469,8 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   // Auto-set status when stage changes in the modal
   function handleFormStageChange(s: string) {
     setFormStage(s)
-    if (s === 'Por facturar/cobrar') setFormStatus('ganado')
-    if (s === 'Cita agendada' || s === 'Reagendar' || s === 'Primera reu ejecutada/Propuesta en preparación') setFormStatus('abierto')
+    if (stageIs(s, 'cierre')) setFormStatus('ganado')
+    if (stageIsAnyOf(s, ['cita', 'reagendar', 'reunion'])) setFormStatus('abierto')
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -450,8 +478,8 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   async function handleSave() {
     setSaving(true)
     try {
-      const derivedStatus: Status = formStage === 'Por facturar/cobrar' ? 'ganado' :
-        (formStage === 'Cita agendada' || formStage === 'Reagendar' || formStage === 'Primera reu ejecutada/Propuesta en preparación') ? 'abierto' :
+      const derivedStatus: Status = stageIs(formStage, 'cierre') ? 'ganado' :
+        stageIsAnyOf(formStage, ['cita', 'reagendar', 'reunion']) ? 'abierto' :
         formStatus
       const payload = {
         stage:              formStage,
@@ -469,7 +497,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
         toast.success('Entrada actualizada ✓')
       } else if (modalMode === 'duplicate' || modalMode === 'create') {
         await createPipelineSimple(payload)
-        if (modalMode === 'duplicate' && sourceEntryId && sourceEntryStage === 'Propuesta Presentada' && formStage === 'Por facturar/cobrar') {
+        if (modalMode === 'duplicate' && sourceEntryId && sourceEntryStage && stageIs(sourceEntryStage, 'propuesta') && stageIs(formStage, 'cierre')) {
           await updatePipelineSimpleStatus(sourceEntryId, 'ganado')
           toast.success('Propuesta marcada como Ganada automáticamente')
         } else {
@@ -558,6 +586,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
                   key={entry.id}
                   entry={entry}
                   originActivityName={entry.origin_activity_id ? (activityMap[entry.origin_activity_id]?.name ?? null) : null}
+                  showStatusBadge={stageIs(entry.stage, 'propuesta')}
                   onEdit={() => openEdit(entry)}
                   onDuplicate={() => openDuplicate(entry)}
                   onDelete={() => setDeletingId(entry.id)}
@@ -611,10 +640,10 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
                   <DatePickerInput
                     value={formDate}
                     onChange={d => setFormDate(d)}
-                    allowFuture={formStage === 'Cita agendada' || formStage === 'Reagendar'}
+                    allowFuture={stageIsAnyOf(formStage, ['cita', 'reagendar'])}
                     max={today}
                   />
-                  {(formStage === 'Cita agendada' || formStage === 'Reagendar') && (
+                  {stageIsAnyOf(formStage, ['cita', 'reagendar']) && (
                     <p className="mt-1 text-xs text-muted-foreground/60">Puedes programar una fecha futura.</p>
                   )}
                 </div>
@@ -634,7 +663,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
               </div>
 
               {/* Estado — only for Propuesta */}
-              {formStage === 'Propuesta Presentada' && (
+              {stageIs(formStage, 'propuesta') && (
                 <div>
                   <label className={labelClass}>Estado</label>
                   <ToggleGroup<Status>

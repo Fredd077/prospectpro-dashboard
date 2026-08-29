@@ -11,8 +11,10 @@ import {
   renamePipelineStage,
   deletePipelineStage,
   reorderPipelineStages,
+  setPipelineStageRole,
   type PipelineStageOption,
 } from '@/lib/actions/pipeline-stages'
+import { PIPELINE_STAGE_ROLE_LABELS, type PipelineStageRole } from '@/lib/utils/pipeline-stages'
 
 interface Props {
   stages: PipelineStageOption[]
@@ -21,7 +23,17 @@ interface Props {
 interface Item {
   id: string
   name: string
+  role: PipelineStageRole | null
 }
+
+const ROLE_OPTIONS: { value: PipelineStageRole | ''; label: string }[] = [
+  { value: '',          label: '— Sin rol —' },
+  { value: 'cita',      label: PIPELINE_STAGE_ROLE_LABELS.cita },
+  { value: 'reagendar', label: PIPELINE_STAGE_ROLE_LABELS.reagendar },
+  { value: 'reunion',   label: PIPELINE_STAGE_ROLE_LABELS.reunion },
+  { value: 'propuesta', label: PIPELINE_STAGE_ROLE_LABELS.propuesta },
+  { value: 'cierre',    label: PIPELINE_STAGE_ROLE_LABELS.cierre },
+]
 
 // Gestor de etapas del Pipeline: engranaje junto al filtro "Etapa" que abre un
 // modal para renombrar (inline), eliminar, agregar y reordenar (drag & drop
@@ -37,7 +49,7 @@ export function PipelineStagesManager({ stages }: Props) {
   const [overIndex, setOverIndex] = useState<number | null>(null)
 
   async function openModal() {
-    setItems(stages.map((s) => ({ id: s.id, name: s.name })))
+    setItems(stages.map((s) => ({ id: s.id, name: s.name, role: s.role })))
     setNewName('')
     setOpen(true)
 
@@ -48,7 +60,7 @@ export function PipelineStagesManager({ stages }: Props) {
       setBusy(true)
       try {
         const fresh = await getPipelineStages()
-        setItems(fresh.map((s) => ({ id: s.id, name: s.name })))
+        setItems(fresh.map((s) => ({ id: s.id, name: s.name, role: s.role })))
         // El tablero deja de usar el respaldo y pasa a las etapas reales.
         if (fresh.length > 0) router.refresh()
       } catch {
@@ -62,7 +74,7 @@ export function PipelineStagesManager({ stages }: Props) {
   // Recarga ids reales desde el servidor tras crear/eliminar/reordenar.
   async function reseed() {
     const fresh = await getPipelineStages()
-    setItems(fresh.map((s) => ({ id: s.id, name: s.name })))
+    setItems(fresh.map((s) => ({ id: s.id, name: s.name, role: s.role })))
   }
 
   async function handleRename(item: Item, value: string) {
@@ -80,6 +92,31 @@ export function PipelineStagesManager({ stages }: Props) {
     } catch (e) {
       setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, name: item.name } : it)))
       toast.error(e instanceof Error ? e.message : 'Error al renombrar')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleRoleChange(item: Item, value: string) {
+    const role = (value || null) as PipelineStageRole | null
+    if (role === item.role) return
+    const prevItems = items
+    // Optimista: si otra etapa tenía el mismo rol, la acción lo quita en el
+    // servidor (swap) — reflejarlo aquí también para que no queden dos con
+    // el mismo rol visualmente hasta el próximo refresh.
+    setItems((prev) => prev.map((it) => {
+      if (it.id === item.id) return { ...it, role }
+      if (role && it.role === role) return { ...it, role: null }
+      return it
+    }))
+    setBusy(true)
+    try {
+      await setPipelineStageRole(item.id, role)
+      toast.success('Rol actualizado ✓')
+      router.refresh()
+    } catch (e) {
+      setItems(prevItems)
+      toast.error(e instanceof Error ? e.message : 'Error al actualizar el rol')
     } finally {
       setBusy(false)
     }
@@ -166,8 +203,11 @@ export function PipelineStagesManager({ stages }: Props) {
             </button>
 
             <h2 className="text-sm font-bold text-foreground mb-1">Gestionar etapas</h2>
-            <p className="text-xs text-muted-foreground mb-4">
+            <p className="text-xs text-muted-foreground mb-1">
               Renombra, elimina, agrega o arrastra para reordenar. Solo afecta a tu Pipeline.
+            </p>
+            <p className="text-xs text-muted-foreground/70 mb-4">
+              El <span className="text-foreground/80">rol</span> le dice a las tarjetas de resumen (Citas, Reuniones, Cerrado...) qué representa cada etapa, para que sigan funcionando aunque la renombres.
             </p>
 
             {/* Lista de etapas */}
@@ -181,33 +221,48 @@ export function PipelineStagesManager({ stages }: Props) {
                   onDrop={() => handleDrop(i)}
                   onDragEnd={() => { setDragIndex(null); setOverIndex(null) }}
                   className={cn(
-                    'flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 transition-colors',
+                    'flex flex-col gap-1 rounded-md border bg-background px-2 py-1.5 transition-colors',
                     overIndex === i && dragIndex !== null ? 'border-primary/60' : 'border-border',
                     dragIndex === i ? 'opacity-50' : '',
                   )}
                 >
-                  <span className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground" title="Arrastrar para reordenar">
-                    <GripVertical className="h-4 w-4" />
-                  </span>
-                  <input
-                    type="text"
-                    defaultValue={item.name}
-                    onBlur={(e) => handleRename(item, e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur() }
-                    }}
-                    disabled={busy}
-                    className="flex-1 bg-transparent text-sm text-foreground focus:outline-none focus:border-b focus:border-primary/60"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(item)}
-                    disabled={busy}
-                    title="Eliminar etapa"
-                    className="p-1 rounded text-muted-foreground hover:text-red-400 transition-colors disabled:opacity-40"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground" title="Arrastrar para reordenar">
+                      <GripVertical className="h-4 w-4" />
+                    </span>
+                    <input
+                      type="text"
+                      defaultValue={item.name}
+                      onBlur={(e) => handleRename(item, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur() }
+                      }}
+                      disabled={busy}
+                      className="flex-1 bg-transparent text-sm text-foreground focus:outline-none focus:border-b focus:border-primary/60"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item)}
+                      disabled={busy}
+                      title="Eliminar etapa"
+                      className="p-1 rounded text-muted-foreground hover:text-red-400 transition-colors disabled:opacity-40"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="pl-6">
+                    <select
+                      value={item.role ?? ''}
+                      onChange={(e) => handleRoleChange(item, e.target.value)}
+                      disabled={busy}
+                      title="Rol de esta etapa"
+                      className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground focus:outline-none focus:border-primary/60 disabled:opacity-40"
+                    >
+                      {ROLE_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               ))}
               {items.length === 0 && (
