@@ -108,12 +108,15 @@ function ToggleGroup<T extends string>({
 // ── Metric card ───────────────────────────────────────────────────────────────
 
 function MetricCard({
-  label, value, sub, accent = 'primary',
+  label, value, sub, accent = 'primary', compact = false,
 }: {
   label: string
   value: string
   sub?: string
   accent?: 'primary' | 'emerald' | 'amber' | 'red' | 'cyan'
+  /** Valor más largo de lo normal (ej. cadena de 3 conversiones): usa una fuente
+   * más chica para que quepa en una sola línea en vez de partirse a media flecha. */
+  compact?: boolean
 }) {
   const colorMap = {
     primary: { border: 'border-t-primary/40',         value: 'text-primary'        },
@@ -126,7 +129,7 @@ function MetricCard({
   return (
     <div className={`rounded-lg border border-border bg-card p-4 border-t-2 ${c.border}`}>
       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
-      <p className={`text-xl font-bold tabular-nums ${c.value}`}>{value}</p>
+      <p className={`${compact ? 'text-sm' : 'text-xl'} font-bold tabular-nums whitespace-nowrap ${c.value}`}>{value}</p>
       {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   )
@@ -411,11 +414,23 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   const perdidoValue   = filtered.filter(e => e.status === 'perdido').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
   const closedValue    = filtered.filter(e => stageIs(e.stage, 'cierre') && e.status === 'ganado').reduce((s, e) => s + (e.amount_usd ?? 0), 0)
 
+  // "Show rate": de las citas agendadas, cuántas se ejecutaron como 1ra reunión
+  // (asistencia real, no solo agendada). Solo se muestra si el usuario tiene
+  // etapas con role 'cita' Y 'reunion' asignadas — si no, se omite el tramo en
+  // vez de mostrar un 0% falso (ver stageNameByRole arriba).
+  const hasCitaReunionRoles = stageNameByRole.cita !== undefined && stageNameByRole.reunion !== undefined
+  const convCR = countCita > 0 ? Math.round(countReunion / countCita * 100) : 0
   const convRP = countReunion > 0   ? Math.round(countPropuesta / countReunion * 100)   : 0
   const convPC = countPropuesta > 0 ? Math.round(countCierre / countPropuesta * 100) : 0
-  const minConv = Math.min(convRP, convPC)
+  const minConv = Math.min(...(hasCitaReunionRoles ? [convCR] : []), convRP, convPC)
   const convColor = minConv >= 70 ? 'emerald' : minConv >= 40 ? 'amber' : 'red'
-  const convValue = countReunion === 0 && countPropuesta === 0 ? '—' : `${convRP}% → ${convPC}%`
+  const convEmpty = countReunion === 0 && countPropuesta === 0 && (!hasCitaReunionRoles || countCita === 0)
+  const convValue = convEmpty ? '—' : [
+    ...(hasCitaReunionRoles ? [`${convCR}%`] : []),
+    `${convRP}%`,
+    `${convPC}%`,
+  ].join(' → ')
+  const convSub = hasCitaReunionRoles ? 'cita→reun → reun→prop → prop→cierre' : 'reun→prop → prop→cierre'
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -545,8 +560,9 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
         <MetricCard
           label="Conversión"
           value={convValue}
-          sub="reun→prop → prop→cierre"
+          sub={convSub}
           accent={convColor as 'emerald' | 'amber' | 'red'}
+          compact={hasCitaReunionRoles}
         />
       </div>
 
