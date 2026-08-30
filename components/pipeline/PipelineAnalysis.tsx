@@ -120,6 +120,11 @@ function GoalBar({ value, goal }: { value: number; goal: number }) {
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel, stageNameByRole }: Props) {
+  // Igual que en el Kanban y en PipelineMiniCard: si la cuenta no tiene
+  // etapas con role='cita' Y role='reunion' asignadas, se omite la tarjeta
+  // en vez de mostrar un 0%/100% falso.
+  const hasCitaReunionRoles = stageNameByRole.cita !== undefined && stageNameByRole.reunion !== undefined
+
   const stats = useMemo(() => {
     const citas      = entries.filter(e => e.stage === stageNameByRole.cita)
     const reagendar  = entries.filter(e => e.stage === stageNameByRole.reagendar)
@@ -140,6 +145,8 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel, sta
     const sumaAmonto      = entries.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
     const avgTicket       = totalConAmonto > 0 ? sumaAmonto / totalConAmonto : 0
 
+    // Show rate: de las citas agendadas, cuántas se ejecutaron como 1ra reunión.
+    const convCitaReun    = pct(reuniones.length, citas.length)
     const convReunProp    = pct(propuestas.length, reuniones.length)
     const convPropCierre  = pct(cierres.length, propuestas.length)
     const tasaGanado      = pct(propGanadas.length + cierres.length, propuestas.length + cierres.length)
@@ -164,6 +171,7 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel, sta
       revenuePipeline,
       revenuePerdido,
       avgTicket,
+      convCitaReun,
       convReunProp,
       convPropCierre,
       tasaGanado,
@@ -221,6 +229,15 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel, sta
       {/* ── Columna 2: Conversión ──────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-1">
         <SectionTitle>Conversión</SectionTitle>
+        {hasCitaReunionRoles && (
+          <NeonStat
+            label="Cita → Reunión"
+            value={stats.convCitaReun}
+            sub={`${stats.reuniones} de ${stats.citas} citas`}
+            threshHigh={70}
+            threshLow={40}
+          />
+        )}
         <NeonStat
           label="Reunión → Propuesta"
           value={stats.convReunProp}
