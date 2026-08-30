@@ -17,6 +17,7 @@ import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
 import type { PipelineMiniRow, PipelineMiniStage } from '@/components/dashboard/PipelineMiniCard'
 import { RecetarioFunnelCard } from '@/components/dashboard/RecetarioFunnelCard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { buildStageNameByRole } from '@/lib/utils/pipeline-stages'
 import { getRecipePerformance } from '@/lib/queries/recipe-performance'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
 import { calcCompliance } from '@/lib/calculations/compliance'
@@ -320,6 +321,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // --- Pipeline data for the selected period ---
   const allPipelineRows: PipelineMiniRow[] = pipelineRows ?? []
   const pipelineStageRoles: PipelineMiniStage[] = pipelineStages ?? []
+  const stageNameByRole = buildStageNameByRole(pipelineStageRoles)
   const pipelineByStage: Record<string, number> = {}
   for (const row of allPipelineRows) {
     pipelineByStage[row.stage] = (pipelineByStage[row.stage] ?? 0) + 1
@@ -448,6 +450,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 actualOutbound={actualOutbound}
                 actualInbound={actualInbound}
                 pipelineByStage={pipelineByStage}
+                stageNameByRole={stageNameByRole}
                 citasProyectadas={citasProyectadas}
                 citasRequeridas={citasRequeridas}
               />

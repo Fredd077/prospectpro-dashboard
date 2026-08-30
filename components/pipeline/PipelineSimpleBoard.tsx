@@ -620,7 +620,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
       </div>
 
       {/* Charts section */}
-      <PipelineSimpleCharts entries={filtered} period={period} activeScenario={activeScenario} />
+      <PipelineSimpleCharts entries={filtered} period={period} activeScenario={activeScenario} stageNameByRole={stageNameByRole} />
 
       {/* ── Modal: Create / Edit ─────────────────────────────────────────── */}
       {showForm && (

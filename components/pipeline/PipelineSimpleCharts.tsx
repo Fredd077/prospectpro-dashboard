@@ -8,6 +8,7 @@ import {
 import { format, parseISO, startOfWeek, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { PipelineSimple } from '@/lib/types/database'
+import type { PipelineStageRole } from '@/lib/utils/pipeline-stages'
 
 type ActiveScenario = {
   funnel_stages: string[]
@@ -16,10 +17,16 @@ type ActiveScenario = {
   working_days_per_month: number
 } | null
 
+type StageNameByRole = Partial<Record<PipelineStageRole, string>>
+
 interface Props {
   entries: PipelineSimple[]
   period: string
   activeScenario: ActiveScenario
+  /** Nombre de etapa que tiene cada rol HOY (ver buildStageNameByRole en
+   * PipelineSimpleBoard) — identifica "cita"/"reunión"/etc. sin depender del
+   * nombre exacto, para que un rename no rompa estos gráficos en silencio. */
+  stageNameByRole: StageNameByRole
 }
 
 type TabType = 'embudo' | 'conversion' | 'tendencia'
@@ -59,19 +66,27 @@ const TAB_LABELS: { value: TabType; label: string }[] = [
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function FunnelChart({ entries }: { entries: PipelineSimple[] }) {
+function FunnelChart({ entries, stageNameByRole }: { entries: PipelineSimple[]; stageNameByRole: StageNameByRole }) {
   // Reagendar NO es un paso del embudo (rompe la conversión): se reporta aparte, informativo.
-  const reagendar = entries.filter(e => e.stage === 'Reagendar').length
+  const reagendar = entries.filter(e => e.stage === stageNameByRole.reagendar).length
 
   // Cadena real del embudo: Cita agendada → 1ra Reunión → Propuesta → Cierre.
+  // Por rol, no por nombre: si el usuario no le ha asignado un rol a ninguna
+  // etapa todavía, esa barra cuenta 0 (igual que ya pasaba con cualquier etapa
+  // personalizada sin match) — no hace falta un placeholder especial porque
+  // son conteos reales, no porcentajes que puedan confundirse con "0% de conversión".
   const bars = [
-    { label: 'Cita agenda.', count: entries.filter(e => e.stage === 'Cita agendada').length,                                 color: 'bg-blue-500/70',    text: 'text-blue-400'    },
-    { label: 'Reuniones',    count: entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length, color: 'bg-cyan-500/70',    text: 'text-cyan-400'    },
-    { label: 'Propuestas',   count: entries.filter(e => e.stage === 'Propuesta Presentada').length,                           color: 'bg-amber-500/70',   text: 'text-amber-400'   },
-    { label: 'Cierres',      count: entries.filter(e => e.stage === 'Por facturar/cobrar').length,                            color: 'bg-emerald-500/70', text: 'text-emerald-400' },
+    { label: 'Cita agenda.', count: entries.filter(e => e.stage === stageNameByRole.cita).length,      color: 'bg-blue-500/70',    text: 'text-blue-400'    },
+    { label: 'Reuniones',    count: entries.filter(e => e.stage === stageNameByRole.reunion).length,   color: 'bg-cyan-500/70',    text: 'text-cyan-400'    },
+    { label: 'Propuestas',   count: entries.filter(e => e.stage === stageNameByRole.propuesta).length, color: 'bg-amber-500/70',   text: 'text-amber-400'   },
+    { label: 'Cierres',      count: entries.filter(e => e.stage === stageNameByRole.cierre).length,    color: 'bg-emerald-500/70', text: 'text-emerald-400' },
   ]
   const maxCount = Math.max(...bars.map(b => b.count), 1)
-  const total = bars.reduce((s, b) => s + b.count, 0) + reagendar
+  // "Sin datos" se basa en las entradas reales del período, no en la suma de
+  // barras: si el usuario tiene negocios pero ninguna etapa con rol asignado
+  // todavía, es más honesto que las barras se vean en 0 a que el mensaje diga
+  // "sin datos" cuando sí los hay (solo que sin clasificar por rol).
+  const total = entries.length
 
   return (
     <div className="space-y-4">
@@ -118,10 +133,10 @@ function FunnelChart({ entries }: { entries: PipelineSimple[] }) {
   )
 }
 
-function ConversionChart({ entries, activeScenario }: { entries: PipelineSimple[]; activeScenario: ActiveScenario }) {
-  const countR = entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length
-  const countP = entries.filter(e => e.stage === 'Propuesta Presentada').length
-  const countC = entries.filter(e => e.stage === 'Por facturar/cobrar').length
+function ConversionChart({ entries, activeScenario, stageNameByRole }: { entries: PipelineSimple[]; activeScenario: ActiveScenario; stageNameByRole: StageNameByRole }) {
+  const countR = entries.filter(e => e.stage === stageNameByRole.reunion).length
+  const countP = entries.filter(e => e.stage === stageNameByRole.propuesta).length
+  const countC = entries.filter(e => e.stage === stageNameByRole.cierre).length
   // Note: Cita agendada and Reagendar use same rates as reunion for scenario projection
 
   let metaR = 0, metaP = 0, metaC = 0
@@ -160,7 +175,7 @@ function ConversionChart({ entries, activeScenario }: { entries: PipelineSimple[
   )
 }
 
-function TrendChart({ entries, period }: { entries: PipelineSimple[]; period: string }) {
+function TrendChart({ entries, period, stageNameByRole }: { entries: PipelineSimple[]; period: string; stageNameByRole: StageNameByRole }) {
   const buckets = useMemo(() => groupByBucket(entries, period), [entries, period])
   const keys = Object.keys(buckets).sort()
 
@@ -168,11 +183,11 @@ function TrendChart({ entries, period }: { entries: PipelineSimple[]; period: st
     const group = buckets[k]!
     return {
       fecha:      k,
-      Citas:      group.filter(e => e.stage === 'Cita agendada').length,
-      Reagendar:  group.filter(e => e.stage === 'Reagendar').length,
-      Reuniones:  group.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación').length,
-      Propuestas: group.filter(e => e.stage === 'Propuesta Presentada').length,
-      Cierres:    group.filter(e => e.stage === 'Por facturar/cobrar').length,
+      Citas:      group.filter(e => e.stage === stageNameByRole.cita).length,
+      Reagendar:  group.filter(e => e.stage === stageNameByRole.reagendar).length,
+      Reuniones:  group.filter(e => e.stage === stageNameByRole.reunion).length,
+      Propuestas: group.filter(e => e.stage === stageNameByRole.propuesta).length,
+      Cierres:    group.filter(e => e.stage === stageNameByRole.cierre).length,
     }
   })
 
@@ -203,7 +218,7 @@ function TrendChart({ entries, period }: { entries: PipelineSimple[]; period: st
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 
-export function PipelineSimpleCharts({ entries, period, activeScenario }: Props) {
+export function PipelineSimpleCharts({ entries, period, activeScenario, stageNameByRole }: Props) {
   const [tab, setTab] = useState<TabType>('embudo')
 
   return (
@@ -225,9 +240,9 @@ export function PipelineSimpleCharts({ entries, period, activeScenario }: Props)
         </div>
       </div>
 
-      {tab === 'embudo'     && <FunnelChart entries={entries} />}
-      {tab === 'conversion' && <ConversionChart entries={entries} activeScenario={activeScenario} />}
-      {tab === 'tendencia'  && <TrendChart entries={entries} period={period} />}
+      {tab === 'embudo'     && <FunnelChart entries={entries} stageNameByRole={stageNameByRole} />}
+      {tab === 'conversion' && <ConversionChart entries={entries} activeScenario={activeScenario} stageNameByRole={stageNameByRole} />}
+      {tab === 'tendencia'  && <TrendChart entries={entries} period={period} stageNameByRole={stageNameByRole} />}
     </div>
   )
 }

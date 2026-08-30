@@ -6,6 +6,7 @@ import { FlaskConical, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RecipeValidation } from '@/lib/utils/recipe-validation'
 import type { PeriodType } from '@/lib/types/common'
+import type { PipelineStageRole } from '@/lib/utils/pipeline-stages'
 
 interface RecetarioFunnelCardProps {
   validation: RecipeValidation
@@ -13,6 +14,11 @@ interface RecetarioFunnelCardProps {
   actualOutbound: number
   actualInbound: number
   pipelineByStage: Record<string, number>
+  /** Nombre de etapa que tiene cada rol HOY — ver buildStageNameByRole en
+   * lib/utils/pipeline-stages.ts. Permite ubicar "la etapa de cierre" etc. en
+   * pipelineByStage sin depender del nombre exacto (un rename no debe dejar
+   * esta sección en cero). */
+  stageNameByRole: Partial<Record<PipelineStageRole, string>>
   citasProyectadas: number
   citasRequeridas: number
 }
@@ -33,12 +39,18 @@ const PERIOD_LABEL: Record<PeriodType, string> = {
   yearly:    'este año',
 }
 
-const PIPELINE_STAGES = [
-  { key: 'Cita agendada',                                          label: 'Citas' },
-  { key: 'Reagendar',                                              label: 'Reagendar' },
-  { key: 'Primera reu ejecutada/Propuesta en preparación',         label: '1ra Reunión' },
-  { key: 'Propuesta Presentada',                                   label: 'Propuesta' },
-  { key: 'Por facturar/cobrar',                                    label: 'Cierre' },
+// Por ROL, no por nombre: PIPELINE_STAGES antes comparaba contra el nombre
+// canónico exacto y se rompía en silencio si el usuario renombraba una etapa
+// (ver bug de metodopulso7@gmail.com). stageNameByRole resuelve el nombre
+// ACTUAL de cada rol; si el usuario no lo ha asignado, la columna cuenta 0
+// igual que ya pasaba con cualquier etapa personalizada sin match — son
+// conteos reales, no porcentajes, así que un 0 no es ambiguo.
+const ROLE_PIPELINE_STAGES: { role: PipelineStageRole; label: string }[] = [
+  { role: 'cita',      label: 'Citas' },
+  { role: 'reagendar', label: 'Reagendar' },
+  { role: 'reunion',   label: '1ra Reunión' },
+  { role: 'propuesta', label: 'Propuesta' },
+  { role: 'cierre',    label: 'Cierre' },
 ]
 
 function ActivityRow({ label, actual, target }: { label: string; actual: number; target: number }) {
@@ -68,6 +80,7 @@ export function RecetarioFunnelCard({
   actualOutbound,
   actualInbound,
   pipelineByStage,
+  stageNameByRole,
   citasProyectadas,
   citasRequeridas,
 }: RecetarioFunnelCardProps) {
@@ -178,14 +191,18 @@ export function RecetarioFunnelCard({
               Pipeline del período
             </p>
             <div className="grid grid-cols-5 gap-1 text-center">
-              {PIPELINE_STAGES.map(s => (
-                <div key={s.key} className="space-y-0.5">
-                  <p className="text-sm font-bold tabular-nums text-foreground">
-                    {pipelineByStage[s.key] ?? 0}
-                  </p>
-                  <p className="text-[9px] text-muted-foreground leading-tight">{s.label}</p>
-                </div>
-              ))}
+              {ROLE_PIPELINE_STAGES.map(s => {
+                const stageName = stageNameByRole[s.role]
+                const count = stageName ? (pipelineByStage[stageName] ?? 0) : 0
+                return (
+                  <div key={s.role} className="space-y-0.5">
+                    <p className="text-sm font-bold tabular-nums text-foreground">
+                      {count}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">{s.label}</p>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

@@ -3,12 +3,18 @@
 import { useMemo } from 'react'
 import { fmtUSD } from '@/lib/calculations/pipeline'
 import type { PipelineSimple } from '@/lib/types/database'
+import type { PipelineStageRole } from '@/lib/utils/pipeline-stages'
 
 interface Props {
   entries: PipelineSimple[]
   monthlyRevenueGoal: number | null
   period: string
   periodLabel: string
+  /** Nombre de etapa que tiene cada rol HOY — ver buildStageNameByRole en
+   * lib/utils/pipeline-stages.ts. Identifica "cita"/"reunión"/etc. sin
+   * depender del nombre exacto, para que un rename no deje esta pantalla en
+   * cero (ver bug de metodopulso7@gmail.com). */
+  stageNameByRole: Partial<Record<PipelineStageRole, string>>
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -113,14 +119,14 @@ function GoalBar({ value, goal }: { value: number; goal: number }) {
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 
-export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: Props) {
+export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel, stageNameByRole }: Props) {
   const stats = useMemo(() => {
-    const citas      = entries.filter(e => e.stage === 'Cita agendada')
-    const reagendar  = entries.filter(e => e.stage === 'Reagendar')
-    const reuniones  = entries.filter(e => e.stage === 'Primera reu ejecutada/Propuesta en preparación')
-    const propuestas = entries.filter(e => e.stage === 'Propuesta Presentada')
-    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
-    const cierres    = entries.filter(e => e.stage === 'Por facturar/cobrar' && e.status === 'ganado')
+    const citas      = entries.filter(e => e.stage === stageNameByRole.cita)
+    const reagendar  = entries.filter(e => e.stage === stageNameByRole.reagendar)
+    const reuniones  = entries.filter(e => e.stage === stageNameByRole.reunion)
+    const propuestas = entries.filter(e => e.stage === stageNameByRole.propuesta)
+    // Cierre ganado = etapa con rol 'cierre' Y estado 'ganado' (ambas condiciones).
+    const cierres    = entries.filter(e => e.stage === stageNameByRole.cierre && e.status === 'ganado')
 
     const propAbiertas = propuestas.filter(e => e.status === 'abierto')
     const propGanadas  = propuestas.filter(e => e.status === 'ganado')
@@ -166,7 +172,7 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel }: P
       cierresOut, cierresIn,
       total: entries.length,
     }
-  }, [entries])
+  }, [entries, stageNameByRole])
 
   if (entries.length === 0) {
     return (

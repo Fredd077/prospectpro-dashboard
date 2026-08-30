@@ -6,6 +6,7 @@ import { DateNavigator } from '@/components/dashboard/DateNavigator'
 import { PipelineSimpleBoard } from '@/components/pipeline/PipelineSimpleBoard'
 import { PipelineAnalysis } from '@/components/pipeline/PipelineAnalysis'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { buildStageNameByRole } from '@/lib/utils/pipeline-stages'
 import { getPeriodRange, todayISO, periodLabel } from '@/lib/utils/dates'
 import type { PeriodType } from '@/lib/types/common'
 import type { PipelineSimple } from '@/lib/types/database'
@@ -88,6 +89,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
   const pipelineSimple     = (pipelineSimpleRaw ?? []) as PipelineSimple[]
   const activitiesForBoard = (activitiesRaw ?? []) as { id: string; name: string; type: 'OUTBOUND' | 'INBOUND' }[]
   const pipelineStages     = (stagesRaw ?? []) as PipelineStageOption[]
+  const stageNameByRole    = buildStageNameByRole(pipelineStages)
   const monthlyRevenueGoal = scenario?.monthly_revenue_goal ?? null
   const pLabel             = periodLabel(period, anchorDate)
 
@@ -159,6 +161,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
               monthlyRevenueGoal={monthlyRevenueGoal}
               period={period}
               periodLabel={pLabel}
+              stageNameByRole={stageNameByRole}
             />
           </div>
         )}
