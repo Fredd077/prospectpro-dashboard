@@ -46,17 +46,24 @@ export interface EtapaPipeline {
 }
 
 export function buildStageBreakdown(
-  rows: { stage: string; status: string; amount_usd: number | null }[],
+  // `isCierre` viene YA resuelto por el llamador (role==='cierre' de la etapa
+  // ESE registro, según las pipeline_stages del usuario dueño de esa fila) en
+  // vez de compararse aquí contra un nombre fijo. Antes comparaba contra el
+  // literal 'Por facturar/cobrar' y se rompía en cualquier cuenta que hubiera
+  // renombrado su etapa de cierre (ver lib/queries/recipe-performance.ts). Se
+  // resuelve por fila, no con un mapa nombre->role global, porque en un equipo
+  // cada miembro puede tener roles distintos para el mismo nombre de etapa.
+  rows: { stage: string; status: string; amount_usd: number | null; isCierre: boolean }[],
 ): EtapaPipeline[] {
   const agg: Record<string, EtapaPipeline> = {}
   for (const r of rows) {
     const cur = agg[r.stage] ?? { etapa: r.stage, negocios: 0, monto: 0, abiertos: 0, ganados: 0, perdidos: 0 }
     cur.negocios += 1
     cur.monto += r.amount_usd ?? 0
-    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas). Un
+    // Cierre ganado = etapa con role 'cierre' Y estado 'ganado' (ambas). Un
     // 'ganado' en otra etapa es estado de flujo (auto-marcado al avanzar hacia
     // Cierre), no un cierre real — ver lib/utils/gerente-pipeline.ts.
-    if (r.status === 'ganado' && r.stage === 'Por facturar/cobrar') cur.ganados += 1
+    if (r.status === 'ganado' && r.isCierre) cur.ganados += 1
     else if (r.status === 'perdido') cur.perdidos += 1
     else cur.abiertos += 1
     agg[r.stage] = cur

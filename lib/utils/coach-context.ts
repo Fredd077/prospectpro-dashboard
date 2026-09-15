@@ -5,9 +5,14 @@ import type { Database } from '@/lib/types/database'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { todayISO, toISODate } from '@/lib/utils/dates'
 import { calcRealConversions } from '@/lib/calculations/pipeline'
-import { CANONICAL_PIPELINE_STAGES } from '@/lib/utils/pipeline-stages'
+import { CANONICAL_PIPELINE_STAGES, buildRoleByStageName, type PipelineStageRole } from '@/lib/utils/pipeline-stages'
 
 type SbClient = SupabaseClient<Database>
+
+// Etapas donde la reunión ya se ejecutó (= "cita real"), por rol — ver
+// lib/queries/recipe-performance.ts para la definición completa (misma regla,
+// duplicada aquí porque este archivo no puede importar de lib/queries).
+const REUNION_ROLES = new Set<PipelineStageRole>(['reunion', 'propuesta', 'cierre'])
 
 export interface ActivityCompliance {
   name: string
@@ -219,9 +224,16 @@ export async function _fetchActivityEffectiveness(
     return q
   })()
 
-  const [{ data: activities }, { data: logs }, { data: pipeline }] = await Promise.all([
-    activitiesQ, logsQ, pipelineQ,
+  const stagesQ = (() => {
+    let q = sb.from('pipeline_stages').select('name,role')
+    if (userId) q = q.eq('user_id', userId)
+    return q
+  })()
+
+  const [{ data: activities }, { data: logs }, { data: pipeline }, { data: stagesRaw }] = await Promise.all([
+    activitiesQ, logsQ, pipelineQ, stagesQ,
   ])
+  const roleByStageName = buildRoleByStageName(stagesRaw ?? [])
 
   if (!activities?.length) return []
 
@@ -235,12 +247,10 @@ export async function _fetchActivityEffectiveness(
   // ── Camino preciso: si las oportunidades traen origin_activity_id, atribuimos
   //    reuniones y cierres al canal que las originó → conversión REAL por canal
   //    (mismas etapas que el Recetario). Así el reporte distingue, p. ej., un canal
-  //    que agenda bien pero cierra mal. ─────────────────────────────────────────
-  const REUNION_STAGES = new Set([
-    'Primera reu ejecutada/Propuesta en preparación',
-    'Propuesta Presentada',
-    'Por facturar/cobrar',
-  ])
+  //    que agenda bien pero cierra mal. Identificadas por ROL, no por nombre —
+  //    antes comparaba contra 3 nombres canónicos exactos y se rompía en
+  //    silencio en cualquier cuenta que hubiera renombrado una etapa (ver
+  //    lib/queries/recipe-performance.ts, mismo bug). ─────────────────────────
   const hasOrigin = (pipeline ?? []).some((e) => e.origin_activity_id)
   if (hasOrigin) {
     const meetingsByAct: Record<string, number> = {}
@@ -248,9 +258,11 @@ export async function _fetchActivityEffectiveness(
     for (const e of pipeline ?? []) {
       const aid = e.origin_activity_id
       if (!aid) continue
-      if (REUNION_STAGES.has(e.stage)) meetingsByAct[aid] = (meetingsByAct[aid] ?? 0) + 1
-      // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
-      if (e.stage === 'Por facturar/cobrar' && e.status === 'ganado') closesByAct[aid] = (closesByAct[aid] ?? 0) + 1
+      const role = roleByStageName[e.stage]
+      const isReunion = !!role && REUNION_ROLES.has(role)
+      if (isReunion) meetingsByAct[aid] = (meetingsByAct[aid] ?? 0) + 1
+      // Cierre ganado = etapa con role 'cierre' Y estado 'ganado' (ambas condiciones).
+      if (role === 'cierre' && e.status === 'ganado') closesByAct[aid] = (closesByAct[aid] ?? 0) + 1
     }
     return activities
       .filter((a) => isOutOrIn((a.type ?? '').toUpperCase()))
@@ -280,8 +292,8 @@ export async function _fetchActivityEffectiveness(
     const t = (entry.prospect_type ?? '').toUpperCase()
     if (t !== 'OUTBOUND' && t !== 'INBOUND') continue
     meetingsByType[t] = (meetingsByType[t] ?? 0) + 1
-    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
-    if (entry.stage === 'Por facturar/cobrar' && entry.status === 'ganado') closesByType[t] = (closesByType[t] ?? 0) + 1
+    // Cierre ganado = etapa con role 'cierre' Y estado 'ganado' (ambas condiciones).
+    if (roleByStageName[entry.stage] === 'cierre' && entry.status === 'ganado') closesByType[t] = (closesByType[t] ?? 0) + 1
   }
 
   const totalExecByType: Record<string, number> = { OUTBOUND: 0, INBOUND: 0 }
@@ -361,7 +373,10 @@ async function _fetchPipelineData(
   const { data: rows } = await q
   if (!rows?.length) return undefined
 
-  const CIERRE = 'Por facturar/cobrar'
+  let stagesQ = sb.from('pipeline_stages').select('name,role')
+  if (userId) stagesQ = stagesQ.eq('user_id', userId)
+  const { data: stagesRaw } = await stagesQ
+  const roleByStageName = buildRoleByStageName(stagesRaw ?? [])
 
   // Etapas presentes, en orden canónico; las personalizadas van al final.
   const canon = [...CANONICAL_PIPELINE_STAGES] as string[]
@@ -385,8 +400,8 @@ async function _fetchPipelineData(
     if (String(r.prospect_type).toLowerCase() === 'outbound') outMap[r.stage] = (outMap[r.stage] ?? 0) + 1
     else inMap[r.stage] = (inMap[r.stage] ?? 0) + 1
 
-    // Cerrado = etapa de facturación Y estado ganado (regla única del proyecto).
-    if (r.stage === CIERRE && r.status === 'ganado') closedAmount += r.amount_usd ?? 0
+    // Cerrado = etapa con role 'cierre' Y estado ganado (regla única del proyecto).
+    if (roleByStageName[r.stage] === 'cierre' && r.status === 'ganado') closedAmount += r.amount_usd ?? 0
     else if (r.status !== 'perdido') openAmount += r.amount_usd ?? 0
   }
 

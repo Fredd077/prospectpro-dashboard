@@ -11,6 +11,7 @@ import {
   cappedCompliance, buildStageBreakdown, fetchTeamChannels, fetchTeamConversions,
   type EtapaPipeline, type ConversionActividad,
 } from './team-metrics'
+import { buildRoleByStageName } from '@/lib/utils/pipeline-stages'
 import { todayISO, toISODate } from './dates'
 import { startOfWeek } from 'date-fns'
 import { format, parseISO } from 'date-fns'
@@ -39,23 +40,32 @@ async function fetchPipelineSummary(
   periodEnd: string,
   sb: SbClient,
 ): Promise<PipelineSummary> {
-  const { data: rows } = await sb
-    .from('pipeline_simple')
-    .select('stage, status, amount_usd')
-    .is('deleted_at', null)
-    .eq('user_id', userId)
-    .gte('entry_date', periodStart)
-    .lte('entry_date', periodEnd)
+  const [{ data: rows }, { data: stagesRaw }] = await Promise.all([
+    sb.from('pipeline_simple')
+      .select('stage, status, amount_usd')
+      .is('deleted_at', null)
+      .eq('user_id', userId)
+      .gte('entry_date', periodStart)
+      .lte('entry_date', periodEnd),
+    sb.from('pipeline_stages').select('name,role').eq('user_id', userId),
+  ])
 
   const all = rows ?? []
-  const lastStage  = 'Por facturar/cobrar'
-  // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
-  const wonAmount  = all.filter(r => r.stage === lastStage && r.status === 'ganado' && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
-  const openAmount = all.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación' && r.stage !== 'Cita agendada' && r.stage !== 'Reagendar' && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
+  const roleByStageName = buildRoleByStageName(stagesRaw ?? [])
+  const isCierreStage = (stage: string) => roleByStageName[stage] === 'cierre'
+  // "Abierto" cuenta desde la etapa de propuesta en adelante — antes de eso
+  // (cita, reagendar, reunión) es actividad de agenda, no pipeline monetario.
+  const isPreMeetingStage = (stage: string) => {
+    const role = roleByStageName[stage]
+    return role === 'cita' || role === 'reagendar' || role === 'reunion'
+  }
+  // Cierre ganado = etapa con role 'cierre' Y estado 'ganado' (ambas condiciones).
+  const wonAmount  = all.filter(r => isCierreStage(r.stage) && r.status === 'ganado' && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
+  const openAmount = all.filter(r => r.status === 'abierto' && !isPreMeetingStage(r.stage) && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
   const lostAmount = all.filter(r => r.status === 'perdido' && r.amount_usd != null).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
-  const wonCount   = all.filter(r => r.stage === lastStage && r.status === 'ganado').length
+  const wonCount   = all.filter(r => isCierreStage(r.stage) && r.status === 'ganado').length
   const lostCount  = all.filter(r => r.status === 'perdido').length
-  const openCount  = all.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación' && r.stage !== 'Cita agendada' && r.stage !== 'Reagendar').length
+  const openCount  = all.filter(r => r.status === 'abierto' && !isPreMeetingStage(r.stage)).length
   const stageCounts: Record<string, number> = {}
   for (const r of all) { stageCounts[r.stage] = (stageCounts[r.stage] ?? 0) + 1 }
 
@@ -358,22 +368,35 @@ Reglas: sin markdown (* o # o **). Secciones en MAYÚSCULAS seguidas de dos punt
   // 6. Call Claude + fetch team-wide pipeline-por-etapa (mismas funciones que el
   // reporte de gerente del Coach IA — ver lib/utils/team-metrics.ts) en paralelo.
   const filteredIds = filtered.map((u) => u.userId)
-  const [aiResp, teamPipelineRes, teamChannelItems] = await Promise.all([
+  const [aiResp, teamPipelineRes, teamStagesRes, teamChannelItems] = await Promise.all([
     anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 900,
       messages: [{ role: 'user', content: prompt }],
     }),
-    sb.from('pipeline_simple').select('stage,status,amount_usd')
+    sb.from('pipeline_simple').select('user_id,stage,status,amount_usd')
       .is('deleted_at', null).in('user_id', filteredIds)
       .gte('entry_date', pipelineStart).lte('entry_date', weekEnd),
+    // Etapas propias de cada miembro (con su role) — cada quien puede haber
+    // renombrado su etapa de cierre distinto, así que "cuál es la de cierre"
+    // se resuelve por fila según el dueño de esa fila, no de forma global.
+    sb.from('pipeline_stages').select('user_id,name,role').in('user_id', filteredIds),
     fetchTeamChannels(sb, filteredIds, pipelineStart, weekEnd),
   ])
   const aiAnalysis = aiResp.content
     .filter((b): b is Anthropic.TextBlock => b.type === 'text')
     .map((b) => b.text)
     .join('')
-  const etapas = buildStageBreakdown(teamPipelineRes.data ?? [])
+  const roleMapByUser: Record<string, ReturnType<typeof buildRoleByStageName>> = {}
+  for (const uid of filteredIds) {
+    roleMapByUser[uid] = buildRoleByStageName((teamStagesRes.data ?? []).filter((s) => s.user_id === uid))
+  }
+  const etapas = buildStageBreakdown(
+    (teamPipelineRes.data ?? []).map((r) => ({
+      ...r,
+      isCierre: roleMapByUser[r.user_id]?.[r.stage] === 'cierre',
+    })),
+  )
   // Conversión por actividad: plan (activities.conversion_rate_pct) vs. real.
   const conversiones = await fetchTeamConversions(sb, filteredIds, teamChannelItems)
 

@@ -67,3 +67,17 @@ export function buildStageNameByRole(
   for (const s of stages) if (s.role) map[s.role] = s.name
   return map
 }
+
+/**
+ * Inverso de buildStageNameByRole: para UN usuario, nombre de etapa -> rol.
+ * Útil cuando hay que recorrer filas de pipeline_simple y preguntar "¿esta
+ * etapa es la de cierre?" en vez de "¿cuál etapa tiene el rol cierre?". Con
+ * respaldo canónico si el usuario no tiene etapas propias todavía.
+ */
+export function buildRoleByStageName(
+  stages: { name: string; role: PipelineStageRole | null }[],
+): Record<string, PipelineStageRole | null | undefined> {
+  return stages.length > 0
+    ? Object.fromEntries(stages.map((s) => [s.name, s.role]))
+    : CANONICAL_STAGE_ROLES
+}

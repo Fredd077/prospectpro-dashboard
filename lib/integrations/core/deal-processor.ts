@@ -1,17 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { NormalizedDealEvent } from '../types'
 import { SkipError } from '../types'
-import { CANONICAL_PIPELINE_STAGES } from '@/lib/utils/pipeline-stages'
-
-const CIERRE_STAGE = 'Por facturar/cobrar'
+import { CANONICAL_PIPELINE_STAGES, buildStageNameByRole } from '@/lib/utils/pipeline-stages'
 
 /**
- * Etapas válidas para un usuario: las suyas propias de pipeline_stages.
- *
- * Antes era un Set hardcodeado con las 5 canónicas. Desde que las etapas del
- * Pipeline son editables (migraciones 039/040), un usuario puede renombrarlas o
- * crear las suyas, y esa lista fija habría descartado en silencio cualquier deal
- * mapeado a una etapa personalizada.
+ * Etapas válidas para un usuario (las suyas propias de pipeline_stages) y el
+ * nombre ACTUAL de su etapa de cierre, identificada por `role` y no por el
+ * nombre canónico 'Por facturar/cobrar'. Antes se comparaba contra ese
+ * literal fijo: si el usuario renombraba su etapa de cierre (o nunca la tuvo
+ * con ese nombre), un evento 'won' del CRM nunca la aterrizaba ahí — quedaba
+ * en la etapa que mandara el CRM, sin marcarse como cierre real.
  *
  * Fallback a las canónicas si el usuario aún no tiene ninguna fila (usuario
  * nuevo que no ha abierto el gestor de etapas): sin él, un Set vacío rechazaría
@@ -19,14 +17,16 @@ const CIERRE_STAGE = 'Por facturar/cobrar'
  * fija anterior, así que no puede romper integraciones que hoy funcionan.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function loadValidStages(userId: string, service: SupabaseClient<any>): Promise<Set<string>> {
+async function loadValidStages(userId: string, service: SupabaseClient<any>): Promise<{ validNames: Set<string>; cierreStageName: string | undefined }> {
   const { data } = await service
     .from('pipeline_stages')
-    .select('name')
+    .select('name,role')
     .eq('user_id', userId)
 
-  const names = (data ?? []).map((r: { name: string }) => r.name)
-  return names.length > 0 ? new Set(names) : new Set<string>(CANONICAL_PIPELINE_STAGES)
+  const rows = data ?? []
+  const validNames = rows.length > 0 ? new Set(rows.map((r) => r.name)) : new Set<string>(CANONICAL_PIPELINE_STAGES)
+  const cierreStageName = buildStageNameByRole(rows).cierre
+  return { validNames, cierreStageName }
 }
 
 export type ProcessResult = {
@@ -45,17 +45,17 @@ export async function processDealEvent(
   targetUserId: string,
   service: SupabaseClient<any>,
 ): Promise<ProcessResult> {
-  const validStages = await loadValidStages(targetUserId, service)
+  const { validNames, cierreStageName } = await loadValidStages(targetUserId, service)
 
   // Los eventos 'won' aterrizan en la etapa de cierre, como siempre. Pero si el
-  // usuario borró esa etapa canónica, se respeta la etapa que mandó el CRM en
-  // vez de descartar el negocio.
+  // usuario no tiene ninguna etapa con role='cierre' asignada (o la borró), se
+  // respeta la etapa que mandó el CRM en vez de descartar el negocio.
   let stage = event.stageInCrm ?? null
-  if (event.action === 'won' && validStages.has(CIERRE_STAGE)) {
-    stage = CIERRE_STAGE
+  if (event.action === 'won' && cierreStageName && validNames.has(cierreStageName)) {
+    stage = cierreStageName
   }
 
-  if (!stage || !validStages.has(stage)) {
+  if (!stage || !validNames.has(stage)) {
     throw new SkipError(
       stage
         ? `Stage "${stage}" is not a valid ProspectPro stage for this user — configure stage_map in Integraciones`

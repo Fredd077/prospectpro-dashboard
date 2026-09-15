@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { parseISO, format, startOfWeek, endOfWeek, addWeeks, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { RepAnalytics } from './gerente-ai'
+import { buildRoleByStageName } from './pipeline-stages'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,12 @@ export interface PipelineDeal {
   entryDate: string
   amount: number | null
   companyName: string | null
+  /** true si `stage` (el nombre REAL de la etapa de este negocio) tiene
+   * role='cierre' para el usuario dueño — resuelto por fila porque cada
+   * miembro del equipo puede tener roles distintos para el mismo nombre.
+   * NO usar `stage === 'Por facturar/cobrar'`: se rompe en cuentas que
+   * renombraron su etapa de cierre (ver lib/queries/recipe-performance.ts). */
+  isCierre: boolean
 }
 
 export interface StageBreakdown {
@@ -203,7 +210,7 @@ export async function fetchTeamPipeline(
 ): Promise<TeamPipelineAnalytics> {
   if (userIds.length === 0) return emptyPipeline()
 
-  const [dealsRes, scenariosRes, profilesRes] = await Promise.all([
+  const [dealsRes, scenariosRes, profilesRes, stagesRes] = await Promise.all([
     service.from('pipeline_simple')
       .select('id,user_id,stage,status,prospect_type,entry_date,amount_usd,company_name')
       .is('deleted_at', null)
@@ -217,11 +224,20 @@ export async function fetchTeamPipeline(
     service.from('profiles')
       .select('id,full_name,email')
       .in('id', userIds),
+    // Etapas propias de cada miembro (con su role) — cada quien puede haber
+    // renombrado su etapa de cierre distinto.
+    service.from('pipeline_stages').select('user_id,name,role').in('user_id', userIds),
   ])
 
   const rawDeals  = dealsRes.data     ?? []
   const scenarios = scenariosRes.data ?? []
   const profiles  = profilesRes.data  ?? []
+  const allStages = stagesRes.data    ?? []
+
+  const roleMapByUser: Record<string, ReturnType<typeof buildRoleByStageName>> = {}
+  for (const uid of userIds) {
+    roleMapByUser[uid] = buildRoleByStageName(allStages.filter((s) => s.user_id === uid))
+  }
 
   const deals: PipelineDeal[] = rawDeals.map((d) => ({
     id: d.id, userId: d.user_id,
@@ -229,6 +245,7 @@ export async function fetchTeamPipeline(
     status: d.status as PipelineDeal['status'],
     prospectType: d.prospect_type as PipelineDeal['prospectType'],
     entryDate: d.entry_date, amount: d.amount_usd, companyName: d.company_name,
+    isCierre: roleMapByUser[d.user_id]?.[d.stage] === 'cierre',
   }))
 
   const ticketByUser      = Object.fromEntries(scenarios.map((s) => [s.user_id, s.average_ticket ?? 10000]))
@@ -250,7 +267,7 @@ export async function fetchTeamPipeline(
     const open  = repDeals.filter((d) => d.status === 'abierto')
     // Only Cierre-stage deals count as won revenue — Propuesta records auto-marked
     // 'ganado' when advanced to Cierre are workflow state, not revenue events.
-    const won   = repDeals.filter((d) => d.status === 'ganado' && d.stage === 'Por facturar/cobrar')
+    const won   = repDeals.filter((d) => d.status === 'ganado' && d.isCierre)
     const lost  = repDeals.filter((d) => d.status === 'perdido')
 
     // Actual revenue (no fallback for confirmed deals)
@@ -306,7 +323,7 @@ export async function fetchTeamPipeline(
 
   // Won = Cierre-ganado only. Lost = any-perdido. Propuesta-ganado records are
   // workflow state (advanced to Cierre), not terminal outcomes — exclude from win rate.
-  const teamWon     = deals.filter((d) => d.status === 'ganado' && d.stage === 'Por facturar/cobrar').length
+  const teamWon     = deals.filter((d) => d.status === 'ganado' && d.isCierre).length
   const teamLost    = deals.filter((d) => d.status === 'perdido').length
   const teamClosed  = teamWon + teamLost
   const teamWinRate = teamClosed > 0 ? Math.round((teamWon / teamClosed) * 100) : 0
@@ -372,8 +389,8 @@ export async function fetchTeamPipeline(
   // ── Inbound vs outbound ───────────────────────────────────────────────────
   const inboundVsOutbound = ['inbound', 'outbound'].map((type) => {
     const td  = deals.filter((d) => d.prospectType === type)
-    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
-    const tW  = td.filter((d) => d.status === 'ganado' && d.stage === 'Por facturar/cobrar').length
+    // Cierre ganado = etapa con role 'cierre' Y estado 'ganado' (ambas condiciones).
+    const tW  = td.filter((d) => d.status === 'ganado' && d.isCierre).length
     const tL  = td.filter((d) => d.status === 'perdido').length
     const tO  = td.filter((d) => d.status === 'abierto').length
     const cl  = tW + tL

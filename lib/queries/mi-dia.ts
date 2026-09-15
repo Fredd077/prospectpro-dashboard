@@ -18,6 +18,7 @@ import { todayISO, getPeriodRange, addDaysToISO, totalDays } from '@/lib/utils/d
 import { getActivityGoal, getDailyImpliedGoal } from '@/lib/utils/goals'
 import { getSemaphoreColor } from '@/lib/utils/colors'
 import { _fetchActivityEffectiveness } from '@/lib/utils/coach-context'
+import { buildRoleByStageName } from '@/lib/utils/pipeline-stages'
 
 type Sb = SupabaseClient<Database>
 
@@ -121,6 +122,7 @@ export async function getMiDiaData(sb: Sb, userId: string, refDate?: string): Pr
     { data: weekLogs },
     { data: alertRows },
     { data: wonRows },
+    { data: stagesRaw },
   ] = await Promise.all([
     sb.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
     sb.from('recipe_scenarios').select('monthly_revenue_goal').eq('user_id', userId)
@@ -140,12 +142,16 @@ export async function getMiDiaData(sb: Sb, userId: string, refDate?: string): Pr
       .gte('entry_date', monthStart).lte('entry_date', monthEnd)
       .lt('updated_at', staleCutoff)
       .order('amount_usd', { ascending: false, nullsFirst: false }).limit(5),
-    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
-    sb.from('pipeline_simple').select('amount_usd')
+    // Cierre ganado = etapa con role 'cierre' Y estado 'ganado' (ambas condiciones).
+    // El filtro por etapa se resuelve abajo con roleByStageName, no aquí en la
+    // query, porque el nombre real de esa etapa depende de cada usuario.
+    sb.from('pipeline_simple').select('stage,amount_usd')
       .is('deleted_at', null)
-      .eq('user_id', userId).eq('stage', 'Por facturar/cobrar').eq('status', 'ganado')
+      .eq('user_id', userId).eq('status', 'ganado')
       .gte('entry_date', monthStart).lte('entry_date', ref),
+    sb.from('pipeline_stages').select('name,role').eq('user_id', userId),
   ])
+  const roleByStageName = buildRoleByStageName(stagesRaw ?? [])
 
   const userName = profile?.full_name ?? 'Vendedor'
   const monthlyGoal = scenario?.monthly_revenue_goal ?? 0
@@ -223,7 +229,9 @@ export async function getMiDiaData(sb: Sb, userId: string, refDate?: string): Pr
   const alertsTotalAmount = alerts.reduce((s, a) => s + a.amount, 0)
 
   // ── Proyección del mes (lineal por días hábiles, sin IA) ──
-  const revenueSoFar = (wonRows ?? []).reduce((s, r) => s + (r.amount_usd ?? 0), 0)
+  const revenueSoFar = (wonRows ?? [])
+    .filter((r) => roleByStageName[r.stage] === 'cierre')
+    .reduce((s, r) => s + (r.amount_usd ?? 0), 0)
   const wdElapsed = workingDaysBetween(monthStart, ref)
   const wdTotal = workingDaysBetween(monthStart, monthEnd)
   const pace = wdElapsed > 0 ? revenueSoFar / wdElapsed : 0

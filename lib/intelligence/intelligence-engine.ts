@@ -11,6 +11,7 @@ import { getAiConfig } from '@/lib/utils/ai-config'
 import { _fetchActivityEffectiveness, type ActivityEffectivenessItem } from '@/lib/utils/coach-context'
 import { getActivityGoal } from '@/lib/utils/goals'
 import { cappedCompliance, buildStageBreakdown, fetchTeamChannels, fetchTeamConversions } from '@/lib/utils/team-metrics'
+import { buildRoleByStageName, type PipelineStageRole } from '@/lib/utils/pipeline-stages'
 
 /** Count working days (Mon-Fri) from startISO to endISO inclusive. Pure UTC arithmetic. */
 function workingDaysBetween(startISO: string, endISO: string): number {
@@ -88,12 +89,9 @@ export interface CitasMetrics {
 export interface ChannelItem { canal: string; conversion: number; cierre: number }
 export interface ChannelsMetrics { fortalezas: ChannelItem[]; debilidades: ChannelItem[] }
 
-// Etapas donde la reunión ya se ejecutó (= "cita real"), igual que el Recetario.
-const REUNION_STAGES = new Set([
-  'Primera reu ejecutada/Propuesta en preparación',
-  'Propuesta Presentada',
-  'Por facturar/cobrar',
-])
+// Etapas donde la reunión ya se ejecutó (= "cita real"), igual que el Recetario
+// — identificadas por ROL, no por nombre (ver lib/queries/recipe-performance.ts).
+const REUNION_ROLES = new Set<PipelineStageRole>(['reunion', 'propuesta', 'cierre'])
 
 function lastRatePct(outboundRates: number[] | null | undefined): number {
   const arr = outboundRates ?? []
@@ -145,6 +143,7 @@ async function gatherData(params: VendedorReportParams) {
     { data: logs },
     { data: pipelineRows },
     { data: scenario },
+    { data: stagesRaw },
   ] = await Promise.all([
     sb.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
     sb.from('activities').select('id,name,type,daily_goal,weekly_goal,monthly_goal').eq('user_id', userId).eq('status', 'active'),
@@ -155,7 +154,9 @@ async function gatherData(params: VendedorReportParams) {
     // citas y canales, que sí son conceptos mensuales del Recetario.)
     sb.from('pipeline_simple').select('stage,status,amount_usd').is('deleted_at', null).eq('user_id', userId).gte('entry_date', periodStart).lte('entry_date', periodEnd),
     sb.from('recipe_scenarios').select('name,monthly_revenue_goal,average_ticket,outbound_pct,funnel_stages,outbound_rates').eq('user_id', userId).eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    sb.from('pipeline_stages').select('name,role').eq('user_id', userId),
   ])
+  const roleByStageName = buildRoleByStageName(stagesRaw ?? [])
 
   const userName = profile?.full_name ?? 'Vendedor'
 
@@ -193,8 +194,8 @@ async function gatherData(params: VendedorReportParams) {
     if (!stageMap[row.stage]) stageMap[row.stage] = { count: 0, amount: 0 }
     stageMap[row.stage].count++
     stageMap[row.stage].amount += row.amount_usd ?? 0
-    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
-    if (row.stage === 'Por facturar/cobrar' && row.status === 'ganado') {
+    // Cierre ganado = etapa con role 'cierre' Y estado 'ganado' (ambas condiciones).
+    if (roleByStageName[row.stage] === 'cierre' && row.status === 'ganado') {
       won_count++
       closed_amount += row.amount_usd ?? 0
     } else if (row.status === 'perdido') {
@@ -218,7 +219,9 @@ async function gatherData(params: VendedorReportParams) {
     : 0
   // citas reales del MES (reunión ejecutada), coherente con citasReq mensual,
   // independiente del tipo de período del reporte.
-  const citasReales = by_stage.filter((s) => REUNION_STAGES.has(s.stage)).reduce((acc, s) => acc + s.count, 0)
+  const citasReales = by_stage
+    .filter((s) => { const r = roleByStageName[s.stage]; return !!r && REUNION_ROLES.has(r) })
+    .reduce((acc, s) => acc + s.count, 0)
   const citasProy = projectCitas(citasReales, monthStart, monthEnd, nowISO)
   const citas: CitasMetrics = {
     requeridas: Math.round(citasReq),
@@ -423,6 +426,7 @@ async function gatherTeamData(
     { data: allLogs },
     { data: allPipeline },
     { data: allScenarios },
+    { data: allStages },
   ] = await Promise.all([
     sb.from('activities').select('id,user_id,name,type,daily_goal,weekly_goal,monthly_goal').in('user_id', memberIds).eq('status', 'active'),
     sb.from('activity_logs').select('user_id,activity_id,real_executed').in('user_id', memberIds).gte('log_date', periodStart).lte('log_date', periodEnd),
@@ -430,7 +434,17 @@ async function gatherTeamData(
     // reportado, no el mes completo.
     sb.from('pipeline_simple').select('user_id,stage,status,amount_usd').is('deleted_at', null).in('user_id', memberIds).gte('entry_date', periodStart).lte('entry_date', periodEnd),
     sb.from('recipe_scenarios').select('user_id,monthly_revenue_goal,average_ticket,outbound_rates,activities_needed_daily,activities_needed_weekly,activities_needed_monthly').in('user_id', memberIds).eq('is_active', true),
+    // Etapas propias de cada miembro (con su role) — cada quien puede haber
+    // renombrado sus etapas distinto, así que el mapa de rol es POR usuario.
+    sb.from('pipeline_stages').select('user_id,name,role').in('user_id', memberIds),
   ])
+
+  // Mapa de rol POR MIEMBRO: cada quien puede haber renombrado sus etapas
+  // distinto, así que "cuál etapa es cierre" no es un valor global del equipo.
+  const roleMapByUser: Record<string, Record<string, PipelineStageRole | null | undefined>> = {}
+  for (const uid of memberIds) {
+    roleMapByUser[uid] = buildRoleByStageName((allStages ?? []).filter((s) => s.user_id === uid))
+  }
 
   const memberRows: TeamMemberRow[] = members.map((member) => {
     const uid = member.id
@@ -438,6 +452,7 @@ async function gatherTeamData(
     const logs = (allLogs ?? []).filter((l) => l.user_id === uid)
     const pipeline = (allPipeline ?? []).filter((p) => p.user_id === uid)
     const scenario = (allScenarios ?? []).find((s) => s.user_id === uid)
+    const roleByStageName = roleMapByUser[uid]
 
     const realMap: Record<string, number> = {}
     for (const log of logs) {
@@ -460,8 +475,8 @@ async function gatherTeamData(
 
     let open_amount = 0, closed_amount = 0, won_count = 0, lost_count = 0
     for (const row of pipeline) {
-      // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
-      if (row.stage === 'Por facturar/cobrar' && row.status === 'ganado') { won_count++; closed_amount += row.amount_usd ?? 0 }
+      // Cierre ganado = etapa con role 'cierre' Y estado 'ganado' (ambas condiciones).
+      if (roleByStageName[row.stage] === 'cierre' && row.status === 'ganado') { won_count++; closed_amount += row.amount_usd ?? 0 }
       else if (row.status === 'perdido') { lost_count++ }
       else { open_amount += row.amount_usd ?? 0 }
     }
@@ -485,7 +500,12 @@ async function gatherTeamData(
   const teamChannelItems = await fetchTeamChannels(sb, memberIds, monthStart, nowISO)
   // Plan vs real por actividad, y estado del pipeline por etapa real.
   const conversiones = await fetchTeamConversions(sb, memberIds, teamChannelItems)
-  const etapas = buildStageBreakdown(allPipeline ?? [])
+  const etapas = buildStageBreakdown(
+    (allPipeline ?? []).map((r) => ({
+      ...r,
+      isCierre: roleMapByUser[r.user_id]?.[r.stage] === 'cierre',
+    })),
+  )
   const channels = buildChannels(teamChannelItems)
   const citasReqTotal = (allScenarios ?? []).reduce(
     (s, sc) => s + citasRequeridas(sc.monthly_revenue_goal, sc.average_ticket, sc.outbound_rates as number[] | null), 0,

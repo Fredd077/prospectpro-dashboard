@@ -17,20 +17,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 import { getPeriodRange, todayISO, periodLabel } from '@/lib/utils/dates'
+import { buildRoleByStageName, type PipelineStageRole } from '@/lib/utils/pipeline-stages'
 
 type Sb = SupabaseClient<Database>
 
-// Etapas donde la reunión ya se ejecutó (= "cita real"), independiente del estado.
-const REUNION_STAGES = new Set([
-  'Primera reu ejecutada/Propuesta en preparación',
-  'Propuesta Presentada',
-  'Por facturar/cobrar',
-])
+// Etapas donde la reunión ya se ejecutó (= "cita real"), identificadas por ROL
+// y no por nombre — antes comparaba contra los 3 nombres canónicos exactos
+// ('Primera reu ejecutada/Propuesta en preparación', 'Propuesta Presentada',
+// 'Por facturar/cobrar') y se rompía en silencio en cualquier cuenta que
+// hubiera renombrado una etapa (ver bug de metodopulso7@gmail.com: su etapa de
+// cierre se llama "Cerrados" desde hace semanas, así que esto venía dando 0
+// cierres reales para TODAS las cuentas con al menos una etapa renombrada).
+const REUNION_ROLES = new Set<PipelineStageRole>(['reunion', 'propuesta', 'cierre'])
 // DEFINICIÓN ÚNICA Y DEFINITIVA de cierre ganado: la oportunidad cumple LAS DOS
-// condiciones a la vez → etapa 'Por facturar/cobrar' Y estado 'ganado'. Su valor es
-// el MONTO REAL de esa oportunidad (nunca el ticket promedio). Una 'Por facturar'
-// que sigue 'abierta' NO cuenta; una 'ganada' fuera de esa etapa TAMPOCO cuenta.
-const CIERRE_STAGE = 'Por facturar/cobrar'
+// condiciones a la vez → etapa con role='cierre' Y estado 'ganado'. Su valor es
+// el MONTO REAL de esa oportunidad (nunca el ticket promedio). Una etapa sin
+// rol 'cierre' asignado (ej. una etapa de facturación post-venta que el usuario
+// agregó aparte) NO cuenta — evita además contar dos veces si el usuario
+// duplicó la fila al mover el negocio a esa etapa siguiente.
 
 export interface RecipeActivityPerf {
   id: string
@@ -105,6 +109,7 @@ export async function getRecipePerformance(sb: Sb, refDate?: string): Promise<Re
     { data: activitiesRaw },
     { data: pipelineRaw },
     { data: scenarioRaw },
+    { data: stagesRaw },
   ] = await Promise.all([
     sb.from('activities')
       .select('id,name,type,channel,conversion_rate_pct,meetings_expected,daily_goal,weekly_goal,monthly_goal')
@@ -122,9 +127,14 @@ export async function getRecipePerformance(sb: Sb, refDate?: string): Promise<Re
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    // Etapas propias del usuario, para identificar "reunión"/"cierre" por role
+    // en vez de por nombre. Si el usuario todavía no tiene ninguna (cuenta
+    // nueva que nunca abrió /pipeline), se asume el respaldo canónico.
+    sb.from('pipeline_stages').select('name,role'),
   ])
 
   const pipeline = pipelineRaw ?? []
+  const roleByStageName = buildRoleByStageName(stagesRaw ?? [])
 
   // "Lo logrado" por actividad, desde pipeline_simple (por origin_activity_id).
   const reunionesByAct: Record<string, number> = {}
@@ -132,13 +142,14 @@ export async function getRecipePerformance(sb: Sb, refDate?: string): Promise<Re
   const montoByAct: Record<string, number> = {}
   let citasRealesMes = 0
   for (const row of pipeline) {
-    const isReunion = REUNION_STAGES.has(row.stage)
+    const role = roleByStageName[row.stage]
+    const isReunion = !!role && REUNION_ROLES.has(role)
     if (isReunion) citasRealesMes++
     const aid = row.origin_activity_id
     if (!aid) continue
     if (isReunion) reunionesByAct[aid] = (reunionesByAct[aid] ?? 0) + 1
-    // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas). Valor = monto real.
-    if (row.stage === CIERRE_STAGE && row.status === 'ganado') {
+    // Cierre ganado = etapa con role 'cierre' Y estado 'ganado' (ambas). Valor = monto real.
+    if (role === 'cierre' && row.status === 'ganado') {
       cierresByAct[aid] = (cierresByAct[aid] ?? 0) + 1
       montoByAct[aid] = (montoByAct[aid] ?? 0) + (row.amount_usd ?? 0)
     }

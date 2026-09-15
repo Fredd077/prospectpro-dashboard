@@ -11,6 +11,7 @@ import { PeriodSelector } from '@/components/team/PeriodSelector'
 import { todayISO, toISODate, getPeriodRange, addDaysToISO } from '@/lib/utils/dates'
 import { fmtUSD } from '@/lib/calculations/pipeline'
 import { getActivityGoal } from '@/lib/utils/goals'
+import { buildRoleByStageName, buildStageNameByRole } from '@/lib/utils/pipeline-stages'
 import type { PeriodType } from '@/lib/types/common'
 import { parseISO, format, formatDistanceToNow, addDays, getISOWeek, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -186,6 +187,7 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
     streakLogsRes,
     scenarioRes,
     pipelineRes,
+    stagesRes,
     coachRes,
     activitiesForEditRes,
   ] = await Promise.all([
@@ -220,6 +222,8 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
       .is('deleted_at', null)
       .eq('user_id', userId)
       .gte('entry_date', periodStart).lte('entry_date', periodEnd),
+
+    service.from('pipeline_stages').select('name,role').eq('user_id', userId),
 
     service.from('coach_messages')
       .select('id,type,message,period_date,created_at')
@@ -283,14 +287,24 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
   })
 
   // ── Pipeline ─────────────────────────────────────────────────────────────
+  // Etapas de ESTE vendedor por role, no por nombre — un rename no debe dejar
+  // esta ficha en cero (ver bug de metodopulso7@gmail.com / recipe-performance.ts).
+  const roleByStageName = buildRoleByStageName(stagesRes.data ?? [])
+  const stageNameByRole = buildStageNameByRole(stagesRes.data ?? [])
+  const isCierreStage = (stage: string) => roleByStageName[stage] === 'cierre'
+  const isPreMeetingStage = (stage: string) => {
+    const role = roleByStageName[stage]
+    return role === 'cita' || role === 'reagendar' || role === 'reunion'
+  }
+
   const pipeRows   = pipelineRes.data ?? []
-  // Cierre ganado = etapa 'Por facturar/cobrar' Y estado 'ganado' (ambas condiciones).
-  const wonAmount  = pipeRows.filter(r => r.stage === 'Por facturar/cobrar' && r.status === 'ganado' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
-  const openAmount = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación' && r.stage !== 'Cita agendada' && r.stage !== 'Reagendar' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+  // Cierre ganado = etapa con role 'cierre' Y estado 'ganado' (ambas condiciones).
+  const wonAmount  = pipeRows.filter(r => isCierreStage(r.stage) && r.status === 'ganado' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
+  const openAmount = pipeRows.filter(r => r.status === 'abierto' && !isPreMeetingStage(r.stage) && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
   const lostAmount = pipeRows.filter(r => r.status === 'perdido' && r.amount_usd != null).reduce((s, r) => s + r.amount_usd!, 0)
-  const wonCount   = pipeRows.filter(r => r.stage === 'Por facturar/cobrar' && r.status === 'ganado').length
+  const wonCount   = pipeRows.filter(r => isCierreStage(r.stage) && r.status === 'ganado').length
   const lostCount  = pipeRows.filter(r => r.status === 'perdido').length
-  const openCount  = pipeRows.filter(r => r.status === 'abierto' && r.stage !== 'Primera reu ejecutada/Propuesta en preparación' && r.stage !== 'Cita agendada' && r.stage !== 'Reagendar').length
+  const openCount  = pipeRows.filter(r => r.status === 'abierto' && !isPreMeetingStage(r.stage)).length
   const stageCounts: Record<string, number> = {}
   for (const r of pipeRows) { stageCounts[r.stage] = (stageCounts[r.stage] ?? 0) + 1 }
   const dashPipeline = {
@@ -556,21 +570,25 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
                 </div>
               </div>
 
-              {/* Etapas: 5 columnas */}
+              {/* Etapas: 5 columnas, por role — no por nombre exacto */}
               {Object.keys(dashPipeline.stageCounts).length > 0 && (
                 <div className="grid grid-cols-5 gap-2 pt-4 border-t border-border/50">
                   {([
-                    { stage: 'Cita agendada', label: 'Cita', color: 'text-blue-400', bg: 'bg-blue-400/5 border-blue-400/15' },
-                    { stage: 'Reagendar',     label: 'Reag.', color: 'text-rose-400', bg: 'bg-rose-400/5 border-rose-400/15' },
-                    { stage: 'Primera reu ejecutada/Propuesta en preparación', label: '1ra Reu.', color: 'text-cyan-400', bg: 'bg-cyan-400/5 border-cyan-400/15' },
-                    { stage: 'Propuesta Presentada', label: 'Prop.', color: 'text-amber-400', bg: 'bg-amber-400/5 border-amber-400/15' },
-                    { stage: 'Por facturar/cobrar',  label: 'Cierre', color: 'text-emerald-400', bg: 'bg-emerald-400/5 border-emerald-400/15' },
-                  ] as const).map(({ stage, label, color, bg }) => (
-                    <div key={stage} className={`flex flex-col items-center gap-1 rounded-lg border py-3 ${bg}`}>
-                      <span className={`text-xl font-bold tabular-nums ${color}`}>{dashPipeline.stageCounts[stage] ?? 0}</span>
-                      <span className={`text-[9px] font-semibold uppercase tracking-widest ${color} opacity-60`}>{label}</span>
-                    </div>
-                  ))}
+                    { role: 'cita',      label: 'Cita',    color: 'text-blue-400',    bg: 'bg-blue-400/5 border-blue-400/15'    },
+                    { role: 'reagendar', label: 'Reag.',   color: 'text-rose-400',    bg: 'bg-rose-400/5 border-rose-400/15'    },
+                    { role: 'reunion',   label: '1ra Reu.',color: 'text-cyan-400',    bg: 'bg-cyan-400/5 border-cyan-400/15'    },
+                    { role: 'propuesta', label: 'Prop.',   color: 'text-amber-400',   bg: 'bg-amber-400/5 border-amber-400/15'  },
+                    { role: 'cierre',    label: 'Cierre',  color: 'text-emerald-400', bg: 'bg-emerald-400/5 border-emerald-400/15' },
+                  ] as const).map(({ role, label, color, bg }) => {
+                    const stageName = stageNameByRole[role]
+                    const count = stageName ? (dashPipeline.stageCounts[stageName] ?? 0) : 0
+                    return (
+                      <div key={role} className={`flex flex-col items-center gap-1 rounded-lg border py-3 ${bg}`}>
+                        <span className={`text-xl font-bold tabular-nums ${color}`}>{count}</span>
+                        <span className={`text-[9px] font-semibold uppercase tracking-widest ${color} opacity-60`}>{label}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
