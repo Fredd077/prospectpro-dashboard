@@ -2,19 +2,20 @@ import Link from 'next/link'
 import { CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDisplayDate } from '@/lib/utils/dates'
-import { calcCompliance } from '@/lib/calculations/compliance'
-import { semaphoreBgClass } from '@/lib/utils/colors'
+import type { ComplianceResult } from '@/lib/calculations/compliance'
 
 interface TodayWidgetProps {
   today: string
-  totalReal: number
-  totalGoal: number
+  /** Ya calculado con calcCappedCompliance (promedio por actividad, topado al
+   * 100%) — la misma fórmula que el KPI "Cumplimiento" de esta misma página,
+   * para que las dos tarjetas nunca muestren un número distinto. */
+  compliance: ComplianceResult
   hasActivities: boolean
 }
 
-export function TodayWidget({ today, totalReal, totalGoal, hasActivities }: TodayWidgetProps) {
+export function TodayWidget({ today, compliance, hasActivities }: TodayWidgetProps) {
+  const { real: totalReal, goal: totalGoal } = compliance
   const done = totalGoal > 0 && totalReal > 0
-  const compliance = calcCompliance(totalReal, totalGoal)
   const checkinDone = done && compliance.pct >= 50
 
   return (

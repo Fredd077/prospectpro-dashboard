@@ -1,7 +1,7 @@
 import { CheckCircle2, AlertTriangle, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semaphoreBgClass } from '@/lib/utils/colors'
-import { calcCompliance } from '@/lib/calculations/compliance'
+import { calcCompliance, calcCappedCompliance } from '@/lib/calculations/compliance'
 import { calcRecipeValidation } from '@/lib/utils/recipe-validation'
 import { RecipePaceWidget } from './RecipePaceWidget'
 import type { Activity, RecipeScenario } from '@/lib/types/database'
@@ -38,13 +38,22 @@ export function CheckinSummary({
   const weeklyActivities = activities.filter((a) => a.daily_goal < 1)
 
   // --- Summary card stats ---
+  // "Cumplimiento" = promedio de ratios por actividad topados al 100% (misma
+  // fórmula del Dashboard y /team) — NUNCA total real / total meta, que puede
+  // mostrar un número muy distinto si un canal con mucho volumen tapa que
+  // otros quedaron en cero. Los totales (54/73 etc.) se siguen mostrando tal
+  // cual, son conteos, no porcentajes, así que no tienen esa ambigüedad.
   const dailyGoalTotal = dailyActivities.reduce((s, a) => s + a.daily_goal, 0)
   const dailyRealTotal = dailyActivities.reduce((s, a) => s + (values[a.id] ?? 0), 0)
-  const dailyCompliance = calcCompliance(dailyRealTotal, dailyGoalTotal)
+  const dailyCompliance = calcCappedCompliance(
+    dailyActivities.map((a) => ({ real: values[a.id] ?? 0, goal: a.daily_goal })),
+  )
 
   const weeklyGoalTotal = activities.reduce((s, a) => s + a.weekly_goal, 0)
   const weeklyRealTotal = activities.reduce((s, a) => s + (weeklyDisplayValues[a.id] ?? 0), 0)
-  const weeklyCompliance = calcCompliance(weeklyRealTotal, weeklyGoalTotal)
+  const weeklyCompliance = calcCappedCompliance(
+    activities.map((a) => ({ real: weeklyDisplayValues[a.id] ?? 0, goal: a.weekly_goal })),
+  )
 
   const completedToday = activities.filter((a) => {
     const real = values[a.id] ?? 0

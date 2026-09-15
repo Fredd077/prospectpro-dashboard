@@ -20,7 +20,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { buildStageNameByRole } from '@/lib/utils/pipeline-stages'
 import { getRecipePerformance } from '@/lib/queries/recipe-performance'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
-import { calcCompliance } from '@/lib/calculations/compliance'
+import { calcCompliance, calcCappedCompliance } from '@/lib/calculations/compliance'
 import { calcProjection } from '@/lib/calculations/projection'
 import { formatPercent } from '@/lib/utils/formatters'
 import { getSemaphoreColor } from '@/lib/utils/colors'
@@ -119,7 +119,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // Today's data for the widget (independent of period filter)
   const todayLogsQuery = sb
     .from('vw_daily_compliance')
-    .select('real_executed,day_goal')
+    .select('activity_id,real_executed,day_goal')
     .eq('user_id', user.id)
     .eq('log_date', today)
 
@@ -169,6 +169,20 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   for (const log of allLogs) {
     realByActivity[log.activity_id] = (realByActivity[log.activity_id] ?? 0) + log.real_executed
   }
+
+  // "Hoy" para TodayWidget — independiente del período seleccionado arriba.
+  // Se calcula sobre TODAS las actividades activas (no solo las que ya
+  // tienen un log hoy), igual que el KPI de Cumplimiento de abajo, para que
+  // ambas tarjetas de la misma página nunca muestren un número distinto para
+  // los mismos datos (antes: 74% aquí vs 27.6% en Cumplimiento, por sumar
+  // totales en vez de promediar por actividad topada al 100%).
+  const todayRealByActivity: Record<string, number> = {}
+  for (const log of todayLogs ?? []) {
+    todayRealByActivity[log.activity_id] = (todayRealByActivity[log.activity_id] ?? 0) + log.real_executed
+  }
+  const todayCompliance = calcCappedCompliance(
+    allActivities.map((a) => ({ real: todayRealByActivity[a.id] ?? 0, goal: a.daily_goal })),
+  )
 
   // --- KPIs: promedio de ratios topados ---
   // Cada actividad aporta su ratio de cumplimiento TOPADO al 100% y todas pesan
@@ -397,8 +411,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <TodayWidget
               today={today}
-              totalReal={(todayLogs ?? []).reduce((s, l) => s + l.real_executed, 0)}
-              totalGoal={(todayLogs ?? []).reduce((s, l) => s + l.day_goal, 0)}
+              compliance={todayCompliance}
               hasActivities={(activities?.length ?? 0) > 0}
             />
             <CoachProCard

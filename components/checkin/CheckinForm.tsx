@@ -12,6 +12,7 @@ import { DateNavigator } from './DateNavigator'
 import { CheckinPipelineSection } from '@/components/pipeline/CheckinPipelineSection'
 import { bulkUpsertLogs } from '@/lib/queries/logs'
 import { todayISO } from '@/lib/utils/dates'
+import { calcCappedCompliance } from '@/lib/calculations/compliance'
 import type { Activity, DailyCompliance, RecipeScenario } from '@/lib/types/database'
 
 interface CheckinFormProps {
@@ -86,11 +87,17 @@ export function CheckinForm({ date, activities, existingLogs, weeklyLogs, active
     }
   }
 
-  // Footer totals — only count daily activities for the daily total
+  // Footer — mismo criterio que CheckinSummary y el Dashboard: promedio de
+  // ratios por actividad topados al 100%, no total real / total meta (esa
+  // fórmula vieja podía mostrar hasta 200%+ si una sola actividad se pasaba
+  // mucho de su meta, tapando que otras seguían en cero).
   const dailyActivities = activities.filter((a) => a.daily_goal >= 1)
-  const totalGoal = dailyActivities.reduce((s, a) => s + a.daily_goal, 0)
-  const totalReal = dailyActivities.reduce((s, a) => s + (values[a.id] ?? 0), 0)
-  const compliancePct = totalGoal > 0 ? Math.round((totalReal / totalGoal) * 100) : 0
+  const dailyCompliance = calcCappedCompliance(
+    dailyActivities.map((a) => ({ real: values[a.id] ?? 0, goal: a.daily_goal })),
+  )
+  const totalGoal = dailyCompliance.goal
+  const totalReal = dailyCompliance.real
+  const compliancePct = dailyCompliance.pct
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -204,7 +211,7 @@ export function CheckinForm({ date, activities, existingLogs, weeklyLogs, active
                     : ' text-red-400'
                 }
               >
-                {' '}({compliancePct}%)
+                {' '}({Math.round(compliancePct)}%)
               </span>
             </span>
           )}
