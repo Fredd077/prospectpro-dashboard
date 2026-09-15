@@ -39,12 +39,11 @@ export function CheckinSummary({
 
   // --- Summary card stats ---
   // "Cumplimiento" = promedio de ratios por actividad topados al 100% (misma
-  // fórmula del Dashboard y /team) — NUNCA total real / total meta, que puede
-  // mostrar un número muy distinto si un canal con mucho volumen tapa que
-  // otros quedaron en cero. Los totales (54/73 etc.) se siguen mostrando tal
-  // cual, son conteos, no porcentajes, así que no tienen esa ambigüedad.
-  const dailyGoalTotal = dailyActivities.reduce((s, a) => s + a.daily_goal, 0)
-  const dailyRealTotal = dailyActivities.reduce((s, a) => s + (values[a.id] ?? 0), 0)
+  // fórmula del Dashboard y /team) — NUNCA total real / total meta. No se
+  // muestra ese total junto al %: son cosas distintas y mostrarlas juntas se
+  // leía como que una explica a la otra (ver comentario más abajo, junto a
+  // las tarjetas). El total semanal sí se muestra, pero en su propia tarjeta
+  // "Semana actual", sin un % al lado que pueda parecer derivado de él.
   const dailyCompliance = calcCappedCompliance(
     dailyActivities.map((a) => ({ real: values[a.id] ?? 0, goal: a.daily_goal })),
   )
@@ -121,8 +120,13 @@ export function CheckinSummary({
             <span className={cn('text-lg font-bold tabular-nums', semaphoreBgClass(dailyCompliance.semaphore).split(' ')[1])}>
               {dailyCompliance.pct.toFixed(0)}%
             </span>
-            <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
-              {dailyRealTotal}/{dailyGoalTotal}
+            {/* No mostrar dailyRealTotal/dailyGoalTotal aquí: esa fracción es un
+                total simple y NO es la que produce este %, que es un promedio
+                por actividad topado al 100% — mostrarlas juntas se leía como
+                que una explica a la otra ("108/351 no da 15%"). El detalle por
+                actividad ya está más abajo, fila por fila. */}
+            <p className="text-xs text-muted-foreground mt-0.5">
+              promedio por actividad
             </p>
           </div>
         )}
@@ -133,8 +137,8 @@ export function CheckinSummary({
           <span className={cn('text-lg font-bold tabular-nums', semaphoreBgClass(weeklyCompliance.semaphore).split(' ')[1])}>
             {weeklyCompliance.pct.toFixed(0)}%
           </span>
-          <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
-            {weeklyRealTotal}/{weeklyGoalTotal}
+          <p className="text-xs text-muted-foreground mt-0.5">
+            promedio por actividad
           </p>
         </div>
 

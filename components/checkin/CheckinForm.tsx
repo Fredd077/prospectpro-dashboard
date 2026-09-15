@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { CheckinActivityRow } from './CheckinActivityRow'
@@ -96,7 +97,6 @@ export function CheckinForm({ date, activities, existingLogs, weeklyLogs, active
     dailyActivities.map((a) => ({ real: values[a.id] ?? 0, goal: a.daily_goal })),
   )
   const totalGoal = dailyCompliance.goal
-  const totalReal = dailyCompliance.real
   const compliancePct = dailyCompliance.pct
 
   return (
@@ -198,20 +198,22 @@ export function CheckinForm({ date, activities, existingLogs, weeklyLogs, active
             {isSubmitting ? 'Guardando...' : submitted ? 'Actualizar' : 'Guardar check-in'}
           </Button>
           {totalGoal > 0 && (
+            // Sin la fracción real/meta al lado: es un total simple y no es lo
+            // que produce este %, que es un promedio por actividad topado al
+            // 100% — mostrarlas juntas se leía como que una explica a la otra.
             <span className="text-xs text-muted-foreground">
-              Diario: <span className="tabular-nums text-foreground">{totalReal}</span>{' '}
-              /{' '}
-              <span className="tabular-nums">{totalGoal}</span>
+              Cumplimiento de hoy:{' '}
               <span
-                className={
+                className={cn(
+                  'font-semibold tabular-nums',
                   compliancePct >= 100
-                    ? ' text-emerald-400'
+                    ? 'text-emerald-400'
                     : compliancePct >= 70
-                    ? ' text-amber-400'
-                    : ' text-red-400'
-                }
+                    ? 'text-amber-400'
+                    : 'text-red-400',
+                )}
               >
-                {' '}({Math.round(compliancePct)}%)
+                {Math.round(compliancePct)}%
               </span>
             </span>
           )}

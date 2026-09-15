@@ -45,17 +45,25 @@ export function TodayWidget({ today, compliance, hasActivities }: TodayWidgetPro
               : 'Check-in en progreso'
             }
           </p>
+          {/* Registro y Cumplimiento van en líneas separadas a propósito: el
+              % es un promedio por actividad topado al 100%, no totalReal/
+              totalGoal — mostrarlos como "X de Y (Z%)" se leía como que el
+              conteo explicaba el porcentaje, y casi nunca coinciden. */}
           {totalGoal > 0 && (
             <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
-              {totalReal} de {totalGoal} actividades
-              {' '}
+              {totalReal} actividades registradas hoy
+            </p>
+          )}
+          {totalGoal > 0 && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Cumplimiento:{' '}
               <span className={cn(
                 'font-semibold',
                 compliance.semaphore === 'green' ? 'text-emerald-400'
                 : compliance.semaphore === 'yellow' ? 'text-amber-400'
                 : 'text-red-400'
               )}>
-                ({compliance.pct.toFixed(0)}%)
+                {compliance.pct.toFixed(0)}%
               </span>
             </p>
           )}
