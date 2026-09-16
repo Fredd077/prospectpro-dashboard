@@ -211,9 +211,10 @@ export function PipelineStagesManager({ stages }: Props) {
         onClick={openModal}
         title="Gestionar etapas"
         aria-label="Gestionar etapas"
-        className="ml-1 p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+        className="ml-1 flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/20"
       >
         <Settings2 className="h-3.5 w-3.5" />
+        Gestionar etapas
       </button>
 
       {open && (
