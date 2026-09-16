@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { toast } from 'sonner'
 import { Settings2, GripVertical, Trash2, Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -41,6 +41,8 @@ const ROLE_OPTIONS: { value: PipelineStageRole | ''; label: string }[] = [
 // acento cyan en estados activos.
 export function PipelineStagesManager({ stages }: Props) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Item[]>([])
   const [newName, setNewName] = useState('')
@@ -70,6 +72,20 @@ export function PipelineStagesManager({ stages }: Props) {
       }
     }
   }
+
+  // Abre el modal solo si llega ?manage_stages=1 (ej. desde el aviso de "etapa
+  // sin configurar" en Dashboard/Pipeline) — así el botón "Gestionar etapas"
+  // de ese aviso lleva a un resultado visible aunque el usuario ya esté en
+  // /pipeline, en vez de una navegación que parece no hacer nada.
+  useEffect(() => {
+    if (searchParams.get('manage_stages') !== '1') return
+    openModal()
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('manage_stages')
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   // Recarga ids reales desde el servidor tras crear/eliminar/reordenar.
   async function reseed() {
