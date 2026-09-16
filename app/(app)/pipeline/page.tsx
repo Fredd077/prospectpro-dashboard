@@ -6,7 +6,8 @@ import { DateNavigator } from '@/components/dashboard/DateNavigator'
 import { PipelineSimpleBoard } from '@/components/pipeline/PipelineSimpleBoard'
 import { PipelineAnalysis } from '@/components/pipeline/PipelineAnalysis'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { buildStageNameByRole } from '@/lib/utils/pipeline-stages'
+import { buildStageNameByRole, buildRoleByStageName } from '@/lib/utils/pipeline-stages'
+import { UnassignedStageAlert } from '@/components/pipeline/UnassignedStageAlert'
 import { getPeriodRange, todayISO, periodLabel } from '@/lib/utils/dates'
 import type { PeriodType } from '@/lib/types/common'
 import type { PipelineSimple } from '@/lib/types/database'
@@ -78,18 +79,26 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     { data: pipelineSimpleRaw },
     { data: activitiesRaw },
     { data: stagesRaw },
+    { data: allPipelineStageValues },
   ] = await Promise.all([
     sb.from('recipe_scenarios').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     sb.from('pipeline_simple').select('*').is('deleted_at', null).eq('user_id', user?.id ?? '').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }),
     sb.from('activities').select('id,name,type').eq('user_id', user?.id ?? '').eq('status', 'active').order('type').order('sort_order'),
     // Etapas del Pipeline propias del usuario (independientes del Recetario), ordenadas.
     sb.from('pipeline_stages').select('id,name,color,sort_order,role').eq('user_id', user?.id ?? '').order('sort_order', { ascending: true }),
+    // Todas las etapas con negocios reales alguna vez (sin filtrar por período
+    // seleccionado) — para el aviso de "etapa sin configurar" (ver Dashboard).
+    sb.from('pipeline_simple').select('stage').is('deleted_at', null).eq('user_id', user?.id ?? ''),
   ])
 
   const pipelineSimple     = (pipelineSimpleRaw ?? []) as PipelineSimple[]
   const activitiesForBoard = (activitiesRaw ?? []) as { id: string; name: string; type: 'OUTBOUND' | 'INBOUND' }[]
   const pipelineStages     = (stagesRaw ?? []) as PipelineStageOption[]
   const stageNameByRole    = buildStageNameByRole(pipelineStages)
+  const roleByStageName    = buildRoleByStageName(pipelineStages)
+  const unassignedStagesWithData = [
+    ...new Set((allPipelineStageValues ?? []).map((r) => r.stage)),
+  ].filter((stage) => !roleByStageName[stage])
   const monthlyRevenueGoal = scenario?.monthly_revenue_goal ?? null
   const pLabel             = periodLabel(period, anchorDate)
 
@@ -134,6 +143,12 @@ export default async function PipelinePage({ searchParams }: PageProps) {
             <DateNavigator period={period} refDate={refDateParam || today} allowFuture />
           </Suspense>
         </div>
+
+        {unassignedStagesWithData.length > 0 && (
+          <div className="px-8 pt-4 shrink-0">
+            <UnassignedStageAlert stageNames={unassignedStagesWithData} />
+          </div>
+        )}
 
         {/* ── Kanban tab ── */}
         {activeTab === 'pipeline' && (

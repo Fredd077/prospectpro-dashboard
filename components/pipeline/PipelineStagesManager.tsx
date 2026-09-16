@@ -141,9 +141,18 @@ export function PipelineStagesManager({ stages }: Props) {
     if (!trimmed) return
     setBusy(true)
     try {
-      await createPipelineStage(trimmed)
+      // El role sugerido (si aplica) se calcula y asigna del lado del
+      // servidor, dentro de la misma operación — así no depende de que el
+      // estado `items` de este navegador esté al día, que podría no serlo si
+      // el usuario agrega varias etapas seguidas rápido.
+      const { assignedRole } = await createPipelineStage(trimmed)
+      toast.success(
+        assignedRole
+          ? `Etapa agregada y marcada como "${PIPELINE_STAGE_ROLE_LABELS[assignedRole]}" ✓`
+          : 'Etapa agregada ✓',
+      )
+
       setNewName('')
-      toast.success('Etapa agregada ✓')
       await reseed()
       router.refresh()
     } catch (e) {

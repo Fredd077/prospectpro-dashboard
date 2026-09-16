@@ -17,7 +17,8 @@ import { PipelineMiniCard } from '@/components/dashboard/PipelineMiniCard'
 import type { PipelineMiniRow, PipelineMiniStage } from '@/components/dashboard/PipelineMiniCard'
 import { RecetarioFunnelCard } from '@/components/dashboard/RecetarioFunnelCard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { buildStageNameByRole } from '@/lib/utils/pipeline-stages'
+import { buildStageNameByRole, buildRoleByStageName } from '@/lib/utils/pipeline-stages'
+import { UnassignedStageAlert } from '@/components/pipeline/UnassignedStageAlert'
 import { getRecipePerformance } from '@/lib/queries/recipe-performance'
 import { getPeriodRange, todayISO, datesInRange, toISODate } from '@/lib/utils/dates'
 import { calcCompliance, calcCappedCompliance } from '@/lib/calculations/compliance'
@@ -130,6 +131,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     { data: todayLogs },
     { data: pipelineRows },
     { data: pipelineStages },
+    { data: allPipelineStageValues },
     recipePerf,
   ] = await Promise.all([
     query,
@@ -152,6 +154,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     // Etapas propias del usuario (con su role) para que PipelineMiniCard
     // identifique "cita"/"reunión"/etc. sin depender del nombre exacto.
     sb.from('pipeline_stages').select('name,role').eq('user_id', user.id).order('sort_order', { ascending: true }),
+    // Todas las etapas con negocios reales alguna vez (sin filtrar por período):
+    // para avisar si alguna quedó sin role asignado, sin importar qué período
+    // esté viendo el usuario ahora mismo (ver UnassignedStageAlert).
+    sb.from('pipeline_simple').select('stage').is('deleted_at', null).eq('user_id', user.id),
     // Rendimiento de actividades (LOGRO): fuente central única, mes del período que
     // se está viendo (refDate). OJO: NO usar `today`, que se calcula en el servidor
     // (reloj de Vercel) y caería en un mes sin datos, dando reuniones/cierres en cero.
@@ -341,6 +347,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     pipelineByStage[row.stage] = (pipelineByStage[row.stage] ?? 0) + 1
   }
 
+  // Etapas con negocios reales (en cualquier período) que no tienen role
+  // asignado — no se cuentan en ningún reporte hasta que se configuren. Red
+  // de seguridad para cuando la sugerencia automática al crear una etapa no
+  // aplicó (etapa creada por integración/API, o el role se borró después).
+  const roleByStageName = buildRoleByStageName(pipelineStageRoles)
+  const unassignedStagesWithData = [
+    ...new Set((allPipelineStageValues ?? []).map((r) => r.stage)),
+  ].filter((stage) => !roleByStageName[stage])
+
   // --- Period label for PipelineMiniCard ---
   const pipelinePeriodLabel = period === 'daily'
     ? 'hoy'
@@ -407,6 +422,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         </Suspense>
 
         <div className="p-8 space-y-6">
+          <UnassignedStageAlert stageNames={unassignedStagesWithData} />
+
           {/* Row 1: Estado del día + Coach — lado a lado */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <TodayWidget

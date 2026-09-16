@@ -58,8 +58,28 @@ export async function getPipelineStages(): Promise<PipelineStageOption[]> {
   return [...seeded].sort((a, b) => a.sort_order - b.sort_order)
 }
 
-/** Inserta una etapa nueva (source 'manual') con sort_order = máximo actual + 1. */
-export async function createPipelineStage(name: string): Promise<void> {
+// Orden en que se sugiere un role para una etapa recién creada: el primero de
+// estos 5 que la cuenta todavía no tenga asignado a NINGUNA etapa.
+const ROLE_FILL_ORDER: PipelineStageRole[] = ['cita', 'reagendar', 'reunion', 'propuesta', 'cierre']
+
+/**
+ * Inserta una etapa nueva (source 'manual') con sort_order = máximo actual + 1.
+ *
+ * Si a la cuenta le falta alguno de los 5 roles del embudo, se lo asigna de
+ * una vez a la etapa recién creada — para que una cuenta armando su pipeline
+ * desde cero (nombres 100% personalizados) no se quede con etapas sin
+ * configurar esperando a que alguien entre a "Gestionar etapas" a hacerlo a
+ * mano (ver UnassignedStageAlert para la red de seguridad si aun así pasa).
+ *
+ * El chequeo de "qué roles ya están asignados" se hace leyendo la base de
+ * datos DE NUEVO en este mismo request, no del estado del cliente que llama
+ * esto — si el usuario agrega varias etapas seguidas rápido, el estado del
+ * navegador podría no reflejar todavía el role que se le acaba de asignar a
+ * la etapa anterior. Todo en una sola operación de servidor evita esa carrera.
+ */
+export async function createPipelineStage(
+  name: string,
+): Promise<{ id: string; assignedRole: PipelineStageRole | null }> {
   const sb = await getSupabaseServerClient()
   const user = await assertCanWrite(sb)
 
@@ -76,12 +96,39 @@ export async function createPipelineStage(name: string): Promise<void> {
 
   const nextOrder = (maxRow?.sort_order ?? -1) + 1
 
-  const { error } = await sb
+  const { data: created, error } = await sb
     .from('pipeline_stages')
     .insert({ user_id: user.id, name: trimmed, sort_order: nextOrder, source: 'manual' })
+    .select('id')
+    .single()
 
   if (error) throw error
+
+  const { data: allStages } = await sb.from('pipeline_stages').select('role').eq('user_id', user.id)
+  const assignedRoles = new Set(
+    (allStages ?? []).map((s) => s.role).filter((r): r is PipelineStageRole => r !== null),
+  )
+  const suggestedRole = ROLE_FILL_ORDER.find((r) => !assignedRoles.has(r))
+
+  let assignedRole: PipelineStageRole | null = null
+  if (suggestedRole) {
+    const { error: roleError } = await sb
+      .from('pipeline_stages')
+      .update({ role: suggestedRole })
+      .eq('id', created.id)
+      .eq('user_id', user.id)
+    if (roleError) {
+      // Carrera con otra petición concurrente (poco probable) bloqueada por
+      // el índice único de la migración 045 — la etapa igual queda creada,
+      // solo sin role automático; el usuario puede asignarlo a mano.
+      console.error('[createPipelineStage] no se pudo auto-asignar el role:', roleError.message)
+    } else {
+      assignedRole = suggestedRole
+    }
+  }
+
   revalidatePath('/pipeline')
+  return { id: created.id, assignedRole }
 }
 
 /**
