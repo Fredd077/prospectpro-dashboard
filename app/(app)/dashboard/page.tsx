@@ -132,6 +132,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     { data: pipelineRows },
     { data: pipelineStages },
     { data: allPipelineStageValues },
+    { data: profile },
     recipePerf,
   ] = await Promise.all([
     query,
@@ -158,6 +159,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     // para avisar si alguna quedó sin role asignado, sin importar qué período
     // esté viendo el usuario ahora mismo (ver UnassignedStageAlert).
     sb.from('pipeline_simple').select('stage').is('deleted_at', null).eq('user_id', user.id),
+    sb.from('profiles').select('sales_position').eq('id', user.id).maybeSingle(),
     // Rendimiento de actividades (LOGRO): fuente central única, mes del período que
     // se está viendo (refDate). OJO: NO usar `today`, que se calcula en el servidor
     // (reloj de Vercel) y caería en un mes sin datos, dando reuniones/cierres en cero.
@@ -483,6 +485,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 stageNameByRole={stageNameByRole}
                 citasProyectadas={citasProyectadas}
                 citasRequeridas={citasRequeridas}
+                salesPosition={profile?.sales_position ?? null}
               />
             )}
             <PipelineMiniCard
@@ -490,6 +493,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               stages={pipelineStageRoles}
               periodLabel={pipelinePeriodLabel}
               monthlyRevenueGoal={activeScenario?.monthly_revenue_goal ?? 0}
+              salesPosition={profile?.sales_position ?? null}
             />
           </div>
 

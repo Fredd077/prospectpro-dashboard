@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { fmtUSD } from '@/lib/calculations/pipeline'
 import type { PipelineSimple } from '@/lib/types/database'
 import type { PipelineStageRole } from '@/lib/utils/pipeline-stages'
+import type { SalesPosition } from '@/lib/calculations/recipe'
 
 interface Props {
   entries: PipelineSimple[]
@@ -15,7 +16,14 @@ interface Props {
    * depender del nombre exacto, para que un rename no deje esta pantalla en
    * cero (ver bug de metodopulso7@gmail.com). */
   stageNameByRole: Partial<Record<PipelineStageRole, string>>
+  salesPosition?: SalesPosition
 }
+
+// Mismo tramo por cargo que en Pipeline/Dashboard — ver
+// PIPELINE_ROLES_BY_SALES_POSITION en lib/utils/pipeline-stages.ts (no
+// exportada; duplicada aquí igual que en RecetarioFunnelCard).
+const BDR_SDR_ROLES: PipelineStageRole[] = ['contacto', 'cita', 'reagendar', 'reunion']
+const CLOSER_ROLES: PipelineStageRole[] = ['reunion', 'propuesta', 'cierre']
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -119,13 +127,33 @@ function GoalBar({ value, goal }: { value: number; goal: number }) {
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 
-export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel, stageNameByRole }: Props) {
-  // Igual que en el Kanban y en PipelineMiniCard: si la cuenta no tiene
-  // etapas con role='cita' Y role='reunion' asignadas, se omite la tarjeta
-  // en vez de mostrar un 0%/100% falso.
-  const hasCitaReunionRoles = stageNameByRole.cita !== undefined && stageNameByRole.reunion !== undefined
+export function PipelineAnalysis({ entries: allEntries, monthlyRevenueGoal, periodLabel, stageNameByRole, salesPosition = null }: Props) {
+  // Roles configurados en la cuenta Y dentro del tramo visible del cargo: un
+  // Closer puede tener role='cita' configurado (no lo borró), pero esa etapa
+  // no es suya — sin el chequeo de tramo, contacto→cita se mostraba en 0%
+  // como si fuera una tasa real, en vez de ocultarse por no ser su trabajo.
+  const allowedRoles = salesPosition === 'bdr_sdr' ? BDR_SDR_ROLES : salesPosition === 'closer' ? CLOSER_ROLES : null
+  const inScope = (role: PipelineStageRole) => stageNameByRole[role] !== undefined && (allowedRoles === null || allowedRoles.includes(role))
+  const hasContactoCitaRoles = inScope('contacto') && inScope('cita')
+  const hasCitaReunionRoles  = inScope('cita') && inScope('reunion')
+
+  // Acota a las entradas del tramo del cargo — las etapas sin rol asignado
+  // nunca se ocultan (no hay forma de clasificarlas). 'full_cycle'/sin cargo
+  // = sin cambios, todas las entradas de siempre.
+  const entries = useMemo(() => {
+    if (allowedRoles === null) return allEntries
+    const roleByStageName: Partial<Record<string, PipelineStageRole>> = {}
+    for (const [role, name] of Object.entries(stageNameByRole)) {
+      if (name) roleByStageName[name] = role as PipelineStageRole
+    }
+    return allEntries.filter((e) => {
+      const role = roleByStageName[e.stage]
+      return role === undefined || allowedRoles.includes(role)
+    })
+  }, [allEntries, allowedRoles, stageNameByRole])
 
   const stats = useMemo(() => {
+    const contactos  = entries.filter(e => e.stage === stageNameByRole.contacto)
     const citas      = entries.filter(e => e.stage === stageNameByRole.cita)
     const reagendar  = entries.filter(e => e.stage === stageNameByRole.reagendar)
     const reuniones  = entries.filter(e => e.stage === stageNameByRole.reunion)
@@ -146,6 +174,7 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel, sta
     const avgTicket       = totalConAmonto > 0 ? sumaAmonto / totalConAmonto : 0
 
     // Show rate: de las citas agendadas, cuántas se ejecutaron como 1ra reunión.
+    const convContactoCita = pct(citas.length, contactos.length)
     const convCitaReun    = pct(reuniones.length, citas.length)
     const convReunProp    = pct(propuestas.length, reuniones.length)
     const convPropCierre  = pct(cierres.length, propuestas.length)
@@ -159,6 +188,7 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel, sta
     const cierresIn     = cierres.filter(e => e.prospect_type === 'inbound').length
 
     return {
+      contactos: contactos.length,
       citas: citas.length,
       reagendar: reagendar.length,
       reuniones: reuniones.length,
@@ -171,6 +201,7 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel, sta
       revenuePipeline,
       revenuePerdido,
       avgTicket,
+      convContactoCita,
       convCitaReun,
       convReunProp,
       convPropCierre,
@@ -229,6 +260,15 @@ export function PipelineAnalysis({ entries, monthlyRevenueGoal, periodLabel, sta
       {/* ── Columna 2: Conversión ──────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-1">
         <SectionTitle>Conversión</SectionTitle>
+        {hasContactoCitaRoles && (
+          <NeonStat
+            label="Contacto → Cita"
+            value={stats.convContactoCita}
+            sub={`${stats.citas} de ${stats.contactos} contactos`}
+            threshHigh={50}
+            threshLow={25}
+          />
+        )}
         {hasCitaReunionRoles && (
           <NeonStat
             label="Cita → Reunión"

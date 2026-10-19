@@ -13,6 +13,7 @@
 import type { SalesPosition } from '@/lib/calculations/recipe'
 
 export const CANONICAL_PIPELINE_STAGES = [
+  'Contactado',
   'Cita agendada',
   'Reagendar',
   'Primera reu ejecutada/Propuesta en preparación',
@@ -30,9 +31,10 @@ export const CANONICAL_PIPELINE_STAGES = [
  * `null` = etapa personalizada sin rol asignado: no participa en ninguna
  * tarjeta de resumen hasta que el usuario le asigne uno.
  */
-export type PipelineStageRole = 'cita' | 'reagendar' | 'reunion' | 'propuesta' | 'cierre'
+export type PipelineStageRole = 'contacto' | 'cita' | 'reagendar' | 'reunion' | 'propuesta' | 'cierre'
 
 export const PIPELINE_STAGE_ROLE_LABELS: Record<PipelineStageRole, string> = {
+  contacto:  'Contacto',
   cita:      'Cita',
   reagendar: 'Reagendar',
   reunion:   'Reunión',
@@ -42,6 +44,7 @@ export const PIPELINE_STAGE_ROLE_LABELS: Record<PipelineStageRole, string> = {
 
 /** Rol por defecto de cada etapa canónica — usado al sembrarlas por primera vez. */
 export const CANONICAL_STAGE_ROLES: Record<string, PipelineStageRole> = {
+  'Contactado':                                      'contacto',
   'Cita agendada':                                  'cita',
   'Reagendar':                                       'reagendar',
   'Primera reu ejecutada/Propuesta en preparación':  'reunion',
@@ -91,7 +94,7 @@ export function buildRoleByStageName(
 // recibe desde ahí — misma idea que stageRangeForPosition en el Recetario,
 // aplicada aquí a roles de etapa en vez de índices.
 const PIPELINE_ROLES_BY_SALES_POSITION: Record<'bdr_sdr' | 'closer', PipelineStageRole[]> = {
-  bdr_sdr: ['cita', 'reagendar', 'reunion'],
+  bdr_sdr: ['contacto', 'cita', 'reagendar', 'reunion'],
   closer:  ['reunion', 'propuesta', 'cierre'],
 }
 

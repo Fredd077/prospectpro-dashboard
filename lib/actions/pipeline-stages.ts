@@ -59,13 +59,13 @@ export async function getPipelineStages(): Promise<PipelineStageOption[]> {
 }
 
 // Orden en que se sugiere un role para una etapa recién creada: el primero de
-// estos 5 que la cuenta todavía no tenga asignado a NINGUNA etapa.
-const ROLE_FILL_ORDER: PipelineStageRole[] = ['cita', 'reagendar', 'reunion', 'propuesta', 'cierre']
+// estos 6 que la cuenta todavía no tenga asignado a NINGUNA etapa.
+const ROLE_FILL_ORDER: PipelineStageRole[] = ['contacto', 'cita', 'reagendar', 'reunion', 'propuesta', 'cierre']
 
 /**
  * Inserta una etapa nueva (source 'manual') con sort_order = máximo actual + 1.
  *
- * Si a la cuenta le falta alguno de los 5 roles del embudo, se lo asigna de
+ * Si a la cuenta le falta alguno de los 6 roles del embudo, se lo asigna de
  * una vez a la etapa recién creada — para que una cuenta armando su pipeline
  * desde cero (nombres 100% personalizados) no se quede con etapas sin
  * configurar esperando a que alguien entre a "Gestionar etapas" a hacerlo a

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import type { RecipeValidation } from '@/lib/utils/recipe-validation'
 import type { PeriodType } from '@/lib/types/common'
 import type { PipelineStageRole } from '@/lib/utils/pipeline-stages'
+import type { SalesPosition } from '@/lib/calculations/recipe'
 
 interface RecetarioFunnelCardProps {
   validation: RecipeValidation
@@ -21,6 +22,19 @@ interface RecetarioFunnelCardProps {
   stageNameByRole: Partial<Record<PipelineStageRole, string>>
   citasProyectadas: number
   citasRequeridas: number
+  salesPosition?: SalesPosition
+}
+
+// Mismo tramo por cargo que en Pipeline (ver PIPELINE_ROLES_BY_SALES_POSITION
+// en lib/utils/pipeline-stages.ts) — duplicado aquí porque esa constante no
+// se exporta y esta tarjeta solo tiene stageNameByRole, no la lista completa
+// de etapas que filterStagesForPosition necesita.
+const BDR_SDR_ROLES: PipelineStageRole[] = ['contacto', 'cita', 'reagendar', 'reunion']
+const CLOSER_ROLES: PipelineStageRole[] = ['reunion', 'propuesta', 'cierre']
+function roleInScope(role: PipelineStageRole, salesPosition: SalesPosition): boolean {
+  if (salesPosition === 'bdr_sdr') return BDR_SDR_ROLES.includes(role)
+  if (salesPosition === 'closer') return CLOSER_ROLES.includes(role)
+  return true
 }
 
 const PERIOD_MULTIPLIER: Record<PeriodType, number> = {
@@ -46,6 +60,7 @@ const PERIOD_LABEL: Record<PeriodType, string> = {
 // igual que ya pasaba con cualquier etapa personalizada sin match — son
 // conteos reales, no porcentajes, así que un 0 no es ambiguo.
 const ROLE_PIPELINE_STAGES: { role: PipelineStageRole; label: string }[] = [
+  { role: 'contacto',  label: 'Contacto' },
   { role: 'cita',      label: 'Citas' },
   { role: 'reagendar', label: 'Reagendar' },
   { role: 'reunion',   label: '1ra Reunión' },
@@ -83,7 +98,9 @@ export function RecetarioFunnelCard({
   stageNameByRole,
   citasProyectadas,
   citasRequeridas,
+  salesPosition = null,
 }: RecetarioFunnelCardProps) {
+  const visibleStages = ROLE_PIPELINE_STAGES.filter((s) => roleInScope(s.role, salesPosition))
   const [actCollapsed, setActCollapsed] = useState(false)
 
   const mult        = PERIOD_MULTIPLIER[period]
@@ -190,8 +207,11 @@ export function RecetarioFunnelCard({
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
               Pipeline del período
             </p>
-            <div className="grid grid-cols-5 gap-1 text-center">
-              {ROLE_PIPELINE_STAGES.map(s => {
+            <div className={cn(
+              'grid gap-1 text-center',
+              visibleStages.length >= 5 ? 'grid-cols-5' : visibleStages.length === 4 ? 'grid-cols-4' : 'grid-cols-3',
+            )}>
+              {visibleStages.map(s => {
                 const stageName = stageNameByRole[s.role]
                 const count = stageName ? (pipelineByStage[stageName] ?? 0) : 0
                 return (

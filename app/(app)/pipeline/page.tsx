@@ -180,6 +180,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
               period={period}
               periodLabel={pLabel}
               stageNameByRole={stageNameByRole}
+              salesPosition={profile?.sales_position ?? null}
             />
           </div>
         )}

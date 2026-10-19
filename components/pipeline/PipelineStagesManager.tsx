@@ -28,6 +28,7 @@ interface Item {
 
 const ROLE_OPTIONS: { value: PipelineStageRole | ''; label: string }[] = [
   { value: '',          label: '— Sin rol —' },
+  { value: 'contacto',  label: PIPELINE_STAGE_ROLE_LABELS.contacto },
   { value: 'cita',      label: PIPELINE_STAGE_ROLE_LABELS.cita },
   { value: 'reagendar', label: PIPELINE_STAGE_ROLE_LABELS.reagendar },
   { value: 'reunion',   label: PIPELINE_STAGE_ROLE_LABELS.reunion },

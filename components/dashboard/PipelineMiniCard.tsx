@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { fmtUSD } from '@/lib/calculations/pipeline'
-import { buildStageNameByRole, type PipelineStageRole } from '@/lib/utils/pipeline-stages'
+import { buildStageNameByRole, filterStagesForPosition, type PipelineStageRole } from '@/lib/utils/pipeline-stages'
+import type { SalesPosition } from '@/lib/calculations/recipe'
 
 export interface PipelineMiniRow {
   stage: string
@@ -20,12 +21,14 @@ interface PipelineMiniCardProps {
   stages?: PipelineMiniStage[]
   periodLabel: string
   monthlyRevenueGoal?: number
+  salesPosition?: SalesPosition
 }
 
 // Columnas fijas por ROL (no por nombre): el usuario puede llamar su etapa
 // como quiera, esta tarjeta siempre pregunta "¿cuál es la etapa con role=cita?"
 // en vez de comparar contra un nombre exacto. Ver buildStageNameByRole.
 const ROLE_STAGE_META: { role: PipelineStageRole; label: string; color: string }[] = [
+  { role: 'contacto',  label: 'Contacto',   color: 'text-slate-300'   },
   { role: 'cita',      label: 'Cita',       color: 'text-blue-400'    },
   { role: 'reagendar', label: 'Reagendar',  color: 'text-rose-400'    },
   { role: 'reunion',   label: '1ª Reunión', color: 'text-cyan-400'    },
@@ -42,13 +45,27 @@ function semColor(v: number | null, hi: number, lo: number) {
   return v >= hi ? 'text-emerald-400' : v >= lo ? 'text-amber-400' : 'text-red-400'
 }
 
-export function PipelineMiniCard({ rows, stages = [], periodLabel, monthlyRevenueGoal = 0 }: PipelineMiniCardProps) {
+export function PipelineMiniCard({ rows: allRows, stages = [], periodLabel, monthlyRevenueGoal = 0, salesPosition = null }: PipelineMiniCardProps) {
   // Nombre de etapa que tiene cada rol HOY — ver buildStageNameByRole. Si el
   // usuario no le ha asignado role='cita' o role='reunion' a ninguna etapa
   // todavía, esa tasa se omite más abajo en vez de mostrar un 0% falso.
   const stageNameByRole = buildStageNameByRole(stages)
   const isRole = (stage: string, role: PipelineStageRole) => stage === stageNameByRole[role]
-  const hasCitaReunionRoles = stageNameByRole.cita !== undefined && stageNameByRole.reunion !== undefined
+
+  // Acota a las etapas del tramo del cargo (ver filterStagesForPosition) — así
+  // esta tarjeta no mezcla, por ejemplo, el revenue de Cierre en el Dashboard
+  // de un BDR/SDR que no gestiona esa etapa. 'full_cycle'/sin cargo = sin
+  // cambios, todas las filas de siempre.
+  const visibleStageNames = new Set(filterStagesForPosition(stages, salesPosition).map((s) => s.name))
+  const rows = stages.length > 0 ? allRows.filter((r) => visibleStageNames.has(r.stage)) : allRows
+
+  // Además de existir, el rol debe estar en el tramo visible: una cuenta
+  // Closer tiene role='cita' configurado (no lo borró), pero esa etapa no es
+  // suya — sin este chequeo el tramo contacto→cita se mostraba en 0% como si
+  // fuera una tasa real, en vez de ocultarse por no ser parte de su trabajo.
+  const inScope = (name: string | undefined) => name !== undefined && (stages.length === 0 || visibleStageNames.has(name))
+  const hasContactoCitaRoles = inScope(stageNameByRole.contacto) && inScope(stageNameByRole.cita)
+  const hasCitaReunionRoles  = inScope(stageNameByRole.cita) && inScope(stageNameByRole.reunion)
 
   if (!rows.length) {
     return (
@@ -64,6 +81,7 @@ export function PipelineMiniCard({ rows, stages = [], periodLabel, monthlyRevenu
     )
   }
 
+  const contactos  = rows.filter(r => isRole(r.stage, 'contacto'))
   const citas      = rows.filter(r => isRole(r.stage, 'cita'))
   const reagendar  = rows.filter(r => isRole(r.stage, 'reagendar'))
   const reuniones  = rows.filter(r => isRole(r.stage, 'reunion'))
@@ -88,6 +106,7 @@ export function PipelineMiniCard({ rows, stages = [], periodLabel, monthlyRevenu
   // Show rate: de las citas agendadas, cuántas se ejecutaron como 1ra reunión.
   // null cuando no hay etapas con role asignado (no confundir con "—" por
   // período sin datos, que también resuelve pct() a null de forma natural).
+  const convContactoCita = hasContactoCitaRoles ? pct(citas.length, contactos.length) : null
   const convCitaReun   = hasCitaReunionRoles ? pct(reuniones.length, citas.length) : null
   const convReunProp   = pct(propuestas.length, reuniones.length)
   const convPropCierre = pct(cierres.length, propuestas.length)
@@ -100,7 +119,7 @@ export function PipelineMiniCard({ rows, stages = [], periodLabel, monthlyRevenu
   const cierresOut    = cierres.filter(r => r.prospect_type === 'outbound').length
   const cierresIn     = cierres.filter(r => r.prospect_type === 'inbound').length
 
-  const stageCounts = [citas.length, reagendar.length, reuniones.length, propuestas.length, cierres.length]
+  const stageCounts = [contactos.length, citas.length, reagendar.length, reuniones.length, propuestas.length, cierres.length]
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
@@ -111,7 +130,7 @@ export function PipelineMiniCard({ rows, stages = [], periodLabel, monthlyRevenu
       </div>
 
       {/* Stage counts */}
-      <div className="grid grid-cols-5 divide-x divide-border/50 border-b border-border/50">
+      <div className="grid grid-cols-6 divide-x divide-border/50 border-b border-border/50">
         {ROLE_STAGE_META.map((s, i) => (
           <div key={s.role} className="px-2 py-3 text-center">
             <p className={`text-xl font-bold tabular-nums ${s.color}`}>{stageCounts[i]}</p>
@@ -156,11 +175,17 @@ export function PipelineMiniCard({ rows, stages = [], periodLabel, monthlyRevenu
         <div className="space-y-3 border-t border-border/40 pt-4">
           <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Conversión</p>
 
-          {/* Rate cards — cita→reunión solo si el usuario tiene esos roles
-              asignados (ver hasCitaReunionRoles); si no, se omite la tarjeta
-              en vez de inventar un 0%, y el grid vuelve a las 3 de siempre. */}
-          <div className={`grid gap-2 ${hasCitaReunionRoles ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+          {/* Rate cards — contacto→cita y cita→reunión solo si el usuario tiene
+              esos roles asignados (ver hasContactoCitaRoles/hasCitaReunionRoles);
+              si no, se omite la tarjeta en vez de inventar un 0%, y el grid se
+              acomoda a cuántas tarjetas realmente se muestran (3 a 5). */}
+          <div className={`grid gap-2 grid-cols-3 ${
+            3 + Number(hasContactoCitaRoles) + Number(hasCitaReunionRoles) === 5 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'
+          }`}>
             {[
+              ...(hasContactoCitaRoles
+                ? [{ label: 'Contacto → Cita', value: convContactoCita, hi: 50, lo: 25, num: citas.length, den: contactos.length }]
+                : []),
               ...(hasCitaReunionRoles
                 ? [{ label: 'Cita → Reunión', value: convCitaReun, hi: 70, lo: 40, num: reuniones.length, den: citas.length }]
                 : []),

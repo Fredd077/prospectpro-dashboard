@@ -570,10 +570,13 @@ export default async function TeamUserPage({ params, searchParams }: Props) {
                 </div>
               </div>
 
-              {/* Etapas: 5 columnas, por role — no por nombre exacto */}
+              {/* Etapas: 6 columnas, por role — no por nombre exacto. Siempre
+                  completas (sin recortar por cargo): el manager necesita ver
+                  todo el pipeline del vendedor, no solo su tramo. */}
               {Object.keys(dashPipeline.stageCounts).length > 0 && (
-                <div className="grid grid-cols-5 gap-2 pt-4 border-t border-border/50">
+                <div className="grid grid-cols-6 gap-2 pt-4 border-t border-border/50">
                   {([
+                    { role: 'contacto',  label: 'Contacto',color: 'text-slate-300',   bg: 'bg-slate-400/5 border-slate-400/15'  },
                     { role: 'cita',      label: 'Cita',    color: 'text-blue-400',    bg: 'bg-blue-400/5 border-blue-400/15'    },
                     { role: 'reagendar', label: 'Reag.',   color: 'text-rose-400',    bg: 'bg-rose-400/5 border-rose-400/15'    },
                     { role: 'reunion',   label: '1ra Reu.',color: 'text-cyan-400',    bg: 'bg-cyan-400/5 border-cyan-400/15'    },

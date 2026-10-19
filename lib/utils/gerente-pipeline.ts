@@ -9,7 +9,7 @@ import { buildRoleByStageName } from './pipeline-stages'
 export interface PipelineDeal {
   id: string
   userId: string
-  stage: 'Cita agendada' | 'Reagendar' | 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
+  stage: 'Contactado' | 'Cita agendada' | 'Reagendar' | 'Primera reu ejecutada/Propuesta en preparación' | 'Propuesta Presentada' | 'Por facturar/cobrar'
   status: 'abierto' | 'perdido' | 'ganado'
   prospectType: 'inbound' | 'outbound'
   entryDate: string
@@ -122,7 +122,7 @@ function stddev(values: number[]): number {
 }
 
 function computeStages(deals: PipelineDeal[], avgTicket: number): StageBreakdown[] {
-  return (['Cita agendada', 'Reagendar', 'Primera reu ejecutada/Propuesta en preparación', 'Propuesta Presentada', 'Por facturar/cobrar'] as const).map((stage) => {
+  return (['Contactado', 'Cita agendada', 'Reagendar', 'Primera reu ejecutada/Propuesta en preparación', 'Propuesta Presentada', 'Por facturar/cobrar'] as const).map((stage) => {
     const sd    = deals.filter((d) => d.stage === stage)
     const open  = sd.filter((d) => d.status === 'abierto')
     const won   = sd.filter((d) => d.status === 'ganado')
@@ -143,6 +143,7 @@ function computeStages(deals: PipelineDeal[], avgTicket: number): StageBreakdown
 function projectRevenue(openDeals: PipelineDeal[], stages: StageBreakdown[], avgTicket: number): number {
   const rateMap = Object.fromEntries(stages.map((s) => [s.stage, s.winRate / 100]))
   const stageProb: Record<string, number> = {
+    'Contactado':      (rateMap['Primera reu ejecutada/Propuesta en preparación'] || 0.3) * (rateMap['Propuesta Presentada'] || 0.5) * (rateMap['Por facturar/cobrar'] || 0.6) * 0.3,
     'Cita agendada':   (rateMap['Primera reu ejecutada/Propuesta en preparación'] || 0.3) * (rateMap['Propuesta Presentada'] || 0.5) * (rateMap['Por facturar/cobrar'] || 0.6) * 0.5,
     'Reagendar':       (rateMap['Primera reu ejecutada/Propuesta en preparación'] || 0.3) * (rateMap['Propuesta Presentada'] || 0.5) * (rateMap['Por facturar/cobrar'] || 0.6) * 0.6,
     'Primera reu ejecutada/Propuesta en preparación': (rateMap['Primera reu ejecutada/Propuesta en preparación'] || 0.3) * (rateMap['Propuesta Presentada'] || 0.5) * (rateMap['Por facturar/cobrar'] || 0.6),

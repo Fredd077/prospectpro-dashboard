@@ -25,7 +25,7 @@ import type { SalesPosition } from '@/lib/calculations/recipe'
 
 // Nombre de etapa canónico para cada rol — respaldo cuando el usuario aún no
 // tiene etapas propias (stages=[]) y fuente de verdad única para no duplicar
-// los 5 literales en otro lado.
+// los 6 literales en otro lado.
 const CANONICAL_NAME_BY_ROLE = Object.fromEntries(
   Object.entries(CANONICAL_STAGE_ROLES).map(([name, role]) => [role, name]),
 ) as Record<PipelineStageRole, string>
@@ -40,6 +40,7 @@ type ProspectType = 'inbound' | 'outbound'
 // Etiquetas cortas y colores CONOCIDOS por nombre. Cualquier etapa personalizada
 // usa su nombre completo y un color neutro de respaldo.
 const STAGE_SHORT_KNOWN: Record<string, string> = {
+  'Contactado':                                     'Contactado',
   'Cita agendada':                                  'Cita agenda.',
   'Reagendar':                                      'Reagendar',
   'Primera reu ejecutada/Propuesta en preparación': '1ra Reunión',
@@ -52,6 +53,7 @@ function stageShort(name: string): string {
 
 type StageColor = { border: string; label: string; badge: string }
 const STAGE_COLOR_KNOWN: Record<string, StageColor> = {
+  'Contactado':                                     { border: 'border-t-slate-400/50',   label: 'text-slate-300',   badge: 'bg-slate-400/10 text-slate-300'     },
   'Cita agendada':                                  { border: 'border-t-blue-500/50',    label: 'text-blue-400',    badge: 'bg-blue-400/10 text-blue-400'       },
   'Reagendar':                                      { border: 'border-t-rose-500/50',    label: 'text-rose-400',    badge: 'bg-rose-400/10 text-rose-400'       },
   'Primera reu ejecutada/Propuesta en preparación': { border: 'border-t-cyan-500/50',    label: 'text-cyan-400',    badge: 'bg-cyan-400/10 text-cyan-400'       },
@@ -408,15 +410,21 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   // Activity lookup map for card display
   const activityMap = Object.fromEntries(activities.map((a) => [a.id, a]))
 
-  // Filtered entries for Kanban columns + metrics
+  // Filtered entries for Kanban columns + metrics. También se acota a
+  // `stageList` (el tramo visible según el cargo, ver filterStagesForPosition):
+  // así las tarjetas de métricas y el "Análisis" nunca cuentan negocios de
+  // etapas que esta vista ya oculta (ej. Cerrado para un BDR/SDR) — antes solo
+  // se ocultaba la COLUMNA del Kanban, pero las métricas seguían sumando todo.
   const filtered = entries.filter(e => {
     if (filterOrigen !== 'all' && e.prospect_type !== filterOrigen) return false
     if (filterEstado !== 'all' && e.status !== filterEstado) return false
     if (filterEtapa  !== 'all' && e.stage  !== filterEtapa)  return false
+    if (!stageList.includes(e.stage)) return false
     return true
   })
 
   // Derived metrics (on filtered data) — por ROL de etapa, no por nombre literal.
+  const countContacto  = filtered.filter(e => stageIs(e.stage, 'contacto')).length
   const countCita      = filtered.filter(e => stageIs(e.stage, 'cita')).length
   const countReunion   = filtered.filter(e => stageIs(e.stage, 'reunion')).length
   const countPropuesta = filtered.filter(e => stageIs(e.stage, 'propuesta')).length
@@ -429,20 +437,38 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   // "Show rate": de las citas agendadas, cuántas se ejecutaron como 1ra reunión
   // (asistencia real, no solo agendada). Solo se muestra si el usuario tiene
   // etapas con role 'cita' Y 'reunion' asignadas — si no, se omite el tramo en
-  // vez de mostrar un 0% falso (ver stageNameByRole arriba).
-  const hasCitaReunionRoles = stageNameByRole.cita !== undefined && stageNameByRole.reunion !== undefined
+  // vez de mostrar un 0% falso (ver stageNameByRole arriba). Mismo criterio para
+  // 'contacto'→'cita' (tasa de agendamiento, solo relevante si el usuario tiene
+  // una etapa de primer contacto configurada — típico de un BDR/SDR).
+  //
+  // Además de existir, la etapa debe estar en `stageList` (el tramo visible
+  // según el cargo): un Closer tiene role='cita' configurado en su cuenta
+  // (no lo borró), pero esa etapa no es SUYA — sin este chequeo el tramo
+  // contacto→cita se mostraba en 0% como si fuera una tasa real, en vez de
+  // ocultarse por no ser parte de su trabajo.
+  const hasContactoCitaRoles = stageNameByRole.contacto !== undefined && stageNameByRole.cita !== undefined
+    && stageList.includes(stageNameByRole.contacto) && stageList.includes(stageNameByRole.cita)
+  const hasCitaReunionRoles  = stageNameByRole.cita !== undefined && stageNameByRole.reunion !== undefined
+    && stageList.includes(stageNameByRole.cita) && stageList.includes(stageNameByRole.reunion)
+  const convContactoCita = countContacto > 0 ? Math.round(countCita / countContacto * 100) : 0
   const convCR = countCita > 0 ? Math.round(countReunion / countCita * 100) : 0
   const convRP = countReunion > 0   ? Math.round(countPropuesta / countReunion * 100)   : 0
   const convPC = countPropuesta > 0 ? Math.round(countCierre / countPropuesta * 100) : 0
-  const minConv = Math.min(...(hasCitaReunionRoles ? [convCR] : []), convRP, convPC)
+  const minConv = Math.min(...(hasContactoCitaRoles ? [convContactoCita] : []), ...(hasCitaReunionRoles ? [convCR] : []), convRP, convPC)
   const convColor = minConv >= 70 ? 'emerald' : minConv >= 40 ? 'amber' : 'red'
-  const convEmpty = countReunion === 0 && countPropuesta === 0 && (!hasCitaReunionRoles || countCita === 0)
+  const convEmpty = countReunion === 0 && countPropuesta === 0 && (!hasCitaReunionRoles || countCita === 0) && (!hasContactoCitaRoles || countContacto === 0)
   const convValue = convEmpty ? '—' : [
+    ...(hasContactoCitaRoles ? [`${convContactoCita}%`] : []),
     ...(hasCitaReunionRoles ? [`${convCR}%`] : []),
     `${convRP}%`,
     `${convPC}%`,
   ].join(' → ')
-  const convSub = hasCitaReunionRoles ? 'cita→reun → reun→prop → prop→cierre' : 'reun→prop → prop→cierre'
+  const convSub = [
+    ...(hasContactoCitaRoles ? ['contacto→cita'] : []),
+    ...(hasCitaReunionRoles ? ['cita→reun'] : []),
+    'reun→prop',
+    'prop→cierre',
+  ].join(' → ')
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -497,7 +523,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
   function handleFormStageChange(s: string) {
     setFormStage(s)
     if (stageIs(s, 'cierre')) setFormStatus('ganado')
-    if (stageIsAnyOf(s, ['cita', 'reagendar', 'reunion'])) setFormStatus('abierto')
+    if (stageIsAnyOf(s, ['contacto', 'cita', 'reagendar', 'reunion'])) setFormStatus('abierto')
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -506,7 +532,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
     setSaving(true)
     try {
       const derivedStatus: Status = stageIs(formStage, 'cierre') ? 'ganado' :
-        stageIsAnyOf(formStage, ['cita', 'reagendar', 'reunion']) ? 'abierto' :
+        stageIsAnyOf(formStage, ['contacto', 'cita', 'reagendar', 'reunion']) ? 'abierto' :
         formStatus
       const payload = {
         stage:              formStage,
@@ -562,8 +588,11 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
 
   return (
     <div className="relative">
-      {/* Metrics row — 6 cards */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
+      {/* Metrics row — 6 cards, 7 si el usuario tiene etapa de Contacto configurada */}
+      <div className={cn('grid grid-cols-3 gap-3 mb-4', hasContactoCitaRoles ? 'sm:grid-cols-7' : 'sm:grid-cols-6')}>
+        {hasContactoCitaRoles && (
+          <MetricCard label="Contactos" value={String(countContacto)} sub="primer contacto"   accent="cyan"    />
+        )}
         <MetricCard label="Citas"        value={String(countCita)}      sub="citas agendadas"    accent="cyan"    />
         <MetricCard label="Reuniones"    value={String(countReunion)}   sub="1ra reunión ejec."  accent="cyan"    />
         <MetricCard label="En propuesta" value={fmtUSD(pipelineValue)}  sub="pipeline estimado"  accent="amber"   />
@@ -574,7 +603,7 @@ export function PipelineSimpleBoard({ entries, period, activeScenario, activitie
           value={convValue}
           sub={convSub}
           accent={convColor as 'emerald' | 'amber' | 'red'}
-          compact={hasCitaReunionRoles}
+          compact={hasCitaReunionRoles || hasContactoCitaRoles}
         />
       </div>
 

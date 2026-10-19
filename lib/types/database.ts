@@ -747,7 +747,7 @@ export interface Database {
           color: string | null
           sort_order: number
           source: 'manual' | 'crm'
-          role: 'cita' | 'reagendar' | 'reunion' | 'propuesta' | 'cierre' | null
+          role: 'contacto' | 'cita' | 'reagendar' | 'reunion' | 'propuesta' | 'cierre' | null
           created_at: string
           updated_at: string
         }
@@ -758,7 +758,7 @@ export interface Database {
           color?: string | null
           sort_order?: number
           source?: 'manual' | 'crm'
-          role?: 'cita' | 'reagendar' | 'reunion' | 'propuesta' | 'cierre' | null
+          role?: 'contacto' | 'cita' | 'reagendar' | 'reunion' | 'propuesta' | 'cierre' | null
           created_at?: string
           updated_at?: string
         }
@@ -767,7 +767,7 @@ export interface Database {
           color?: string | null
           sort_order?: number
           source?: 'manual' | 'crm'
-          role?: 'cita' | 'reagendar' | 'reunion' | 'propuesta' | 'cierre' | null
+          role?: 'contacto' | 'cita' | 'reagendar' | 'reunion' | 'propuesta' | 'cierre' | null
           updated_at?: string
         }
         Relationships: []
