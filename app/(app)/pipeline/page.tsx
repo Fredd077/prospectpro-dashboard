@@ -80,6 +80,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     { data: activitiesRaw },
     { data: stagesRaw },
     { data: allPipelineStageValues },
+    { data: profile },
   ] = await Promise.all([
     sb.from('recipe_scenarios').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     sb.from('pipeline_simple').select('*').is('deleted_at', null).eq('user_id', user?.id ?? '').gte('entry_date', start).lte('entry_date', end).order('entry_date', { ascending: false }),
@@ -89,6 +90,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     // Todas las etapas con negocios reales alguna vez (sin filtrar por período
     // seleccionado) — para el aviso de "etapa sin configurar" (ver Dashboard).
     sb.from('pipeline_simple').select('stage').is('deleted_at', null).eq('user_id', user?.id ?? ''),
+    sb.from('profiles').select('sales_position').eq('id', user?.id ?? '').maybeSingle(),
   ])
 
   const pipelineSimple     = (pipelineSimpleRaw ?? []) as PipelineSimple[]
@@ -158,6 +160,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
               period={period}
               activities={activitiesForBoard}
               stages={pipelineStages}
+              salesPosition={profile?.sales_position ?? null}
               activeScenario={scenario ? {
                 funnel_stages:          scenario.funnel_stages,
                 outbound_rates:         scenario.outbound_rates,

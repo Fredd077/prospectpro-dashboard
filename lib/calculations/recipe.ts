@@ -118,3 +118,22 @@ export function findHandoffStageIndex(stageNames: string[]): number {
   if (byName >= 0) return byName
   return Math.floor(stageNames.length / 2)
 }
+
+/**
+ * Rango de índices de etapa (inclusive) que le corresponde ver/editar a cada
+ * cargo — la etapa de traspaso (ver findHandoffStageIndex) queda incluida en
+ * ambos lados a propósito: el BDR/SDR necesita saber si su cita se ejecutó
+ * (show rate) y el Closer la recibe desde ahí.
+ *
+ * 'full_cycle' o sin cargo definido = todo el embudo, sin filtrar — el
+ * comportamiento de siempre para toda cuenta que no haya elegido un cargo.
+ */
+export function stageRangeForPosition(
+  salesPosition: SalesPosition,
+  stageNames: string[],
+): { start: number; end: number } {
+  const n = stageNames.length
+  if (salesPosition !== 'bdr_sdr' && salesPosition !== 'closer') return { start: 0, end: n - 1 }
+  const handoff = findHandoffStageIndex(stageNames)
+  return salesPosition === 'bdr_sdr' ? { start: 0, end: handoff } : { start: handoff, end: n - 1 }
+}

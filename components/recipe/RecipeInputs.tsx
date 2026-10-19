@@ -7,8 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { RecipeInputs as RecipeInputsType } from '@/lib/calculations/recipe'
-import { DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
+import type { RecipeInputs as RecipeInputsType, SalesPosition } from '@/lib/calculations/recipe'
+import { DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES, stageRangeForPosition } from '@/lib/calculations/recipe'
 
 const scalarSchema = z.object({
   monthly_revenue_goal:   z.number().min(1),
@@ -27,6 +27,7 @@ interface RecipeInputsProps {
   // When provided, the first transition slider is replaced by a read-only badge.
   autoFirstOutRate?: number | null
   autoFirstInRate?: number | null
+  salesPosition?: SalesPosition
 }
 
 export const RECIPE_DEFAULTS: RecipeInputsType = {
@@ -66,7 +67,7 @@ function RateSlider({
   )
 }
 
-export function RecipeInputs({ defaults, onChange, autoFirstOutRate, autoFirstInRate }: RecipeInputsProps) {
+export function RecipeInputs({ defaults, onChange, autoFirstOutRate, autoFirstInRate, salesPosition = null }: RecipeInputsProps) {
   const merged = { ...RECIPE_DEFAULTS, ...defaults }
   const funnelStages = merged.funnel_stages
 
@@ -122,10 +123,18 @@ export function RecipeInputs({ defaults, onChange, autoFirstOutRate, autoFirstIn
   const inboundGoal  = (watched.monthly_revenue_goal ?? 0) * ((100 - (watched.outbound_pct ?? 60)) / 100)
 
   // Generate transition labels from stage names
-  const transitions = funnelStages.slice(0, -1).map((stage, i) => ({
+  const allTransitions = funnelStages.slice(0, -1).map((stage, i) => ({
     label: `${stage} → ${funnelStages[i + 1]}`,
     index: i,
   }))
+
+  // Si el cargo del usuario acota el embudo (ver stageRangeForPosition), solo
+  // se muestran/editan las tasas de conversión dentro de su tramo — el resto
+  // no le corresponde configurarlo. El cálculo de fondo no cambia: los valores
+  // fuera del tramo visible siguen existiendo en el escenario, solo no se
+  // muestran en esta vista.
+  const range = stageRangeForPosition(salesPosition, funnelStages)
+  const transitions = allTransitions.filter((t) => t.index >= range.start && t.index <= range.end - 1)
 
   function setOutboundRate(i: number, v: number) {
     setOutboundRates((prev) => prev.map((r, idx) => (idx === i ? v : r)))

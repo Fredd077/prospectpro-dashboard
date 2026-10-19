@@ -220,6 +220,7 @@ export function RecipeCalculator({ scenario, readOnly = false, activities, sales
               onChange={handleInputsChange}
               autoFirstOutRate={autoFirstOutRate}
               autoFirstInRate={autoFirstInRate}
+              salesPosition={salesPosition}
             />
           </div>
         </div>
@@ -231,7 +232,7 @@ export function RecipeCalculator({ scenario, readOnly = false, activities, sales
             outputs={outputs}
             monthlyRevenueGoal={inputs.monthly_revenue_goal}
           />
-          <RecipeOutputs outputs={outputs} monthlyRevenueGoal={inputs.monthly_revenue_goal} />
+          <RecipeOutputs outputs={outputs} monthlyRevenueGoal={inputs.monthly_revenue_goal} salesPosition={salesPosition} />
         </div>
       </div>
 

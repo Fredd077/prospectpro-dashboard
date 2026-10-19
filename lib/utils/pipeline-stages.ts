@@ -10,6 +10,8 @@
  * No puede vivir en lib/actions/pipeline-stages.ts: ese archivo es 'use server'
  * y solo puede exportar funciones async.
  */
+import type { SalesPosition } from '@/lib/calculations/recipe'
+
 export const CANONICAL_PIPELINE_STAGES = [
   'Cita agendada',
   'Reagendar',
@@ -80,4 +82,37 @@ export function buildRoleByStageName(
   return stages.length > 0
     ? Object.fromEntries(stages.map((s) => [s.name, s.role]))
     : CANONICAL_STAGE_ROLES
+}
+
+// ── Vista por cargo (BDR/SDR vs Closer) — ver migración 046 ────────────────
+// Roles de etapa que le toca TRABAJAR a cada cargo en el Pipeline. La etapa
+// de traspaso ('reunion') queda en ambos lados a propósito: el BDR/SDR
+// necesita confirmar que la reunión se ejecutó (show rate) y el Closer la
+// recibe desde ahí — misma idea que stageRangeForPosition en el Recetario,
+// aplicada aquí a roles de etapa en vez de índices.
+const PIPELINE_ROLES_BY_SALES_POSITION: Record<'bdr_sdr' | 'closer', PipelineStageRole[]> = {
+  bdr_sdr: ['cita', 'reagendar', 'reunion'],
+  closer:  ['reunion', 'propuesta', 'cierre'],
+}
+
+/**
+ * Filtra las etapas del Pipeline que le corresponden al cargo del usuario.
+ * Las etapas sin rol asignado (personalizadas sin configurar) NUNCA se
+ * ocultan — no hay forma de clasificarlas, y ocultarlas escondería negocios
+ * reales del usuario sin que lo note (mismo criterio que UnassignedStageAlert).
+ *
+ * 'full_cycle' o sin cargo definido = todas las etapas, sin filtrar — el
+ * comportamiento de siempre para cualquier cuenta que no haya elegido cargo.
+ */
+export function filterStagesForPosition<T extends { name: string; role: PipelineStageRole | null }>(
+  stages: T[],
+  salesPosition: SalesPosition,
+): T[] {
+  if (salesPosition !== 'bdr_sdr' && salesPosition !== 'closer') return stages
+  const allowed = PIPELINE_ROLES_BY_SALES_POSITION[salesPosition]
+  const visible = stages.filter((s) => s.role === null || allowed.includes(s.role))
+  // Salvaguarda: si el filtro dejara la lista vacía (ej. usuario asignó TODOS
+  // sus roles al cargo contrario), se degrada a mostrar todo en vez de un
+  // Pipeline sin columnas.
+  return visible.length > 0 ? visible : stages
 }

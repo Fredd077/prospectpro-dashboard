@@ -1,31 +1,36 @@
 'use client'
 
 import { formatDecimal, formatCurrency } from '@/lib/utils/formatters'
-import type { RecipeOutputs as RecipeOutputsType, ChannelFunnel } from '@/lib/calculations/recipe'
+import { stageRangeForPosition, type RecipeOutputs as RecipeOutputsType, type ChannelFunnel, type SalesPosition } from '@/lib/calculations/recipe'
 
 interface RecipeOutputsProps {
   outputs: RecipeOutputsType
   monthlyRevenueGoal: number
+  salesPosition?: SalesPosition
 }
 
 function FunnelColumn({
   funnel,
   label,
   color,
+  range,
 }: {
   funnel: ChannelFunnel
   label: string
   color: 'blue' | 'violet'
+  range: { start: number; end: number }
 }) {
   const borderColor = color === 'blue' ? 'border-blue-400/30' : 'border-violet-400/30'
   const bgColor     = color === 'blue' ? 'bg-blue-400/5'      : 'bg-violet-400/5'
   const textColor   = color === 'blue' ? 'text-blue-400'      : 'text-violet-400'
   const barColor    = color === 'blue' ? '#60a5fa'             : '#a78bfa'
 
-  const stages = funnel.stage_names.map((name, i) => ({
-    label: name,
-    value: funnel.stage_values[i] ?? 0,
-  }))
+  // Si el cargo del usuario acota el embudo (ver stageRangeForPosition), solo
+  // se dibujan las etapas de su tramo — el cálculo de fondo sigue siendo el
+  // embudo completo, esto es puramente lo que se muestra.
+  const stages = funnel.stage_names
+    .map((name, i) => ({ label: name, value: funnel.stage_values[i] ?? 0, i }))
+    .filter((s) => s.i >= range.start && s.i <= range.end)
   const max = stages[0]?.value || 1
 
   return (
@@ -83,7 +88,9 @@ function FunnelColumn({
   )
 }
 
-export function RecipeOutputs({ outputs, monthlyRevenueGoal }: RecipeOutputsProps) {
+export function RecipeOutputs({ outputs, monthlyRevenueGoal, salesPosition = null }: RecipeOutputsProps) {
+  const range = stageRangeForPosition(salesPosition, outputs.outbound.stage_names)
+
   return (
     <div className="space-y-4">
       {/* Total summary */}
@@ -102,10 +109,11 @@ export function RecipeOutputs({ outputs, monthlyRevenueGoal }: RecipeOutputsProp
         </div>
       </div>
 
-      {/* Two independent funnels */}
+      {/* Two independent funnels — cada uno muestra solo el tramo de etapas
+          que le corresponde al cargo del usuario (ver stageRangeForPosition) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <FunnelColumn funnel={outputs.outbound} label="Outbound" color="blue" />
-        <FunnelColumn funnel={outputs.inbound}  label="Inbound"  color="violet" />
+        <FunnelColumn funnel={outputs.outbound} label="Outbound" color="blue" range={range} />
+        <FunnelColumn funnel={outputs.inbound}  label="Inbound"  color="violet" range={range} />
       </div>
     </div>
   )

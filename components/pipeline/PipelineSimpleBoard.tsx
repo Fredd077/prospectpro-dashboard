@@ -18,9 +18,10 @@ import {
 } from '@/lib/actions/pipeline-simple'
 import { PipelineSimpleCharts } from '@/components/pipeline/PipelineSimpleCharts'
 import { PipelineStagesManager } from '@/components/pipeline/PipelineStagesManager'
-import { CANONICAL_PIPELINE_STAGES, CANONICAL_STAGE_ROLES, type PipelineStageRole } from '@/lib/utils/pipeline-stages'
+import { CANONICAL_PIPELINE_STAGES, CANONICAL_STAGE_ROLES, filterStagesForPosition, type PipelineStageRole } from '@/lib/utils/pipeline-stages'
 import type { PipelineStageOption } from '@/lib/actions/pipeline-stages'
 import type { PipelineSimple } from '@/lib/types/database'
+import type { SalesPosition } from '@/lib/calculations/recipe'
 
 // Nombre de etapa canónico para cada rol — respaldo cuando el usuario aún no
 // tiene etapas propias (stages=[]) y fuente de verdad única para no duplicar
@@ -325,16 +326,27 @@ interface PipelineSimpleBoardProps {
   activeScenario: ActiveScenario
   activities?: ActivityOption[]
   stages?: PipelineStageOption[]
+  salesPosition?: SalesPosition
 }
 
-export function PipelineSimpleBoard({ entries, period, activeScenario, activities = [], stages = [] }: PipelineSimpleBoardProps) {
+export function PipelineSimpleBoard({ entries, period, activeScenario, activities = [], stages = [], salesPosition = null }: PipelineSimpleBoardProps) {
   const router = useRouter()
   const today = todayISO()
 
   // Lista de etapas del Pipeline: propia del usuario (pipeline_stages). Respaldo
   // a las canónicas solo si el usuario aún no tiene etapas propias, para que el
   // board nunca quede vacío.
-  const stageList: string[] = stages.length ? stages.map((s) => s.name) : [...CANONICAL_PIPELINE_STAGES]
+  const allStages: { name: string; role: PipelineStageRole | null }[] = stages.length
+    ? stages
+    : CANONICAL_PIPELINE_STAGES.map((name) => ({ name, role: CANONICAL_STAGE_ROLES[name] ?? null }))
+
+  // Columnas, chips de "Etapa" y el selector del formulario solo muestran el
+  // tramo que le corresponde trabajar al cargo del usuario (ver migración 046
+  // y filterStagesForPosition) — "Gestionar etapas" sigue mostrando TODAS
+  // (stages, sin filtrar), porque configurar/renombrar/asignar rol no es lo
+  // mismo que la vista de trabajo del día a día.
+  const visibleStages = filterStagesForPosition(allStages, salesPosition)
+  const stageList: string[] = visibleStages.map((s) => s.name)
   const firstStage = stageList[0] ?? 'Cita agendada'
 
   // Nombre de la etapa que tiene cada rol HOY, según cómo el usuario la haya

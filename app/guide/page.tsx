@@ -50,8 +50,21 @@ const SECTIONS: Record<Tab, Section[]> = {
       tip: 'El recetario es tu fórmula. Si la sigues cada semana, la cuota se cumple matemáticamente.',
     },
     {
+      icon: '🧭',
+      title: 'Paso 3 — Define tu cargo comercial (opcional)',
+      steps: [
+        { label: 'Ve a "Ajustes" en el menú lateral.', detail: 'Ahí eliges tu cargo: BDR/SDR, Closer o Ciclo completo. Lo puedes cambiar cuando quieras, no se queda fijo.' },
+        { label: '¿Para qué sirve?', detail: 'El Recetario calcula un embudo completo (actividad → cita → reunión → propuesta → cierre). Si tu trabajo es solo una parte de ese proceso, elegir tu cargo hace que el Recetario te muestre SOLO el número que te toca a ti, en vez del embudo entero.' },
+        { label: 'BDR / SDR — prospectas y agendas, no cierras.', detail: 'Verás cuántas actividades de prospección necesitas al día y cuántas reuniones debes agendar al mes. Tu trabajo termina ahí.' },
+        { label: 'Closer — ejecutas la reunión y cierras.', detail: 'Las reuniones te llegan ya agendadas. Verás cuántas reuniones debes ejecutar, cuántos cierres necesitas y la facturación proyectada.' },
+        { label: 'Ciclo completo — haces todo el proceso tú solo.', detail: 'El Recetario se ve igual que si no hubieras elegido ningún cargo: el embudo completo, de principio a fin.' },
+        'Si no eliges nada, no pasa nada: el Recetario sigue mostrando el embudo completo, exactamente igual que siempre.',
+      ],
+      tip: 'Si en tu equipo hay BDR y Closers separados, que cada uno configure su propio cargo en Ajustes — cada quien ve solo su meta, nadie tiene que configurárselo a nadie más.',
+    },
+    {
       icon: '🎯',
-      title: 'Paso 3 — Define tus Actividades',
+      title: 'Paso 4 — Define tus Actividades',
       steps: [
         { label: 'Ve a "Actividades" en el menú lateral.', detail: 'Las actividades son los tipos de prospección que realizas: llamadas frías, DMs de LinkedIn, networking, referidos, leads, etc.' },
         'Crea cada actividad con: nombre, canal, tipo (OUTBOUND o INBOUND) y metas diarias, semanales y mensuales.',
@@ -63,7 +76,7 @@ const SECTIONS: Record<Tab, Section[]> = {
     },
     {
       icon: '✅',
-      title: 'Paso 4 — Haz tu primer Check-in',
+      title: 'Paso 5 — Haz tu primer Check-in',
       steps: [
         'Ve a "Check-in Diario" en el menú lateral.',
         'Verás una tarjeta por cada actividad activa. Ingresa cuántas veces la ejecutaste hoy.',
@@ -75,7 +88,7 @@ const SECTIONS: Record<Tab, Section[]> = {
     },
     {
       icon: '💼',
-      title: 'Paso 5 — Registra tus negocios en el Pipeline',
+      title: 'Paso 6 — Registra tus negocios en el Pipeline',
       steps: [
         'Ve a "Mi Pipeline" en el menú lateral.',
         { label: 'Las 5 etapas del pipeline son:', detail: '① Cita agendada → ② Reagendar → ③ 1ra Reunión ejecutada → ④ Propuesta Presentada → ⑤ Por facturar/cobrar' },
@@ -87,7 +100,7 @@ const SECTIONS: Record<Tab, Section[]> = {
     },
     {
       icon: '🔗',
-      title: 'Paso 6 — Conecta tu CRM (opcional)',
+      title: 'Paso 7 — Conecta tu CRM (opcional)',
       steps: [
         { label: 'Ve a "Integraciones" en el menú lateral.', detail: 'Si usas un CRM como Pipedrive, puedes conectarlo para que los movimientos de negocios se sincronicen automáticamente con tu pipeline en ProspectPro.' },
         'La sección de Integraciones tiene el paso a paso completo dentro de la app — incluyendo cómo crear el webhook, mapear etapas y verificar que funciona.',
@@ -140,6 +153,7 @@ const SECTIONS: Record<Tab, Section[]> = {
       title: 'Recetario — Tu fórmula y tu rendimiento real',
       steps: [
         { label: 'Pestaña "Escenario":', detail: 'Muestra la matemática de tu plan: dada tu meta de ingresos y tu ticket promedio, ¿cuántos cierres, citas y actividades necesitas por semana?' },
+        { label: '¿Ves una tarjeta de color arriba de los números (junto a "Meta total")?', detail: 'Aparece solo si configuraste tu cargo comercial en "Ajustes" (BDR/SDR o Closer) — te muestra solo tu número, no el embudo completo. Si no la ves, es porque tu cargo está en "Ciclo completo" o aún no lo has elegido; configúralo desde "Ajustes" en el menú lateral.' },
         { label: 'Pestaña "Rendimiento" (la más importante):', detail: 'Compara lo que el recetario espera vs lo que estás ejecutando realmente. Filtra por mes para ver períodos históricos.' },
         { label: 'Columnas clave del Rendimiento:', detail: '• Reuniones Esperadas: cuántas reuniones debería generar esa actividad según tu configuración\n• Tasa %: tu tasa de conversión de actividad a reunión\n• Act. Req./mes: cuántas actividades necesitas ejecutar mensualmente para generar esas reuniones\n• Reuniones Reales: reuniones realmente generadas en el pipeline (vinculadas por origen)\n• Eficiencia Canal %: Reuniones Reales ÷ Reuniones Esperadas × 100\n• Cierres Reales: negocios en etapa "Por facturar/cobrar" originados por esa actividad\n• Contrib. $: monto real ganado gracias a esa actividad en el período' },
         'La fila "Total OUTBOUND", "Total INBOUND" y "TOTAL GLOBAL" al final resumen el rendimiento por canal.',
@@ -194,6 +208,7 @@ const SECTIONS: Record<Tab, Section[]> = {
       steps: [
         'Cada vendedor tiene su propio Recetario y su pestaña de Rendimiento.',
         'Desde el perfil de un vendedor (en Mi Equipo → Ver perfil), puedes acceder a su Recetario activo.',
+        { label: 'Si tu equipo tiene BDR/SDR y Closers separados:', detail: 'Cada vendedor elige su propio cargo en "Ajustes" (sin que tú tengas que configurar nada). Su Recetario mostrará solo la meta de su rol — reuniones a agendar para un BDR/SDR, o cierres y facturación proyectada para un Closer — en vez del embudo completo. Es autoservicio: no requiere intervención tuya ni de soporte.' },
         { label: 'Lo que debes monitorear en el Rendimiento de cada vendedor:', detail: '• Eficiencia de canal %: ¿sus actividades están generando reuniones?\n• Cierres Reales vs Esperados: ¿el pipeline que genera se está convirtiendo?\n• Contribución $: ¿cuánto dinero real está produciendo cada canal?' },
         'Si un vendedor tiene alta actividad pero baja eficiencia, el problema está en la calidad de la ejecución, no en el volumen.',
         'Si tiene alta eficiencia pero baja actividad, el problema es disciplina y constancia.',
@@ -317,7 +332,7 @@ const TABS: { id: Tab; label: string; icon: typeof BookOpen }[] = [
 ]
 
 const TAB_DESCRIPTION: Record<Tab, string> = {
-  start:       'Si acabas de registrarte, empieza aquí. Estos 6 pasos te dejan listo para que los datos fluyan desde el día uno.',
+  start:       'Si acabas de registrarte, empieza aquí. Estos 7 pasos te dejan listo para que los datos fluyan desde el día uno.',
   seller:      'Tu guía diaria como vendedor: check-in, dashboard, pipeline, recetario con tasas de conversión y reportes del Coach IA.',
   manager:     'Accede al equipo en tiempo real, analiza con el Gerente IA, interpreta el rendimiento por vendedor y recibe reportes automáticos.',
   integration: 'Conecta tu CRM (Pipedrive u otro) con ProspectPro. Paso a paso para usuarios no técnicos — sin código, sin configuraciones complicadas.',
