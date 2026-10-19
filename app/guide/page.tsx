@@ -54,13 +54,14 @@ const SECTIONS: Record<Tab, Section[]> = {
       title: 'Paso 3 — Define tu cargo comercial (opcional)',
       steps: [
         { label: 'Ve a "Ajustes" en el menú lateral.', detail: 'Ahí eliges tu cargo: BDR/SDR, Closer o Ciclo completo. Lo puedes cambiar cuando quieras, no se queda fijo.' },
-        { label: '¿Para qué sirve?', detail: 'El Recetario calcula un embudo completo (actividad → cita → reunión → propuesta → cierre). Si tu trabajo es solo una parte de ese proceso, elegir tu cargo hace que el Recetario te muestre SOLO el número que te toca a ti, en vez del embudo entero.' },
-        { label: 'BDR / SDR — prospectas y agendas, no cierras.', detail: 'Verás cuántas actividades de prospección necesitas al día y cuántas reuniones debes agendar al mes. Tu trabajo termina ahí.' },
-        { label: 'Closer — ejecutas la reunión y cierras.', detail: 'Las reuniones te llegan ya agendadas. Verás cuántas reuniones debes ejecutar, cuántos cierres necesitas y la facturación proyectada.' },
-        { label: 'Ciclo completo — haces todo el proceso tú solo.', detail: 'El Recetario se ve igual que si no hubieras elegido ningún cargo: el embudo completo, de principio a fin.' },
-        'Si no eliges nada, no pasa nada: el Recetario sigue mostrando el embudo completo, exactamente igual que siempre.',
+        { label: '¿Para qué sirve?', detail: 'Tanto el Recetario como tu Pipeline manejan un embudo completo (cita → reagendar → reunión → propuesta → cierre). Si tu trabajo es solo una parte de ese proceso, elegir tu cargo recorta AMBOS — Recetario y Pipeline — para que solo veas tu tramo, en vez del embudo entero.' },
+        { label: 'BDR / SDR — prospectas y agendas, no cierras.', detail: 'Recetario: verás cuántas actividades de prospección necesitas al día y cuántas reuniones debes agendar al mes.\nPipeline: tu tablero (Kanban) y el filtro de "Etapa" solo muestran "Cita agendada", "Reagendar" y "1ra Reunión" — no verás las columnas de Propuesta ni Cierre. Tu trabajo termina al confirmar que la reunión se ejecutó.' },
+        { label: 'Closer — ejecutas la reunión y cierras.', detail: 'Recetario: verás cuántas reuniones debes ejecutar, cuántos cierres necesitas y la facturación proyectada.\nPipeline: tu tablero solo muestra "1ra Reunión", "Propuesta" y "Por facturar" — las reuniones te llegan ya agendadas, no ves las columnas de prospección.' },
+        { label: 'Ciclo completo — haces todo el proceso tú solo.', detail: 'Recetario y Pipeline se ven igual que si no hubieras elegido ningún cargo: el embudo completo, de principio a fin.' },
+        'Si no eliges nada, no pasa nada: Recetario y Pipeline siguen mostrando el embudo completo, exactamente igual que siempre.',
+        { label: '¿Necesitas ver o editar una etapa que tu cargo oculta?', detail: 'El botón "Gestionar etapas" dentro de Mi Pipeline siempre muestra TODAS tus etapas sin recortar, sin importar tu cargo — ahí puedes renombrarlas, agregarlas o asignarles rol. Solo el tablero del día a día (columnas y filtro) se acota.' },
       ],
-      tip: 'Si en tu equipo hay BDR y Closers separados, que cada uno configure su propio cargo en Ajustes — cada quien ve solo su meta, nadie tiene que configurárselo a nadie más.',
+      tip: 'Si en tu equipo hay BDR y Closers separados, que cada uno configure su propio cargo en Ajustes — cada quien ve solo su tramo en Recetario y Pipeline, nadie tiene que configurárselo a nadie más.',
     },
     {
       icon: '🎯',
@@ -141,6 +142,7 @@ const SECTIONS: Record<Tab, Section[]> = {
       title: 'Mi Pipeline — Gestiona tus negocios',
       steps: [
         { label: 'Las 5 etapas en orden:', detail: '① Cita agendada — tienes la reunión confirmada\n② Reagendar — la reunión se pospuso\n③ 1ra Reunión ejecutada / Propuesta en preparación — tuviste el primer contacto real\n④ Propuesta Presentada — el cliente tiene la propuesta en mano\n⑤ Por facturar/cobrar — negocio ganado' },
+        { label: '¿Solo ves 3 columnas en vez de 5?', detail: 'Es porque configuraste tu cargo comercial en "Ajustes". BDR/SDR ve Cita agendada, Reagendar y 1ra Reunión. Closer ve 1ra Reunión, Propuesta y Por facturar. Para ver/editar las 5 completas de todas formas, usa "Gestionar etapas" (el botón junto al filtro de Etapa) — ese siempre muestra todas.' },
         'Crea cada negocio con: nombre del prospecto, empresa, valor estimado ($), fecha de entrada y etapa inicial.',
         { label: 'Origen del negocio:', detail: 'Marca si es OUTBOUND (tú lo iniciaste) o INBOUND (el cliente llegó a ti). Esto afecta las estadísticas de conversión por canal en el dashboard.' },
         'El filtro de "Estado" te permite ver solo los negocios Abiertos, Ganados o Perdidos.',
