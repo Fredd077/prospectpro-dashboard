@@ -16,6 +16,7 @@ import {
   BookOpen,
   Webhook,
   Target,
+  Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from './SidebarContext'
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/activities',   label: 'Actividades',       icon: ListChecks      },
   { href: '/recipe',       label: 'Recetario',          icon: FlaskConical    },
   { href: '/integrations', label: 'Integraciones',     icon: Webhook         },
+  { href: '/settings',     label: 'Ajustes',           icon: Settings        },
   { href: '/guide',        label: 'Guía de uso',        icon: BookOpen        },
 ] as const
 

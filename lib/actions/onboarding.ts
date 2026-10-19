@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { calcRecipe, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
+import type { SalesPosition } from '@/lib/calculations/recipe'
 
 
 interface RecipeFormData {
@@ -71,11 +72,14 @@ interface OnboardingActivityData {
   daily_goal: number
 }
 
-export async function saveOnboardingCompany(company: string) {
+export async function saveOnboardingCompany(company: string, salesPosition?: SalesPosition) {
   const sb = await getSupabaseServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  await sb.from('profiles').update({ company: company || null }).eq('id', user.id)
+  await sb
+    .from('profiles')
+    .update({ company: company || null, ...(salesPosition ? { sales_position: salesPosition } : {}) })
+    .eq('id', user.id)
 }
 
 export async function saveOnboardingActivities(activitiesData: OnboardingActivityData[]) {

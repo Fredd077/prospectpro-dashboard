@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button'
 import { FunnelStageEditor } from './FunnelStageEditor'
 import { RecipeInputs, RECIPE_DEFAULTS } from './RecipeInputs'
 import { RecipeOutputs } from './RecipeOutputs'
+import { RoleFocusCard } from './RoleFocusCard'
 import { SupervisionPanel } from './SupervisionPanel'
 import type { ActivityForSupervision } from './SupervisionPanel'
-import { calcRecipe, adjustRates, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES } from '@/lib/calculations/recipe'
+import { calcRecipe, adjustRates, DEFAULT_FUNNEL_STAGES, DEFAULT_OUTBOUND_RATES, DEFAULT_INBOUND_RATES, type SalesPosition } from '@/lib/calculations/recipe'
 import {
   calcCierresRequeridos,
   calcCitasRequeridas,
@@ -27,9 +28,10 @@ interface RecipeCalculatorProps {
   scenario?: RecipeScenario
   readOnly?: boolean
   activities?: ActivityForSupervision[]
+  salesPosition?: SalesPosition
 }
 
-export function RecipeCalculator({ scenario, readOnly = false, activities }: RecipeCalculatorProps) {
+export function RecipeCalculator({ scenario, readOnly = false, activities, salesPosition = null }: RecipeCalculatorProps) {
   const router = useRouter()
   const [name, setName]             = useState(scenario?.name ?? '')
   const [description, setDescription] = useState(scenario?.description ?? '')
@@ -223,7 +225,12 @@ export function RecipeCalculator({ scenario, readOnly = false, activities }: Rec
         </div>
 
         {/* Right: Outputs */}
-        <div>
+        <div className="space-y-4">
+          <RoleFocusCard
+            salesPosition={salesPosition}
+            outputs={outputs}
+            monthlyRevenueGoal={inputs.monthly_revenue_goal}
+          />
           <RecipeOutputs outputs={outputs} monthlyRevenueGoal={inputs.monthly_revenue_goal} />
         </div>
       </div>

@@ -8,11 +8,13 @@ import { ActivityPerformanceTab } from './ActivityPerformanceTab'
 import { RecipeDashboardTab } from './RecipeDashboardTab'
 import type { RecipeScenario, RecipeActual } from '@/lib/types/database'
 import type { ActivityForSupervision } from './SupervisionPanel'
+import type { SalesPosition } from '@/lib/calculations/recipe'
 
 interface ScenarioTabsProps {
   scenario: RecipeScenario
   actuals: RecipeActual[]
   activities?: ActivityForSupervision[]
+  salesPosition?: SalesPosition
 }
 
 const TABS = [
@@ -23,7 +25,7 @@ const TABS = [
 
 type TabValue = typeof TABS[number]['value']
 
-export function ScenarioTabs({ scenario, actuals: _actuals, activities }: ScenarioTabsProps) {
+export function ScenarioTabs({ scenario, actuals: _actuals, activities, salesPosition }: ScenarioTabsProps) {
   const [active, setActive] = useState<TabValue>('calculator')
 
   return (
@@ -49,7 +51,7 @@ export function ScenarioTabs({ scenario, actuals: _actuals, activities }: Scenar
       </div>
 
       {active === 'calculator' && (
-        <RecipeCalculator scenario={scenario} activities={activities} />
+        <RecipeCalculator scenario={scenario} activities={activities} salesPosition={salesPosition} />
       )}
       {active === 'rendimiento' && activities && activities.length > 0 && (
         <ActivityPerformanceTab scenario={scenario} activities={activities} />

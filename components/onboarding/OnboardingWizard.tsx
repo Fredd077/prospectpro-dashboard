@@ -8,6 +8,7 @@ import { StepActivities, type OnboardingActivityData } from './StepActivities'
 import { saveOnboardingRecipe, saveOnboardingActivities, saveOnboardingCompany } from '@/lib/actions/onboarding'
 import { activateScenario } from '@/lib/actions/activities'
 import type { SavedRecipeData } from '@/components/recipe/AIRecipeBuilder'
+import type { SalesPosition } from '@/lib/calculations/recipe'
 
 export type WizardStep = 1 | 2 | 3
 
@@ -32,11 +33,11 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
   const [recipeData, setRecipeData] = useState<RecipeData | null>(null)
   const [company, setCompany]     = useState('')
 
-  async function handleWelcomeNext(companyValue: string) {
+  async function handleWelcomeNext(companyValue: string, salesPosition: SalesPosition) {
     setCompany(companyValue)
-    if (companyValue) {
-      // Save company immediately so it's available in /team
-      try { await saveOnboardingCompany(companyValue) } catch { /* non-fatal */ }
+    if (companyValue || salesPosition) {
+      // Save company/cargo immediately so it's available in /team and /recipe
+      try { await saveOnboardingCompany(companyValue, salesPosition) } catch { /* non-fatal */ }
     }
     setStep(2)
   }

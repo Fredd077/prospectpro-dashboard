@@ -15,7 +15,9 @@ export default async function RecipeDetailPage({ params }: Props) {
   const { id } = await params
   const sb = await getSupabaseServerClient()
 
-  const [{ data: scenario }, { data: actuals }, { data: rawActivities }] = await Promise.all([
+  const { data: { user } } = await sb.auth.getUser()
+
+  const [{ data: scenario }, { data: actuals }, { data: rawActivities }, { data: profile }] = await Promise.all([
     sb.from('recipe_scenarios').select('*').eq('id', id).single(),
     sb.from('recipe_actuals').select('*').eq('scenario_id', id).order('period_start', { ascending: false }),
     sb
@@ -24,6 +26,7 @@ export default async function RecipeDetailPage({ params }: Props) {
       .eq('status', 'active')
       .order('type', { ascending: true })
       .order('sort_order', { ascending: true }),
+    sb.from('profiles').select('sales_position').eq('id', user?.id ?? '').maybeSingle(),
   ])
 
   if (!scenario) notFound()
@@ -47,6 +50,7 @@ export default async function RecipeDetailPage({ params }: Props) {
           scenario={scenario}
           actuals={actuals ?? []}
           activities={activities}
+          salesPosition={profile?.sales_position ?? null}
         />
       </div>
     </div>

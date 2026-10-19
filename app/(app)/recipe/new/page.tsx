@@ -4,12 +4,21 @@ import { ChevronLeft } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { TopBar } from '@/components/layout/TopBar'
 import { RecipeCalculator } from '@/components/recipe/RecipeCalculator'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {
   title: 'Nuevo Escenario',
 }
 
-export default function RecipeNewPage() {
+export default async function RecipeNewPage() {
+  const sb = await getSupabaseServerClient()
+  const { data: { user } } = await sb.auth.getUser()
+  const { data: profile } = await sb
+    .from('profiles')
+    .select('sales_position')
+    .eq('id', user?.id ?? '')
+    .maybeSingle()
+
   return (
     <div className="flex flex-col h-full">
       <TopBar
@@ -23,7 +32,7 @@ export default function RecipeNewPage() {
         }
       />
       <div className="flex-1 overflow-y-auto p-8">
-        <RecipeCalculator />
+        <RecipeCalculator salesPosition={profile?.sales_position ?? null} />
       </div>
     </div>
   )

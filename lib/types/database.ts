@@ -24,6 +24,7 @@ export interface Database {
           trial_reminder_3d: boolean
           trial_reminder_1d: boolean
           trial_expired_email: boolean
+          sales_position: 'bdr_sdr' | 'closer' | 'full_cycle' | null
         }
         Insert: {
           id: string
@@ -45,6 +46,7 @@ export interface Database {
           trial_reminder_3d?: boolean
           trial_reminder_1d?: boolean
           trial_expired_email?: boolean
+          sales_position?: 'bdr_sdr' | 'closer' | 'full_cycle' | null
         }
         Update: {
           email?: string
@@ -64,6 +66,7 @@ export interface Database {
           trial_reminder_3d?: boolean
           trial_reminder_1d?: boolean
           trial_expired_email?: boolean
+          sales_position?: 'bdr_sdr' | 'closer' | 'full_cycle' | null
         }
         Relationships: []
       }

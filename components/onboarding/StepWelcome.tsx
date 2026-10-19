@@ -1,12 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { FlaskConical, ClipboardList, LayoutDashboard, ArrowRight } from 'lucide-react'
+import { FlaskConical, ClipboardList, LayoutDashboard, ArrowRight, Phone, Trophy, Repeat } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import type { SalesPosition } from '@/lib/calculations/recipe'
 
 interface StepWelcomeProps {
   userName: string | null
-  onNext: (company: string) => void
+  onNext: (company: string, salesPosition: SalesPosition) => void
 }
+
+const POSITION_OPTIONS: { value: Exclude<SalesPosition, null>; icon: typeof Phone; label: string }[] = [
+  { value: 'bdr_sdr',    icon: Phone,   label: 'BDR / SDR (prospecto y agendo)' },
+  { value: 'closer',     icon: Trophy,  label: 'Closer (ejecuto y cierro)' },
+  { value: 'full_cycle', icon: Repeat,  label: 'Ciclo completo' },
+]
 
 const concepts = [
   {
@@ -35,6 +43,7 @@ const concepts = [
 export function StepWelcome({ userName, onNext }: StepWelcomeProps) {
   const firstName = userName?.split(' ')[0] ?? 'Comercial'
   const [company, setCompany] = useState('')
+  const [salesPosition, setSalesPosition] = useState<SalesPosition>(null)
 
   return (
     <div className="rounded-xl border border-border bg-card p-8 space-y-6">
@@ -78,8 +87,33 @@ export function StepWelcome({ userName, onNext }: StepWelcomeProps) {
         />
       </div>
 
+      {/* Cargo comercial */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-muted-foreground">
+          ¿Cuál es tu cargo? <span className="text-muted-foreground/60">(opcional, lo puedes cambiar luego en Ajustes)</span>
+        </label>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {POSITION_OPTIONS.map(({ value, icon: Icon, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setSalesPosition(salesPosition === value ? null : value)}
+              className={cn(
+                'flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors text-left',
+                salesPosition === value
+                  ? 'border-primary/50 bg-primary/10 text-primary'
+                  : 'border-border bg-muted/20 text-muted-foreground hover:border-primary/30',
+              )}
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <button
-        onClick={() => onNext(company.trim())}
+        onClick={() => onNext(company.trim(), salesPosition)}
         className="w-full flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 hover:shadow-[0_0_20px_rgba(0,217,255,0.25)] transition-all"
       >
         Empezar configuración

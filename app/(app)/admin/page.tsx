@@ -117,6 +117,7 @@ export default async function AdminPage({ searchParams }: Props) {
     trial_reminder_3d: false,
     trial_reminder_1d: false,
     trial_expired_email: false,
+    sales_position: null,
   }))
 
   // ── Index sets

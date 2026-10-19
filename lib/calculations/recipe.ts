@@ -102,3 +102,19 @@ export function adjustRates(rates: number[], newTransitions: number): number[] {
   if (rates.length > newTransitions) return rates.slice(0, newTransitions)
   return [...rates, ...Array(newTransitions - rates.length).fill(50)]
 }
+
+// ── Vista por cargo (BDR/SDR vs Closer) ─────────────────────────────────────
+// `recipe_scenarios.funnel_stages` es una lista de nombres 100% libre por
+// usuario (independiente de `pipeline_stages.role` — ver migración 039), así
+// que no hay un campo que diga "esta etapa es la reunión". Para no agregar
+// otro esquema nuevo solo para esto, se infiere la etapa de traspaso BDR→Closer
+// por nombre (busca "reun", ej. "Reunión", "1ra Reunión ejecutada") y, si el
+// usuario renombró todo sin dejar ese rastro, se aproxima al punto medio del
+// embudo. Es una aproximación a propósito — ver migración 046.
+export type SalesPosition = 'bdr_sdr' | 'closer' | 'full_cycle' | null
+
+export function findHandoffStageIndex(stageNames: string[]): number {
+  const byName = stageNames.findIndex((s) => /reun/i.test(s))
+  if (byName >= 0) return byName
+  return Math.floor(stageNames.length / 2)
+}
