@@ -5,6 +5,9 @@ import { revalidatePath } from 'next/cache'
 import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase/server'
 import { hashKey } from '@/lib/utils/crypto'
 import { resolveCompany } from '@/lib/integrations/company'
+import { dispatch } from '@/lib/integrations/core/dispatcher'
+import { processDealEvent } from '@/lib/integrations/core/deal-processor'
+import { SkipError } from '@/lib/integrations/types'
 import type { Integration, IntegrationApiKey, WebhookLog } from '@/lib/types/database'
 import type { GenericAdapterConfig } from '@/lib/integrations/generic/adapter'
 
@@ -263,6 +266,98 @@ export async function discoverPipedriveData(): Promise<{
   const currentUser = meJson?.data ? { id: meJson.data.id, name: meJson.data.name } : null
 
   return { stages, currentUser }
+}
+
+type PipedriveApiDeal = {
+  id: number
+  deleted?: boolean
+  [key: string]: unknown
+}
+
+type PipedriveDealsResponse = {
+  data: PipedriveApiDeal[] | null
+  additional_data?: {
+    pagination?: {
+      more_items_in_collection?: boolean
+      next_start?: number
+    }
+  }
+}
+
+/**
+ * Trae TODOS los tratos que ya existen en Pipedrive (no solo los que cambien
+ * de etapa de ahora en adelante) y los procesa con la MISMA lógica que un
+ * webhook real — mismo mapeo de etapas, mismo filtro de owner, mismo cálculo
+ * de inbound/outbound — para que un trato importado se comporte exactamente
+ * igual que uno sincronizado en vivo. Sin esto, cualquier trato que ya
+ * estuviera en una etapa antes de conectar el webhook quedaba invisible
+ * hasta que alguien lo moviera de nuevo.
+ */
+export async function importPipedriveDeals(): Promise<{
+  imported: number
+  skipped: number
+  errors: number
+  details: string[]
+}> {
+  const { user, profile } = await assertUser()
+  const company = resolveCompany(profile, user.email, user.id)
+  const service = getSupabaseServiceClient()
+
+  const { data: integration } = await service
+    .from('integrations')
+    .select('crm_api_key, admin_user_id, config')
+    .eq('company_name', company)
+    .maybeSingle()
+
+  const apiToken = integration?.crm_api_key?.trim()
+  if (!apiToken) {
+    throw new Error('Primero pega tu API Key de Pipedrive en "Credenciales de tu CRM" (arriba) y guárdala.')
+  }
+  if (!integration?.admin_user_id) {
+    throw new Error('Falta admin_user_id en la integración — regenera tu API Key de ProspectPro e intenta de nuevo.')
+  }
+
+  const base = 'https://api.pipedrive.com/v1'
+  let imported = 0
+  let skipped  = 0
+  let errors   = 0
+  const details: string[] = []
+
+  let start = 0
+  const limit = 100
+  for (;;) {
+    const res = await fetch(`${base}/deals?api_token=${encodeURIComponent(apiToken)}&start=${start}&limit=${limit}`)
+    if (!res.ok) {
+      throw new Error('Pipedrive rechazó la API Key al importar tratos. Verifica que la copiaste completa en "Credenciales de tu CRM".')
+    }
+    const json = (await res.json()) as PipedriveDealsResponse
+    const deals = json.data ?? []
+
+    for (const deal of deals) {
+      if (deal.deleted) continue
+
+      const payload = { event: 'updated.deal', data: deal, current: deal, meta: { action: 'updated' } }
+      try {
+        const event = dispatch(payload, { 'x-crm-name': 'pipedrive' }, integration.config as Record<string, unknown> | null)
+        await processDealEvent(event, integration.admin_user_id, service)
+        imported++
+      } catch (err) {
+        if (err instanceof SkipError) {
+          skipped++
+          if (details.length < 20) details.push(`#${deal.id}: ${err.message}`)
+        } else {
+          errors++
+          if (details.length < 20) details.push(`#${deal.id}: ${err instanceof Error ? err.message : 'error desconocido'}`)
+        }
+      }
+    }
+
+    const pagination = json.additional_data?.pagination
+    if (!pagination?.more_items_in_collection) break
+    start = pagination.next_start ?? start + limit
+  }
+
+  return { imported, skipped, errors, details }
 }
 
 export async function cleanupPipedriveDeals(): Promise<{ deleted: number }> {

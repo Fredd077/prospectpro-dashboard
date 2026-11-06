@@ -1,8 +1,8 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { CheckCircle2, ExternalLink, Trash2, AlertTriangle, Wand2, UserCheck } from 'lucide-react'
-import { savePipedriveConfig, cleanupPipedriveDeals, discoverPipedriveData } from '@/lib/actions/integrations'
+import { CheckCircle2, ExternalLink, Trash2, AlertTriangle, Wand2, UserCheck, Download } from 'lucide-react'
+import { savePipedriveConfig, cleanupPipedriveDeals, discoverPipedriveData, importPipedriveDeals } from '@/lib/actions/integrations'
 import type { PipedriveStageConfig, PipedriveDiscoveredStage } from '@/lib/actions/integrations'
 
 interface Props {
@@ -116,6 +116,26 @@ export function PipedriveConfigForm({ initial }: Props) {
   const [cleanupConfirm,  setCleanupConfirm]  = useState(false)
   const [cleanupResult,   setCleanupResult]   = useState<string | null>(null)
   const [cleanupPending,  startCleanup]       = useTransition()
+
+  const [importResult,  setImportResult]  = useState<string | null>(null)
+  const [importDetails, setImportDetails] = useState<string[]>([])
+  const [importError,   setImportError]   = useState<string | null>(null)
+  const [importPending, startImport]      = useTransition()
+
+  function handleImport() {
+    setImportError(null)
+    setImportResult(null)
+    setImportDetails([])
+    startImport(async () => {
+      try {
+        const { imported, skipped, errors, details } = await importPipedriveDeals()
+        setImportResult(`✓ ${imported} trato${imported !== 1 ? 's' : ''} importado${imported !== 1 ? 's' : ''} · ${skipped} sin mapear · ${errors} con error`)
+        setImportDetails(details)
+      } catch (err) {
+        setImportError(err instanceof Error ? err.message : 'Error al importar')
+      }
+    })
+  }
 
   function handleSave() {
     setError(null)
@@ -255,6 +275,43 @@ export function PipedriveConfigForm({ initial }: Props) {
             <CheckCircle2 className="h-3.5 w-3.5" />
             Guardado
           </span>
+        )}
+      </div>
+
+      {/* Import existing deals — el webhook solo avisa de cambios nuevos; esto trae
+          de una sola vez los tratos que ya existían antes de conectar el webhook. */}
+      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-emerald-400">Importar tratos que ya existen en Pipedrive</p>
+            <p className="text-[11px] text-emerald-400/70">
+              El webhook solo avisa cuando MUEVES un trato. Usa este botón una vez para traer de un jalón los tratos que ya tenías antes de conectar — no hace falta moverlos uno por uno.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={importPending}
+            className="flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25 transition-colors disabled:opacity-50 shrink-0"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {importPending ? 'Importando…' : 'Importar tratos existentes'}
+          </button>
+        </div>
+        {importError && (
+          <p className="text-[11px] text-red-400">{importError}</p>
+        )}
+        {importResult && (
+          <div className="space-y-1">
+            <p className="text-[11px] font-mono text-emerald-400">{importResult}</p>
+            {importDetails.length > 0 && (
+              <ul className="space-y-0.5 max-h-28 overflow-y-auto">
+                {importDetails.map((d, i) => (
+                  <li key={i} className="text-[10px] font-mono text-muted-foreground/60">{d}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </div>
 
