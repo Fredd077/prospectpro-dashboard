@@ -222,7 +222,6 @@ export function RecipeCalculator({ scenario, readOnly = false, activities, sales
               onChange={handleInputsChange}
               autoFirstOutRate={autoFirstOutRate}
               autoFirstInRate={autoFirstInRate}
-              salesPosition={salesPosition}
             />
           </div>
         </div>
