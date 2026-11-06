@@ -60,6 +60,7 @@ export async function generateIntegrationApiKey(label?: string): Promise<{ plain
 
 export async function getIntegrationStatus(): Promise<{
   company: string
+  webhookSlug: string
   hasKey: boolean
   lastUsedAt: string | null
   logs: WebhookLog[]
@@ -87,22 +88,38 @@ export async function getIntegrationStatus(): Promise<{
       .limit(20),
     service
       .from('integrations')
-      .select('crm_name, crm_api_key, crm_base_url, config')
+      .select('crm_name, crm_api_key, crm_base_url, config, webhook_slug')
       .eq('company_name', company)
       .maybeSingle(),
   ])
 
-  const rawConfig   = integration?.config as Record<string, unknown> | null
+  // La URL del webhook se muestra desde el primer momento (antes de elegir
+  // CRM o generar la API Key), así que necesita un webhook_slug ya asignado.
+  // Si todavía no existe la fila de integrations, se crea aquí (el slug lo
+  // pone el default de la columna) para que la URL nunca dependa del nombre
+  // de empresa sin encodear.
+  let integrationRow = integration
+  if (!integrationRow) {
+    const { data: created } = await service
+      .from('integrations')
+      .upsert({ company_name: company, admin_user_id: user.id }, { onConflict: 'company_name' })
+      .select('crm_name, crm_api_key, crm_base_url, config, webhook_slug')
+      .single()
+    integrationRow = created
+  }
+
+  const rawConfig   = integrationRow?.config as Record<string, unknown> | null
   const pdConfig    = rawConfig?.['pipedrive'] as PipedriveStageConfig | null | undefined
   const genericConf = rawConfig?.['generic'] as GenericAdapterConfig | null | undefined
 
   return {
     company,
+    webhookSlug:     integrationRow?.webhook_slug ?? company,
     hasKey:          !!keyRow,
     lastUsedAt:      keyRow?.last_used_at ?? null,
     logs:            (logs ?? []) as WebhookLog[],
     existingKey:     keyRow as IntegrationApiKey | null,
-    crmConfig:       integration ?? null,
+    crmConfig:       integrationRow ?? null,
     pipedriveConfig: pdConfig ?? null,
     genericConfig:   genericConf ?? null,
   }

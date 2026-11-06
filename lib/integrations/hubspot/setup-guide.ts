@@ -58,8 +58,8 @@ export const HUBSPOT_WEBHOOK_STEPS: GuideStep[] = [
   },
 ]
 
-/** URL que el usuario debe pegar en HubSpot, construida por empresa. */
-export function buildWebhookUrl(baseUrl: string, companyName: string): string {
+/** URL que el usuario debe pegar en HubSpot, construida con el slug opaco de la empresa. */
+export function buildWebhookUrl(baseUrl: string, webhookSlug: string): string {
   const clean = baseUrl.replace(/\/+$/, '')
-  return `${clean}/api/webhooks/hubspot/${encodeURIComponent(companyName)}`
+  return `${clean}/api/webhooks/hubspot/${encodeURIComponent(webhookSlug)}`
 }

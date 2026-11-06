@@ -482,6 +482,7 @@ export interface Database {
         Row: {
           id: string
           company_name: string
+          webhook_slug: string
           admin_user_id: string | null
           crm_name: string | null
           crm_api_key: string | null
@@ -493,6 +494,7 @@ export interface Database {
         Insert: {
           id?: string
           company_name: string
+          webhook_slug?: string
           admin_user_id?: string | null
           crm_name?: string | null
           crm_api_key?: string | null
@@ -503,6 +505,7 @@ export interface Database {
         }
         Update: {
           company_name?: string
+          webhook_slug?: string
           admin_user_id?: string | null
           crm_name?: string | null
           crm_api_key?: string | null

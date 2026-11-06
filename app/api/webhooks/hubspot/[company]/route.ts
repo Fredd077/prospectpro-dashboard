@@ -16,6 +16,7 @@
 import { NextResponse, after } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getSupabaseServiceClient } from '@/lib/supabase/server'
+import { resolveCompanyFromRouteParam } from '@/lib/integrations/company'
 import { decryptSecret } from '@/lib/utils/crypto'
 import { verifyHubSpotSignature } from '@/lib/integrations/hubspot/signature'
 import { fetchDealById, fetchDealPipelines } from '@/lib/integrations/hubspot/client'
@@ -50,8 +51,8 @@ export async function POST(
   { params }: { params: Promise<{ company: string }> },
 ) {
   const { company } = await params
-  const companyName = decodeURIComponent(company)
   const service = getSupabaseServiceClient()
+  const companyName = await resolveCompanyFromRouteParam(service, company)
 
   // El cuerpo crudo es imprescindible: la firma se calcula sobre el texto exacto.
   const rawBody = await request.text()

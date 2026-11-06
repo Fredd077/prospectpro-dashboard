@@ -1,6 +1,7 @@
 import { NextResponse, after } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getSupabaseServiceClient } from '@/lib/supabase/server'
+import { resolveCompanyFromRouteParam } from '@/lib/integrations/company'
 import { hashKey } from '@/lib/utils/crypto'
 import { dispatch } from '@/lib/integrations/core/dispatcher'
 import { processDealEvent } from '@/lib/integrations/core/deal-processor'
@@ -15,8 +16,8 @@ export async function POST(
   { params }: { params: Promise<{ company: string }> }
 ) {
   const { company } = await params
-  const companyName = decodeURIComponent(company)
   const service     = getSupabaseServiceClient()
+  const companyName = await resolveCompanyFromRouteParam(service, company)
   const receivedAt  = new Date().toISOString()
 
   const apiKey =

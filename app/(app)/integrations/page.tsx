@@ -38,7 +38,7 @@ export default async function IntegrationsPage() {
   }
 
   const APP_URL = process.env.APP_URL ?? 'https://app.prospectpro.cloud'
-  const webhookUrl = `${APP_URL}/api/webhooks/inbound/${encodeURIComponent(status.company)}`
+  const webhookUrl = `${APP_URL}/api/webhooks/inbound/${status.webhookSlug}`
   const crmName    = status.crmConfig?.crm_name ?? null
   const matchedCrm = matchCrm(crmName)
   const isHubSpot  = matchedCrm?.id === 'HubSpot'
@@ -109,7 +109,7 @@ export default async function IntegrationsPage() {
             lastError={hs.lastError}
             hubDomain={hs.hubDomain}
             hasClientSecret={hs.hasClientSecret}
-            webhookUrl={buildWebhookUrl(APP_URL, status.company)}
+            webhookUrl={buildWebhookUrl(APP_URL, status.webhookSlug)}
           />
         )}
 
@@ -121,7 +121,7 @@ export default async function IntegrationsPage() {
           <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5 space-y-3">
             <p className="text-sm font-bold text-foreground">Conecta tu CRM en 3 pasos</p>
             <ol className="space-y-2 text-xs text-muted-foreground">
-              <li className="flex gap-2"><span className="font-bold text-cyan-400">1.</span> En "Credenciales de tu CRM", escribe el nombre de tu CRM (ej: HubSpot, Salesforce, Zoho) y guarda.</li>
+              <li className="flex gap-2"><span className="font-bold text-cyan-400">1.</span> En &quot;Credenciales de tu CRM&quot;, escribe el nombre de tu CRM (ej: HubSpot, Salesforce, Zoho) y guarda.</li>
               <li className="flex gap-2"><span className="font-bold text-cyan-400">2.</span> Genera tu API Key de ProspectPro y copia la URL del webhook.</li>
               <li className="flex gap-2"><span className="font-bold text-cyan-400">3.</span> En tu CRM, crea un webhook con esa URL + <code className="font-mono">?key=TU_CLAVE</code> y configura el mapeo de etapas en la sección de abajo.</li>
             </ol>
