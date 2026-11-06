@@ -11,8 +11,14 @@ interface Props {
 const STEPS = [
   {
     number: 1,
-    title: 'Selecciona tu CRM',
-    description: 'En la sección "Credenciales de tu CRM" más abajo, elige Pipedrive como tipo de CRM y guarda.',
+    title: 'Conecta tu cuenta de Pipedrive',
+    description: 'En la sección "Credenciales de tu CRM" más abajo, elige Pipedrive como tipo de CRM. Luego consigue tu clave personal de Pipedrive y pégala ahí mismo:',
+    substeps: [
+      'En Pipedrive, haz clic en tu foto de perfil (arriba a la derecha) → Preferencias personales',
+      'Abre la pestaña "API"',
+      'Haz clic en "Copy" junto a tu token personal',
+      'Pégalo en el campo "API Key del CRM" (abajo) y guarda — lo necesitas para el Paso 4',
+    ],
     tip: null,
   },
   {
@@ -119,6 +125,19 @@ export function PipedriveSetupGuide({ isConfigured }: Props) {
                   <p className="text-[11px] rounded border border-amber-500/20 bg-amber-500/5 text-amber-400/80 px-3 py-1.5 leading-relaxed">
                     {step.tip}
                   </p>
+                )}
+
+                {/* Special link for step 1 */}
+                {step.number === 1 && (
+                  <a
+                    href="https://app.pipedrive.com/settings/api"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-[11px] text-primary/70 hover:text-primary transition-colors mt-1"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Abrir mi clave de API en Pipedrive
+                  </a>
                 )}
 
                 {/* Special link for step 3 */}
