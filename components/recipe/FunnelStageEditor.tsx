@@ -1,6 +1,8 @@
 'use client'
 
-import { Plus, Trash2 } from 'lucide-react'
+import { useTransition } from 'react'
+import { Plus, Trash2, RefreshCw } from 'lucide-react'
+import { getPipelineStages } from '@/lib/actions/pipeline-stages'
 
 const MIN_STAGES = 3
 const MAX_STAGES = 6
@@ -11,6 +13,7 @@ interface FunnelStageEditorProps {
 }
 
 export function FunnelStageEditor({ stages, onChange }: FunnelStageEditorProps) {
+  const [syncing, startSync] = useTransition()
   const canAdd    = stages.length < MAX_STAGES
   const canRemove = stages.length > MIN_STAGES
 
@@ -19,6 +22,24 @@ export function FunnelStageEditor({ stages, onChange }: FunnelStageEditorProps) 
     const next = [...stages]
     next[index + 1] = value.slice(0, 30)
     onChange(next)
+  }
+
+  function updateEdge(position: 'first' | 'last', value: string) {
+    const next = [...stages]
+    const i = position === 'first' ? 0 : next.length - 1
+    next[i] = value.slice(0, 30)
+    onChange(next)
+  }
+
+  // Trae los nombres REALES de tu Pipeline (los mismos que ves en "Mi Pipeline"
+  // y que mapeaste en Integraciones) para que el Recetario deje de mostrar
+  // nombres genéricos que no coinciden con lo que ya configuraste.
+  function syncFromPipeline() {
+    startSync(async () => {
+      const pipelineStages = await getPipelineStages()
+      if (pipelineStages.length === 0) return
+      onChange(pipelineStages.slice(0, MAX_STAGES).map((s) => s.name))
+    })
   }
 
   function addStage() {
@@ -40,21 +61,37 @@ export function FunnelStageEditor({ stages, onChange }: FunnelStageEditorProps) 
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Etapas del funnel
         </span>
-        <span className="text-[10px] text-muted-foreground/60">
-          {stages.length} de {MAX_STAGES} etapas máximo
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={syncFromPipeline}
+            disabled={syncing}
+            className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+            title="Reemplaza estas etapas por las que ya configuraste en Mi Pipeline"
+          >
+            <RefreshCw className={`h-3 w-3 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Sincronizando…' : 'Usar mis etapas de Pipeline'}
+          </button>
+          <span className="text-[10px] text-muted-foreground/60">
+            {stages.length} de {MAX_STAGES} etapas máximo
+          </span>
+        </div>
       </div>
 
       {/* Visual pill chain */}
       <div className="flex items-center gap-1 flex-wrap">
-        {/* First stage — fixed */}
-        <span className="rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary select-none whitespace-nowrap">
-          Actividad
-        </span>
+        {/* First stage */}
+        <input
+          type="text"
+          value={stages[0] ?? ''}
+          onChange={(e) => updateEdge('first', e.target.value)}
+          maxLength={30}
+          className="rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary outline-none focus:ring-1 focus:ring-primary/30 transition-colors w-36"
+        />
 
         {middleStages.map((stage, i) => (
           <div key={i} className="flex items-center gap-1">
@@ -65,7 +102,7 @@ export function FunnelStageEditor({ stages, onChange }: FunnelStageEditorProps) 
                 value={stage}
                 onChange={(e) => updateMiddle(i, e.target.value)}
                 maxLength={30}
-                className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs text-foreground outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-colors w-28"
+                className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs text-foreground outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-colors w-36"
               />
               {canRemove && (
                 <button
@@ -99,10 +136,14 @@ export function FunnelStageEditor({ stages, onChange }: FunnelStageEditorProps) 
         {/* Arrow to last stage */}
         <span className="text-muted-foreground/40 text-xs select-none">→</span>
 
-        {/* Last stage — fixed */}
-        <span className="rounded-md border border-emerald-400/40 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-400 select-none whitespace-nowrap">
-          Cierre
-        </span>
+        {/* Last stage */}
+        <input
+          type="text"
+          value={stages[stages.length - 1] ?? ''}
+          onChange={(e) => updateEdge('last', e.target.value)}
+          maxLength={30}
+          className="rounded-md border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-400 outline-none focus:ring-1 focus:ring-emerald-400/30 transition-colors w-36"
+        />
       </div>
 
       {!canAdd && (

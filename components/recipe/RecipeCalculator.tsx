@@ -29,9 +29,11 @@ interface RecipeCalculatorProps {
   readOnly?: boolean
   activities?: ActivityForSupervision[]
   salesPosition?: SalesPosition
+  /** Solo se usa para un escenario NUEVO (sin `scenario`) — nombres reales del Pipeline del usuario. */
+  defaultFunnelStages?: string[]
 }
 
-export function RecipeCalculator({ scenario, readOnly = false, activities, salesPosition = null }: RecipeCalculatorProps) {
+export function RecipeCalculator({ scenario, readOnly = false, activities, salesPosition = null, defaultFunnelStages }: RecipeCalculatorProps) {
   const router = useRouter()
   const [name, setName]             = useState(scenario?.name ?? '')
   const [description, setDescription] = useState(scenario?.description ?? '')
@@ -39,7 +41,7 @@ export function RecipeCalculator({ scenario, readOnly = false, activities, sales
 
   // Funnel stage state lives here — changes trigger RecipeInputs remount via key
   const [funnelStages, setFunnelStages] = useState<string[]>(
-    scenario?.funnel_stages ?? DEFAULT_FUNNEL_STAGES
+    scenario?.funnel_stages ?? defaultFunnelStages ?? DEFAULT_FUNNEL_STAGES
   )
   const [outboundRates, setOutboundRates] = useState<number[]>(
     scenario?.outbound_rates ?? DEFAULT_OUTBOUND_RATES
