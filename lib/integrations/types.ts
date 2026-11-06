@@ -15,6 +15,12 @@ export interface NormalizedDealEvent {
   stageInCrm: string | null
   /** CRM that produced this event, e.g. 'pipedrive' or 'generic' */
   source: string
+  /**
+   * 'inbound' | 'outbound' si el adapter pudo inferirlo del CRM (ej: el campo
+   * "origin" de Pipedrive). undefined = el adapter no tiene esa señal — el
+   * procesador usa 'outbound' por defecto solo para negocios NUEVOS.
+   */
+  prospectType?: 'inbound' | 'outbound'
   rawPayload: unknown
 }
 

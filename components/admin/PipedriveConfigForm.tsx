@@ -19,33 +19,53 @@ function StageField({ label, value, onChange, placeholder, stagesByPipeline }: {
   placeholder: string
   stagesByPipeline: [string, PipedriveDiscoveredStage[]][] | null
 }) {
+  if (stagesByPipeline) {
+    // Varias etapas de Pipedrive pueden marcarse para UNA sola etapa de
+    // ProspectPro — ej: si tienes "Ganados" y "Facturados" por separado en
+    // Pipedrive, puedes marcar ambas en "Cierre" para que ninguna quede
+    // invisible en ProspectPro.
+    const selected = new Set(value.split(',').map((s) => s.trim()).filter(Boolean))
+    function toggle(idStr: string) {
+      const next = new Set(selected)
+      if (next.has(idStr)) next.delete(idStr)
+      else next.add(idStr)
+      onChange(Array.from(next).join(','))
+    }
+    return (
+      <div>
+        <label className={labelClass}>{label}</label>
+        <div className="max-h-36 overflow-y-auto rounded-md border border-border bg-background p-2 space-y-1.5">
+          {stagesByPipeline.map(([pipelineName, pStages]) => (
+            <div key={pipelineName}>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/50 mb-0.5">{pipelineName}</p>
+              {pStages.map((s) => (
+                <label key={s.id} className="flex items-center gap-1.5 py-0.5 text-xs text-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(String(s.id))}
+                    onChange={() => toggle(String(s.id))}
+                    className="accent-primary"
+                  />
+                  <span className="truncate">{s.name}</span>
+                </label>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <label className={labelClass}>{label}</label>
-      {stagesByPipeline ? (
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={inputClass}
-        >
-          <option value="">— Selecciona —</option>
-          {stagesByPipeline.map(([pipelineName, pStages]) => (
-            <optgroup key={pipelineName} label={pipelineName}>
-              {pStages.map((s) => (
-                <option key={s.id} value={String(s.id)}>{s.name}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      ) : (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={inputClass}
-        />
-      )}
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={inputClass}
+      />
     </div>
   )
 }
@@ -184,6 +204,11 @@ export function PipedriveConfigForm({ initial }: Props) {
         <StageField label="Propuesta" value={propuestaStage} onChange={setPropuestaStage} placeholder="ej: 4" stagesByPipeline={stages ? stagesByPipeline : null} />
         <StageField label="Cierre" value={cierreStage} onChange={setCierreStage} placeholder="ej: 5" stagesByPipeline={stages ? stagesByPipeline : null} />
       </div>
+      <p className="text-[10px] text-muted-foreground/60 -mt-2">
+        {stages
+          ? 'Puedes marcar varias etapas de Pipedrive en una misma casilla — útil si en Pipedrive tienes, por ejemplo, "Ganados" y "Facturados" separados y en ProspectPro deben contar los dos como "Cierre".'
+          : 'Si escribes manualmente, puedes poner varios IDs separados por coma (ej: 10,11,12) para que todos cuenten como la misma etapa de ProspectPro.'}
+      </p>
 
       {/* Owner filter */}
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">

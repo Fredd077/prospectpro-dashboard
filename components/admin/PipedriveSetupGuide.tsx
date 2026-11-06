@@ -42,9 +42,10 @@ const STEPS = [
   {
     number: 4,
     title: 'Mapea tus etapas de Pipedrive',
-    description: 'En la sección "Configuración de Pipedrive" más abajo, haz clic en "Detectar automáticamente". ProspectPro va a leer tus etapas reales de Pipedrive y las muestra en listas para que elijas, sin necesidad de buscar ningún número.',
+    description: 'En la sección "Configuración de Pipedrive" más abajo, haz clic en "Detectar automáticamente". ProspectPro va a leer tus etapas reales de Pipedrive y las muestra como casillas para que marques, sin necesidad de buscar ningún número.',
     substeps: [
-      'Elige qué etapa de Pipedrive corresponde a cada etapa de ProspectPro (Cita agendada, Reagendar, 1ra Reunión, Propuesta, Cierre)',
+      'Marca qué etapa(s) de Pipedrive corresponden a cada etapa de ProspectPro (Cita agendada, Reagendar, 1ra Reunión, Propuesta, Cierre)',
+      'Si en Pipedrive tienes varias etapas finales (ej: "Ganados" y "Facturados"), marca TODAS las que quieras que cuenten como "Cierre"',
       'Tu usuario de Pipedrive se completa solo',
       'Haz clic en "Guardar configuración"',
     ],

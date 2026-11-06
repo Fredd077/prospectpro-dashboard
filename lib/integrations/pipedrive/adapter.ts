@@ -22,6 +22,31 @@ type PipedriveDeal = {
   // Older API versions used "user_id" which could be a nested object — keep both for compatibility.
   owner_id?: number
   user_id?: number | { id?: number; name?: string; email?: string }
+  // Cómo se creó el trato en Pipedrive — señal de inbound/outbound real.
+  origin?: string
+}
+
+// Valores documentados de Pipedrive para "origin" que implican que el
+// prospecto llegó por sí solo (formulario web, chat, tienda, marketplace),
+// en vez de haber sido creado a mano por un vendedor prospectando.
+const INBOUND_ORIGINS = new Set([
+  'WebForms', 'LiveChat', 'ChatBot', 'OnlineStore', 'Marketplace', 'CampaignsEmail',
+])
+
+function resolveProspectType(origin: string | undefined): 'inbound' | 'outbound' | undefined {
+  if (!origin) return undefined
+  if (INBOUND_ORIGINS.has(origin)) return 'inbound'
+  if (origin === 'ManuallyCreated' || origin === 'API' || origin === 'Import') return 'outbound'
+  return undefined
+}
+
+/** true si `sid` aparece entre los IDs configurados para esta casilla (admite varios separados por coma). */
+function matchesStage(sid: number, configValue: string | undefined): boolean {
+  if (!configValue) return false
+  return configValue
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .some((n) => !Number.isNaN(n) && n === sid)
 }
 
 type PipedrivePayload = {
@@ -47,11 +72,11 @@ function resolveStage(
   if (!stageId) return null
   // Use loose numeric comparison so JSONB-stored numbers (52) match string inputs ("52")
   const sid = Number(stageId)
-  if (config.cierre_stage    && sid === Number(config.cierre_stage))    return 'Por facturar/cobrar'
-  if (config.propuesta_stage && sid === Number(config.propuesta_stage)) return 'Propuesta Presentada'
-  if (config.reunion_stage   && sid === Number(config.reunion_stage))   return 'Primera reu ejecutada/Propuesta en preparación'
-  if (config.reagendar_stage && sid === Number(config.reagendar_stage)) return 'Reagendar'
-  if (config.cita_stage      && sid === Number(config.cita_stage))      return 'Cita agendada'
+  if (matchesStage(sid, config.cierre_stage))    return 'Por facturar/cobrar'
+  if (matchesStage(sid, config.propuesta_stage)) return 'Propuesta Presentada'
+  if (matchesStage(sid, config.reunion_stage))   return 'Primera reu ejecutada/Propuesta en preparación'
+  if (matchesStage(sid, config.reagendar_stage)) return 'Reagendar'
+  if (matchesStage(sid, config.cita_stage))      return 'Cita agendada'
   return null
 }
 
@@ -121,6 +146,7 @@ export const pipedriveAdapter: CrmAdapter = {
       amountUsd:    deal.value ?? null,
       stageInCrm:   stage,
       source:       'pipedrive',
+      prospectType: resolveProspectType(deal.origin),
       rawPayload:   payload,
     }
   },

@@ -101,7 +101,7 @@ export async function processDealEvent(
       user_id:            targetUserId,
       stage,
       status,
-      prospect_type:      'outbound',
+      prospect_type:      event.prospectType ?? 'outbound',
       entry_date:         new Date().toISOString().slice(0, 10),
       company_name:       event.companyName,
       prospect_name:      event.prospectName,
