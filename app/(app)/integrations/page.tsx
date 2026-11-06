@@ -76,8 +76,12 @@ export default async function IntegrationsPage() {
 
   const isPipedrive       = matchedCrm?.id === 'Pipedrive'
   const hasGenericStageMap = Object.keys(status.genericConfig?.stage_map ?? {}).length > 0
+  // Pipedrive: exige las 3 etapas que el adapter SIEMPRE necesita para no
+  // saltarse eventos (reunion/propuesta/cierre) — antes solo pedía
+  // reunion_stage, así que la guía podía marcarse "configurada" con el resto
+  // de etapas vacías y los tratos se saltaban en silencio.
   const isFullyConfigured = status.hasKey && (
-    (isPipedrive && !!status.pipedriveConfig?.reunion_stage) ||
+    (isPipedrive && !!status.pipedriveConfig?.reunion_stage && !!status.pipedriveConfig?.propuesta_stage && !!status.pipedriveConfig?.cierre_stage) ||
     (!isPipedrive && !!status.crmConfig?.crm_name && hasGenericStageMap)
   )
 

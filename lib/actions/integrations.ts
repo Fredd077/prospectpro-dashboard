@@ -172,6 +172,82 @@ export async function savePipedriveConfig(data: PipedriveStageConfig): Promise<v
   )
 }
 
+export type PipedriveDiscoveredStage = {
+  id: number
+  name: string
+  pipelineId: number
+  pipelineName: string
+}
+
+type PipedriveStagesResponse = {
+  success: boolean
+  data: { id: number; name: string; pipeline_id: number }[] | null
+}
+type PipedrivePipelinesResponse = {
+  success: boolean
+  data: { id: number; name: string }[] | null
+}
+type PipedriveMeResponse = {
+  success: boolean
+  data: { id: number; name: string } | null
+}
+
+/**
+ * Lee las etapas y el usuario actual directamente de la API de Pipedrive usando
+ * el API Key que el usuario ya guardó en "Credenciales de tu CRM" — así evita
+ * tener que abrir una URL de API a mano o adivinar el número de etapa moviendo
+ * un trato y leyendo un error.
+ */
+export async function discoverPipedriveData(): Promise<{
+  stages: PipedriveDiscoveredStage[]
+  currentUser: { id: number; name: string } | null
+}> {
+  const { user, profile } = await assertUser()
+  const company = resolveCompany(profile, user.email, user.id)
+  const service = getSupabaseServiceClient()
+
+  const { data: integration } = await service
+    .from('integrations')
+    .select('crm_api_key')
+    .eq('company_name', company)
+    .maybeSingle()
+
+  const apiToken = integration?.crm_api_key?.trim()
+  if (!apiToken) {
+    throw new Error('Primero pega tu API Key de Pipedrive en "Credenciales de tu CRM" (arriba) y guárdala.')
+  }
+
+  const base = 'https://api.pipedrive.com/v1'
+  const tokenParam = `api_token=${encodeURIComponent(apiToken)}`
+
+  const [pipelinesRes, stagesRes, meRes] = await Promise.all([
+    fetch(`${base}/pipelines?${tokenParam}`),
+    fetch(`${base}/stages?${tokenParam}`),
+    fetch(`${base}/users/me?${tokenParam}`),
+  ])
+
+  if (!stagesRes.ok || !pipelinesRes.ok) {
+    throw new Error('Pipedrive rechazó la API Key. Verifica que la copiaste completa en "Credenciales de tu CRM".')
+  }
+
+  const pipelinesJson = (await pipelinesRes.json()) as PipedrivePipelinesResponse
+  const stagesJson    = (await stagesRes.json())    as PipedriveStagesResponse
+  const meJson        = meRes.ok ? ((await meRes.json()) as PipedriveMeResponse) : null
+
+  const pipelineNames = new Map((pipelinesJson.data ?? []).map((p) => [p.id, p.name]))
+
+  const stages: PipedriveDiscoveredStage[] = (stagesJson.data ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    pipelineId: s.pipeline_id,
+    pipelineName: pipelineNames.get(s.pipeline_id) ?? `Pipeline ${s.pipeline_id}`,
+  }))
+
+  const currentUser = meJson?.data ? { id: meJson.data.id, name: meJson.data.name } : null
+
+  return { stages, currentUser }
+}
+
 export async function cleanupPipedriveDeals(): Promise<{ deleted: number }> {
   const { user } = await assertUser()
   const service = getSupabaseServiceClient()

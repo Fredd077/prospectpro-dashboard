@@ -1,12 +1,53 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { CheckCircle2, ExternalLink, Trash2, AlertTriangle } from 'lucide-react'
-import { savePipedriveConfig, cleanupPipedriveDeals } from '@/lib/actions/integrations'
-import type { PipedriveStageConfig } from '@/lib/actions/integrations'
+import { useMemo, useState, useTransition } from 'react'
+import { CheckCircle2, ExternalLink, Trash2, AlertTriangle, Wand2, UserCheck } from 'lucide-react'
+import { savePipedriveConfig, cleanupPipedriveDeals, discoverPipedriveData } from '@/lib/actions/integrations'
+import type { PipedriveStageConfig, PipedriveDiscoveredStage } from '@/lib/actions/integrations'
 
 interface Props {
   initial: PipedriveStageConfig | null
+}
+
+const inputClass = 'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/60'
+const labelClass = 'block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1'
+
+function StageField({ label, value, onChange, placeholder, stagesByPipeline }: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+  stagesByPipeline: [string, PipedriveDiscoveredStage[]][] | null
+}) {
+  return (
+    <div>
+      <label className={labelClass}>{label}</label>
+      {stagesByPipeline ? (
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={inputClass}
+        >
+          <option value="">— Selecciona —</option>
+          {stagesByPipeline.map(([pipelineName, pStages]) => (
+            <optgroup key={pipelineName} label={pipelineName}>
+              {pStages.map((s) => (
+                <option key={s.id} value={String(s.id)}>{s.name}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={inputClass}
+        />
+      )}
+    </div>
+  )
 }
 
 export function PipedriveConfigForm({ initial }: Props) {
@@ -19,6 +60,38 @@ export function PipedriveConfigForm({ initial }: Props) {
   const [saved,          setSaved]          = useState(false)
   const [error,          setError]          = useState<string | null>(null)
   const [pending,        startTransition]   = useTransition()
+
+  const [stages,          setStages]          = useState<PipedriveDiscoveredStage[] | null>(null)
+  const [detectedUser,    setDetectedUser]    = useState<{ id: number; name: string } | null>(null)
+  const [discoverError,   setDiscoverError]   = useState<string | null>(null)
+  const [discoverPending, startDiscover]      = useTransition()
+
+  const stagesByPipeline = useMemo(() => {
+    if (!stages) return []
+    const groups = new Map<string, PipedriveDiscoveredStage[]>()
+    for (const s of stages) {
+      const list = groups.get(s.pipelineName) ?? []
+      list.push(s)
+      groups.set(s.pipelineName, list)
+    }
+    return Array.from(groups.entries())
+  }, [stages])
+
+  function handleDiscover() {
+    setDiscoverError(null)
+    startDiscover(async () => {
+      try {
+        const result = await discoverPipedriveData()
+        setStages(result.stages)
+        setDetectedUser(result.currentUser)
+        if (result.currentUser && !ownerId) {
+          setOwnerId(String(result.currentUser.id))
+        }
+      } catch (err) {
+        setDiscoverError(err instanceof Error ? err.message : 'No se pudo conectar con Pipedrive')
+      }
+    })
+  }
 
   const [cleanupConfirm,  setCleanupConfirm]  = useState(false)
   const [cleanupResult,   setCleanupResult]   = useState<string | null>(null)
@@ -62,63 +135,54 @@ export function PipedriveConfigForm({ initial }: Props) {
     })
   }
 
-  const inputClass = 'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/60'
-  const labelClass = 'block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1'
-
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+      {/* Autodetección — lee las etapas y el usuario directo de la API de Pipedrive */}
+      <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-2">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-cyan-400">Detectar automáticamente</p>
+            <p className="text-[11px] text-cyan-400/70">
+              Lee tus etapas y tu usuario reales desde Pipedrive, para que elijas de una lista en vez de escribir números a mano.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleDiscover}
+            disabled={discoverPending}
+            className="flex items-center gap-1.5 rounded-md border border-cyan-500/40 bg-cyan-500/15 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/25 transition-colors disabled:opacity-50 shrink-0"
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            {discoverPending ? 'Detectando…' : stages ? 'Detectar de nuevo' : 'Detectar automáticamente'}
+          </button>
+        </div>
+        {discoverError && (
+          <p className="text-[11px] text-red-400">{discoverError}</p>
+        )}
+        {detectedUser && (
+          <p className="flex items-center gap-1.5 text-[11px] text-emerald-400">
+            <UserCheck className="h-3.5 w-3.5" />
+            Detectado: {detectedUser.name} (ID {detectedUser.id})
+          </p>
+        )}
+        {stages && (
+          <button
+            type="button"
+            onClick={() => { setStages(null); setDetectedUser(null) }}
+            className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground"
+          >
+            Volver a escribir los números manualmente
+          </button>
+        )}
+      </div>
+
       {/* Stage mapping — 5 stages */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div>
-          <label className={labelClass}>Cita agendada</label>
-          <input
-            type="text"
-            value={citaStage}
-            onChange={(e) => setCitaStage(e.target.value)}
-            placeholder="ej: 1"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className={labelClass}>Reagendar</label>
-          <input
-            type="text"
-            value={reagendarStage}
-            onChange={(e) => setReagendarStage(e.target.value)}
-            placeholder="ej: 2"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className={labelClass}>1ra Reunión</label>
-          <input
-            type="text"
-            value={reunionStage}
-            onChange={(e) => setReunionStage(e.target.value)}
-            placeholder="ej: 3"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className={labelClass}>Propuesta</label>
-          <input
-            type="text"
-            value={propuestaStage}
-            onChange={(e) => setPropuestaStage(e.target.value)}
-            placeholder="ej: 4"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className={labelClass}>Cierre</label>
-          <input
-            type="text"
-            value={cierreStage}
-            onChange={(e) => setCierreStage(e.target.value)}
-            placeholder="ej: 5"
-            className={inputClass}
-          />
-        </div>
+        <StageField label="Cita agendada" value={citaStage} onChange={setCitaStage} placeholder="ej: 1" stagesByPipeline={stages ? stagesByPipeline : null} />
+        <StageField label="Reagendar" value={reagendarStage} onChange={setReagendarStage} placeholder="ej: 2" stagesByPipeline={stages ? stagesByPipeline : null} />
+        <StageField label="1ra Reunión" value={reunionStage} onChange={setReunionStage} placeholder="ej: 3" stagesByPipeline={stages ? stagesByPipeline : null} />
+        <StageField label="Propuesta" value={propuestaStage} onChange={setPropuestaStage} placeholder="ej: 4" stagesByPipeline={stages ? stagesByPipeline : null} />
+        <StageField label="Cierre" value={cierreStage} onChange={setCierreStage} placeholder="ej: 5" stagesByPipeline={stages ? stagesByPipeline : null} />
       </div>
 
       {/* Owner filter */}
@@ -143,7 +207,9 @@ export function PipedriveConfigForm({ initial }: Props) {
           className={`${inputClass} sm:max-w-[220px]`}
         />
         <p className="text-[10px] text-muted-foreground/60">
-          Cómo encontrarlo: en Pipedrive ve a <span className="font-mono">Tu perfil → Configuración</span> y busca el campo <span className="font-mono">ID de usuario</span>, o abre la URL de tu pipeline y anota el número después de <span className="font-mono">/user/</span>.
+          {detectedUser
+            ? 'Ya se completó automáticamente con el botón "Detectar automáticamente" de arriba.'
+            : <>Usa el botón <span className="font-mono">Detectar automáticamente</span> de arriba para completarlo solo, o encuéntralo a mano en Pipedrive: <span className="font-mono">Tu perfil → Configuración</span> → campo <span className="font-mono">ID de usuario</span>.</>}
         </p>
       </div>
 
@@ -214,17 +280,17 @@ export function PipedriveConfigForm({ initial }: Props) {
         <ol className="list-decimal list-inside space-y-1">
           <li>Ve a <span className="font-mono text-primary/80">Herramientas → Webhooks → Crear nuevo webhook</span></li>
           <li><strong>Acción de evento:</strong> <span className="font-mono text-primary/80">*</span> (todos)</li>
-          <li><strong>Event objects:</strong> <span className="font-mono text-primary/80">deal</span></li>
+          <li><strong>Event objects:</strong> <span className="font-mono text-primary/80">Trato</span></li>
           <li><strong>URL de punto de término:</strong> copia la URL del endpoint de arriba y agrega al final <span className="font-mono text-primary/80">?key=TU_API_KEY</span></li>
           <li>Deja los campos de autenticación HTTP vacíos y haz clic en <strong>Guardar</strong></li>
         </ol>
         <a
-          href="https://sandlerdanmacias.pipedrive.com/settings/webhooks/create"
+          href="https://app.pipedrive.com/settings/webhooks"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-primary/70 hover:text-primary transition-colors mt-1"
         >
-          Abrir creación de webhook en Pipedrive
+          Abrir Webhooks en Pipedrive
           <ExternalLink className="h-3 w-3" />
         </a>
       </div>
