@@ -278,12 +278,14 @@ export function PipedriveConfigForm({ initial }: Props) {
       <div className="rounded border border-border bg-muted/10 p-3 space-y-1.5 text-xs text-muted-foreground">
         <p className="font-semibold text-foreground/70">Configurar webhook en Pipedrive</p>
         <ol className="list-decimal list-inside space-y-1">
-          <li>Ve a <span className="font-mono text-primary/80">Herramientas → Webhooks → Crear nuevo webhook</span></li>
-          <li><strong>Acción de evento:</strong> <span className="font-mono text-primary/80">*</span> (todos)</li>
-          <li><strong>Event objects:</strong> <span className="font-mono text-primary/80">Trato</span></li>
+          <li>Ve a <span className="font-mono text-primary/80">Herramientas y aplicaciones → Webhooks → + Webhook</span></li>
+          <li><strong>Acción de evento:</strong> <span className="font-mono text-primary/80">Todas</span></li>
+          <li><strong>Objetos de evento:</strong> <span className="font-mono text-primary/80">Trato</span></li>
           <li><strong>URL de punto de término:</strong> copia la URL del endpoint de arriba y agrega al final <span className="font-mono text-primary/80">?key=TU_API_KEY</span></li>
-          <li>Deja los campos de autenticación HTTP vacíos y haz clic en <strong>Guardar</strong></li>
         </ol>
+        <p className="rounded border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5 text-[11px] text-amber-400">
+          Los campos <strong>&quot;Nombre de usuario&quot;</strong> y <strong>&quot;Contraseña de autentificación HTTP&quot;</strong> déjalos <strong>VACÍOS</strong> — ProspectPro no los necesita. Luego haz clic en <strong>Guardar</strong>.
+        </p>
         <a
           href="https://app.pipedrive.com/settings/webhooks"
           target="_blank"

@@ -24,46 +24,34 @@ const STEPS = [
   {
     number: 3,
     title: 'Crea el webhook en Pipedrive',
-    description: 'En Pipedrive ve a: Configuración → Herramientas y aplicaciones → Webhooks → + Webhook',
+    description: 'En Pipedrive ve a: Configuración → Herramientas y aplicaciones → Webhooks → + Webhook. Completa SOLO estos 4 campos y deja el resto como está:',
     substeps: [
-      'URL de punto de término: pega la URL completa que copiaste (incluye el ?key=...)',
-      'Event object: Trato',
       'Acción de evento: Todas',
-      'Haz clic en Guardar',
+      'Objetos de evento: Trato',
+      'Nombre del webhook: el que quieras, ej. "ProspectPro"',
+      'URL de punto de término: pega la URL completa que copiaste (incluye el ?key=...)',
     ],
-    tip: null,
+    tip: '✅ "Nivel de permiso del usuario" déjalo como está (tu nombre). Los campos "Nombre de usuario de autentificación HTTP" y "Contraseña de autentificación HTTP" déjalos VACÍOS — ProspectPro no los usa. Luego haz clic en Guardar.',
   },
   {
     number: 4,
-    title: 'Obtén los IDs de tus etapas de Pipedrive',
-    description: 'Necesitas el número de ID de cada etapa de tu pipeline en Pipedrive. Hay dos formas de obtenerlos:',
+    title: 'Mapea tus etapas de Pipedrive',
+    description: 'En la sección "Configuración de Pipedrive" más abajo, haz clic en "Detectar automáticamente". ProspectPro va a leer tus etapas reales de Pipedrive y las muestra en listas para que elijas, sin necesidad de buscar ningún número.',
     substeps: [
-      'Opción A — Por la API: abre en tu navegador https://api.pipedrive.com/v1/stages?api_token=TU_TOKEN (tu token está en Pipedrive → Configuración → Preferencias personales → API). Busca las etapas de tu pipeline activo y anota los "id" de cada una.',
-      'Opción B — Por los logs: mueve un trato a una etapa no mapeada y en "Últimas llamadas" abajo verás el mensaje "Stage ID XX not mapped". Ese número XX es el ID de esa etapa.',
+      'Elige qué etapa de Pipedrive corresponde a cada etapa de ProspectPro (Cita agendada, Reagendar, 1ra Reunión, Propuesta, Cierre)',
+      'Tu usuario de Pipedrive se completa solo',
+      'Haz clic en "Guardar configuración"',
     ],
     tip: null,
   },
   {
     number: 5,
-    title: 'Mapea las etapas en ProspectPro',
-    description: 'En la sección "Configuración de Pipedrive" más abajo, ingresa el ID numérico de Pipedrive correspondiente a cada etapa de ProspectPro y guarda.',
-    substeps: [
-      'Cita agendada → el ID de tu etapa "Cita agendada" en Pipedrive',
-      'Reagendar → el ID de tu etapa "Reagendar" en Pipedrive',
-      '1ra Reunión → el ID de tu etapa "Primera reu ejecutada..." en Pipedrive',
-      'Propuesta → el ID de tu etapa "Propuesta Presentada" en Pipedrive',
-      'Cierre → el ID de tu etapa "Por facturar/cobrar" en Pipedrive',
-    ],
-    tip: null,
-  },
-  {
-    number: 6,
     title: 'Verifica que funciona',
     description: 'Mueve cualquier trato de Pipedrive a otra etapa y espera hasta 10 segundos.',
     substeps: [
       'En "Últimas llamadas" abajo debe aparecer un registro con estado "processed" (verde)',
       'El trato debe aparecer automáticamente en tu Pipeline de ProspectPro',
-      'Si ves "skipped — Stage ID X not mapped", repite el Paso 4 y 5 para ese ID',
+      'Si ves "skipped — etapa no mapeada", vuelve al Paso 4 y revisa el mapeo de esa etapa',
     ],
     tip: null,
   },
@@ -90,7 +78,7 @@ export function PipedriveSetupGuide({ isConfigured }: Props) {
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {isConfigured
                 ? 'Tu Pipedrive ya está sincronizando con ProspectPro. Haz clic para ver la guía.'
-                : '6 pasos · ~5 minutos · sin soporte técnico requerido'}
+                : '5 pasos · ~5 minutos · sin soporte técnico requerido'}
             </p>
           </div>
         </div>
@@ -133,19 +121,6 @@ export function PipedriveSetupGuide({ isConfigured }: Props) {
                   </p>
                 )}
 
-                {/* Special link for step 4 */}
-                {step.number === 4 && (
-                  <a
-                    href="https://app.pipedrive.com/settings/api"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-[11px] text-primary/70 hover:text-primary transition-colors mt-1"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Abrir Configuración de API en Pipedrive
-                  </a>
-                )}
-
                 {/* Special link for step 3 */}
                 {step.number === 3 && (
                   <a
@@ -165,7 +140,7 @@ export function PipedriveSetupGuide({ isConfigured }: Props) {
           {/* Footer note */}
           <div className="px-5 py-3 bg-muted/10">
             <p className="text-[11px] text-muted-foreground/60">
-              ¿Algo no funciona? Revisa la sección "Últimas llamadas" — cada intento muestra el motivo exacto del error en la columna Payload.
+              ¿Algo no funciona? Revisa la sección &quot;Últimas llamadas&quot; — cada intento muestra el motivo exacto del error en la columna Payload.
             </p>
           </div>
         </div>
