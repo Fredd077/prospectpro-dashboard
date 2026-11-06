@@ -162,8 +162,13 @@ export function PipelineAnalysis({ entries: allEntries, monthlyRevenueGoal, peri
     const cierres    = entries.filter(e => e.stage === stageNameByRole.cierre && e.status === 'ganado')
 
     const propAbiertas = propuestas.filter(e => e.status === 'abierto')
-    const propGanadas  = propuestas.filter(e => e.status === 'ganado')
     const propPerdidas = propuestas.filter(e => e.status === 'perdido')
+    // Un trato ganado se MUEVE a la etapa de cierre (ver deal-processor.ts),
+    // así que casi nunca queda un trato con stage=propuesta y status=ganado.
+    // "Ganadas" tiene que sumar los que ya llegaron a cierre, si no muestra
+    // 0 aunque sí haya cierres reales (ver la tarjeta "Cierres" de al lado).
+    const propGanadasEnPropuesta = propuestas.filter(e => e.status === 'ganado')
+    const propGanadas = [...propGanadasEnPropuesta, ...cierres]
 
     const revenueGanado   = cierres.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
     const revenuePipeline = propAbiertas.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
@@ -178,7 +183,7 @@ export function PipelineAnalysis({ entries: allEntries, monthlyRevenueGoal, peri
     const convCitaReun    = pct(reuniones.length, citas.length)
     const convReunProp    = pct(propuestas.length, reuniones.length)
     const convPropCierre  = pct(cierres.length, propuestas.length)
-    const tasaGanado      = pct(propGanadas.length + cierres.length, propuestas.length + cierres.length)
+    const tasaGanado      = pct(propGanadas.length, propuestas.length + cierres.length)
 
     const reunionesOut  = reuniones.filter(e => e.prospect_type === 'outbound').length
     const reunionesIn   = reuniones.filter(e => e.prospect_type === 'inbound').length
