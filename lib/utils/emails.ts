@@ -1,7 +1,7 @@
 import { getSupabaseServiceClient } from '@/lib/supabase/server'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? ''
-const APP_URL        = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://app.prospectpro.cloud'
+const APP_URL        = (process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://app.prospectpro.cloud').trim().replace(/\/+$/, '')
 const ADMIN_EMAIL    = 'freddy.g84@gmail.com'
 const FROM_ADDRESS   = 'ProspectPro <reportes@prospectpro.cloud>'
 

@@ -37,7 +37,11 @@ export default async function IntegrationsPage() {
     redirect('/dashboard')
   }
 
-  const APP_URL = process.env.APP_URL ?? 'https://app.prospectpro.cloud'
+  // .trim() es defensivo a propósito: la variable de entorno APP_URL en Vercel
+  // tenía un espacio final que rompía la URL del webhook en el punto exacto
+  // donde Pipedrive la valida (".../vercel.app /api/..."), y el error que
+  // mostraba Pipedrive no decía nada de esto.
+  const APP_URL = (process.env.APP_URL ?? 'https://app.prospectpro.cloud').trim().replace(/\/+$/, '')
   const webhookUrl = `${APP_URL}/api/webhooks/inbound/${status.webhookSlug}`
   const crmName    = status.crmConfig?.crm_name ?? null
   const matchedCrm = matchCrm(crmName)
