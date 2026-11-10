@@ -159,12 +159,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     // para avisar si alguna quedó sin role asignado, sin importar qué período
     // esté viendo el usuario ahora mismo (ver UnassignedStageAlert).
     sb.from('pipeline_simple').select('stage').is('deleted_at', null).eq('user_id', user.id),
-    sb.from('profiles').select('sales_position').eq('id', user.id).maybeSingle(),
+    sb.from('profiles').select('sales_position, org_role').eq('id', user.id).maybeSingle(),
     // Rendimiento de actividades (LOGRO): fuente central única, mes del período que
     // se está viendo (refDate). OJO: NO usar `today`, que se calcula en el servidor
     // (reloj de Vercel) y caería en un mes sin datos, dando reuniones/cierres en cero.
     getRecipePerformance(sb, refDate),
   ])
+
+  // Un manager necesita ver TODO su propio pipeline, no solo el tramo de su
+  // cargo personal — el filtro por cargo es para que un vendedor individual
+  // vea solo lo suyo, no para ocultarle etapas a quien gestiona el equipo.
+  const effectiveSalesPosition = profile?.org_role === 'manager' ? null : (profile?.sales_position ?? null)
 
   const channels = [...new Set(activities?.map((a) => a.channel) ?? [])].sort()
   const allLogs: DailyCompliance[] = logs ?? []
@@ -485,7 +490,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 stageNameByRole={stageNameByRole}
                 citasProyectadas={citasProyectadas}
                 citasRequeridas={citasRequeridas}
-                salesPosition={profile?.sales_position ?? null}
+                salesPosition={effectiveSalesPosition}
               />
             )}
             <PipelineMiniCard
@@ -493,7 +498,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               stages={pipelineStageRoles}
               periodLabel={pipelinePeriodLabel}
               monthlyRevenueGoal={activeScenario?.monthly_revenue_goal ?? 0}
-              salesPosition={profile?.sales_position ?? null}
+              salesPosition={effectiveSalesPosition}
             />
           </div>
 

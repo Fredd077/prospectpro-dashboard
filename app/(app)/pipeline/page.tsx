@@ -90,8 +90,13 @@ export default async function PipelinePage({ searchParams }: PageProps) {
     // Todas las etapas con negocios reales alguna vez (sin filtrar por período
     // seleccionado) — para el aviso de "etapa sin configurar" (ver Dashboard).
     sb.from('pipeline_simple').select('stage').is('deleted_at', null).eq('user_id', user?.id ?? ''),
-    sb.from('profiles').select('sales_position').eq('id', user?.id ?? '').maybeSingle(),
+    sb.from('profiles').select('sales_position, org_role').eq('id', user?.id ?? '').maybeSingle(),
   ])
+
+  // Un manager necesita ver TODO su propio pipeline, no solo el tramo de su
+  // cargo personal — el filtro por cargo es para que un vendedor individual
+  // vea solo lo suyo, no para ocultarle etapas a quien gestiona el equipo.
+  const effectiveSalesPosition = profile?.org_role === 'manager' ? null : (profile?.sales_position ?? null)
 
   const pipelineSimple     = (pipelineSimpleRaw ?? []) as PipelineSimple[]
   const activitiesForBoard = (activitiesRaw ?? []) as { id: string; name: string; type: 'OUTBOUND' | 'INBOUND' }[]
@@ -160,7 +165,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
               period={period}
               activities={activitiesForBoard}
               stages={pipelineStages}
-              salesPosition={profile?.sales_position ?? null}
+              salesPosition={effectiveSalesPosition}
               activeScenario={scenario ? {
                 funnel_stages:          scenario.funnel_stages,
                 outbound_rates:         scenario.outbound_rates,
@@ -180,7 +185,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
               period={period}
               periodLabel={pLabel}
               stageNameByRole={stageNameByRole}
-              salesPosition={profile?.sales_position ?? null}
+              salesPosition={effectiveSalesPosition}
             />
           </div>
         )}
